@@ -1,0 +1,193 @@
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <chrono>
+#include <iostream>
+#include <stdint.h>
+#include "consts.h"
+
+#define m2d(x, i, j) (x)->values[i * (x)->ncol + j]
+#define m1d(x, i) (x)->values[i]
+#define _ReLU(x) (x > 0 ?  x : 0)
+
+void gpu_setup();
+void gpu_setup_input(float* inputs);
+float gpu_inference();
+void gpu_clean();
+void gpu_setup_double();
+void gpu_setup_input_double(float* inputs);
+float gpu_inference_double();
+void gpu_clean_double();
+
+struct matrix {
+    int nrow;
+    int ncol;
+    dtype *values;
+};
+
+int matmul(struct matrix *X, struct matrix *Y, struct matrix *Z) 
+{
+    int i, j, k;
+    for(i = 0; i < X->nrow; i++)
+        for(j = 0; j < Y->ncol; j++)
+            for(k = 0; k < X->ncol; k++) {
+                //printf(" [%d,%d] += [%d,%d] x [%d,%d]   (=%.3f x %.3f)\n", i, j, i, k, k, j, m2d(X, i, k), m2d(Y, k, j) );
+                m2d(Z, i, j) = m2d(Z, i, j) + (m2d(X, i, k) * m2d(Y, k, j));
+            }
+    return 0;
+}
+
+int matadd(struct matrix *X, struct matrix *Y, struct matrix *Z)
+{
+    int i;
+    //printf(" adding %d x %d\n", X->nrow, X->ncol);
+    for (i = 0; i < X->nrow * X->ncol; i++) {
+        Z->values[i] = X->values[i] + Y->values[i];
+    }
+}
+
+void print_matrix(struct matrix *X)
+{
+    int i, j;
+
+    for(i=0; i<X->nrow; i++)
+    {
+        printf("\n\t");
+        for(j=0; j<X->ncol;j++)
+        {
+            printf("%f\t", m2d(X, i, j));
+        }
+    }
+    printf("\n");
+}
+
+
+void ReLU(struct matrix *X)
+{
+    int i;
+    for (i = 0; i < X->nrow * X->ncol; i++) {
+        X->values[i] = _ReLU(X->values[i]);
+    }
+}
+
+float forward_pass(struct matrix *input){
+    float output;
+    dtype o1[10] = {0};
+    dtype o2[10] = {0};
+
+    struct matrix W1 = {NR_FEAT, 10, w1};
+    struct matrix out1 = {1, 10, o1};
+    struct matrix B1 = {1, 10, b1};
+    struct matrix W2 = {10, 1, w2};
+    struct matrix out2 = {1, 1, o2};
+    struct matrix B2 = {1, 1, b2};
+
+    matmul(input, &W1, &out1);
+    matadd(&out1, &B1, &out1);
+    ReLU(&out1);
+    matmul(&out1, &W2, &out2);
+    matadd(&out2, &B2, &out2);
+    output = m1d(&out2, 0);
+    /* printf("output: %f\n", output); */
+    /* return output > 0.5 ? 1 : 0; */
+    return output;
+}
+
+
+int main(int argc, char** argv)
+{
+    if (argc != 2) {
+        printf("Need argument: <inputs filename csv>\n");
+        exit(1);
+    }
+
+    dtype mval[NR_FEAT];
+    //struct matrix input = {1, NR_FEAT, mval};
+    
+    char line[300];
+    int correct = 0, total = 0;
+    int py_correct = 0, discrep = 0;
+
+    FILE* f = fopen(argv[1], "r");
+    fgets(line, 300, f); // Header
+    int n = atoi(line);
+    printf("Reading %d inputs\n", n);
+
+    matrix inputs[n];
+    for (int j = 0 ; j < n ; j++) {
+        inputs[j].values = new dtype[NR_FEAT];
+        inputs[j].nrow = 1;
+        inputs[j].ncol = NR_FEAT;
+    }
+
+    for (int j = 0 ; j < n ; j++) {
+        fgets(line, 300, f);
+        int i;
+        char *token, *string, *tofree;
+
+        tofree = string = strdup(line);
+        for (i = 0; i < NR_FEAT; i++) {
+            token = strsep(&string, ",");
+            float num = strtof(token, NULL);
+            inputs[j].values[i] = num;
+            /* printf("%f ", num); */
+        }
+        int label = atoi(strsep(&string, ","));
+        int py_pred = atoi(strsep(&string, ","));
+        /* float py_output = strtof(strsep(&string, ","), NULL); */
+        free(tofree);
+    }
+
+    printf("Input read, inferencing..\n");
+    gpu_setup();
+    gpu_setup_input(inputs[0].values);
+    float rgpu = gpu_inference();
+    float rcpu = forward_pass(inputs);
+
+    printf("Inferences on CPU and GPU: %.5f, %.5f\n", rcpu, rgpu);
+
+    //warmup
+    for (int j = 0 ; j < 1 ; j++) {
+        float output = forward_pass(inputs+j);
+    }
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    for (int j = 0 ; j < n ; j++) {
+        float output = forward_pass(inputs+j);
+    }
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    auto total_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+    std::cout << "CPU time for " << n << " inferences: " << total_time << "ns. Average per inference:" << total_time/n << "ns." << std::endl;
+
+
+    uint32_t gpu_total(0);
+    for (int j = 0 ; j < n ; j++) {
+        gpu_setup_input(inputs[j].values);
+        std::chrono::steady_clock::time_point begin_gpu = std::chrono::steady_clock::now();
+        float output = gpu_inference();
+        std::chrono::steady_clock::time_point end_gpu = std::chrono::steady_clock::now();
+        
+        gpu_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu - begin_gpu).count();
+    }
+
+    std::cout << "GPU time for " << n << " inferences: " << gpu_total << "ns. Average per inference:" << gpu_total/n << "us." << std::endl;
+
+
+    gpu_clean();
+    gpu_setup_double();
+    
+    uint32_t gpu_total_dbl(0);
+    for (int j = 0 ; j < n ; j++) {
+        gpu_setup_input_double(inputs[j].values);
+        std::chrono::steady_clock::time_point begin_gpu_dbl = std::chrono::steady_clock::now();
+        float output = gpu_inference_double();
+        std::chrono::steady_clock::time_point end_gpu_dbl = std::chrono::steady_clock::now();
+        
+        gpu_total_dbl += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu_dbl - begin_gpu_dbl).count();
+    }
+
+    std::cout << "GPU time for " << n << " inferences using double: " << gpu_total_dbl << "ns. Average per inference:" << gpu_total_dbl/n << "us." << std::endl;
+
+
+    return 0;
+}
