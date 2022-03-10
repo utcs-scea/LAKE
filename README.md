@@ -27,3 +27,11 @@ This includes a bcc python package that was manually fixed and needs to be copie
 the python path. It has been copied to toys/. The command used to install it is
 
 `cp -r bcc-python3-module/bcc .hack/lib/python3.7/site-packages/`
+
+## Training
+
+First there is some prep to do (replace 2 with the number in the input file)
+`python prep.py -t tag2`
+then
+`python keras_lb.py -o model2 -t`.
+Add `-g` to use a GPU.
