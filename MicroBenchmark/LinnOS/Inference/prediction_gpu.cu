@@ -6,25 +6,9 @@
 #define LEN_LAYER_1 2
 #define FEAT_31
 
-struct request_queue {
-    long *weight_0_T, *weight_1_T, *bias_0, *bias_1;
-}rqu;
 
-static bool prediction_model(long *feat_vec) {
-
-	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], final_res_i[LEN_LAYER_1];
-	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
-	int i, j, k, offset;
-
-	for (i=0 ; i<LEN_INPUT; i++) {
-		input_vec_i[i] = (long)(feat_vec[i]);
-		// input_vec_i[i] = (long)(test_input[index][i]);
-	}
-
-	weight_0_T_ent = rqu.weight_0_T;
-	weight_1_T_ent = rqu.weight_1_T;
-	bias_0_ent = rqu.bias_0;
-	bias_1_ent = rqu.bias_1;
+__global__ void prediction_mid_layer(long *weight_0_T_ent, long *bias_0_ent, long *input_vec_i, long *mid_res_i) { 
+	int j, offset;
 
 	for (j = 0, offset=0; j < LEN_LAYER_0; j++, offset+=LEN_INPUT) {
         mid_res_i[j] = 0;
@@ -69,8 +53,14 @@ static bool prediction_model(long *feat_vec) {
             mid_res_i[j] = 0;
         }
     }
+}
+
+__global__ void prediction_final_layer(long *weight_1_T_ent, long *bias_1_ent, long *mid_res_i, long *final_res_i) {
+
+		
     
     final_res_i[0] = 0;
+	int k;
     for(k=0; k<LEN_LAYER_0; k += 8) {
         final_res_i[0] += mid_res_i[k] * weight_1_T_ent[k];
 		final_res_i[0] += mid_res_i[k+1] * weight_1_T_ent[k+1];
@@ -97,10 +87,61 @@ static bool prediction_model(long *feat_vec) {
 	}
 	// apply bias
 	final_res_i[1] += bias_1_ent[1];
+}
+
+struct request_queue {
+    long *weight_0_T, *weight_1_T, *bias_0, *bias_1;
+}rqu;
+
+
+static bool prediction_model(long *feat_vec) {
+
+	long input_vec_i[LEN_INPUT],final_res_i[LEN_LAYER_1];
+	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
+	int i;
+
+	for (i=0 ; i<LEN_INPUT; i++) {
+		input_vec_i[i] = (long)(feat_vec[i]);
+		// input_vec_i[i] = (long)(test_input[index][i]);
+	}
+
+	weight_0_T_ent = rqu.weight_0_T;
+	weight_1_T_ent = rqu.weight_1_T;
+	bias_0_ent = rqu.bias_0;
+	bias_1_ent = rqu.bias_1;
+
+	long *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, *d_input_vec_i, *d_mid_res_i, *d_final_res_i;
+
+	cudaMalloc((void**)&d_input_vec_i, sizeof(long) *sizeof(LEN_INPUT));
+	cudaMalloc((void**)&d_weight_0_T_ent, sizeof(long) * 256*31);
+	cudaMalloc((void**)&d_weight_1_T_ent, sizeof(long) * 256*2);
+	cudaMalloc((void**)&d_bias_0_ent, sizeof(long) * 256);
+	cudaMalloc((void**)&d_bias_1_ent, sizeof(long) *2);
+
+	cudaMemcpy(d_input_vec_i, input_vec_i, sizeof(long) * sizeof(LEN_INPUT), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_bias_0_ent, bias_0_ent, sizeof(long) * 256, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_bias_1_ent, bias_1_ent, sizeof(long) * 2, cudaMemcpyHostToDevice);
+
+	cudaMalloc((void**)&d_mid_res_i, sizeof(long) *sizeof(LEN_LAYER_0));
+	cudaMalloc((void**)&d_final_res_i, sizeof(long) *sizeof(LEN_LAYER_1));
+
+	prediction_mid_layer<<<1,1>>>(d_weight_0_T_ent, d_bias_0_ent, d_input_vec_i, d_mid_res_i);
+	prediction_final_layer<<<1,1>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
+
+	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 2, cudaMemcpyDeviceToHost);
+
+	cudaFree(d_input_vec_i);
+	cudaFree(d_weight_0_T_ent);
+	cudaFree(d_weight_1_T_ent);
+	cudaFree(d_bias_0_ent);
+	cudaFree(d_bias_1_ent);
+	cudaFree(d_mid_res_i);
+	cudaFree(d_final_res_i);
 	printf("%ld\n",final_res_i[1]);
 	printf("%ld\n",final_res_i[0]);
-
-    return final_res_i[0]>=(final_res_i[1])? false: true;
+	return final_res_i[0]>=(final_res_i[1])? false: true;
 }
 
 int main() {
@@ -636,10 +677,10 @@ long weight_i_0_T[256][31] = {
     rqu.bias_1 = bias_i_1;
 
 	long feature_vec[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
-	long feature_vec2[31];
-	for(int i = 0; i < 31; i++) {
-		feature_vec2[i] = 10000;
-	}
+	// long feature_vec2[31];
+	// for(int i = 0; i < 31; i++) {
+	// 	feature_vec2[i] = 10000;
+	// }
 	bool res = prediction_model(&feature_vec[0]);
 	printf("result = %d\n", res);
     
