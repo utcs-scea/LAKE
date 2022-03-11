@@ -96,7 +96,7 @@ struct request_queue {
 
 static bool prediction_model(long *feat_vec) {
 
-	long input_vec_i[LEN_INPUT],final_res_i[LEN_LAYER_1];
+	long input_vec_i[LEN_INPUT],final_res_i[LEN_LAYER_1], mid_res_i[LEN_LAYER_0];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
 	int i;
 
@@ -112,22 +112,24 @@ static bool prediction_model(long *feat_vec) {
 
 	long *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, *d_input_vec_i, *d_mid_res_i, *d_final_res_i;
 
-	cudaMalloc((void**)&d_input_vec_i, sizeof(long) *sizeof(LEN_INPUT));
+	cudaMalloc((void**)&d_input_vec_i, sizeof(long) *LEN_INPUT);
 	cudaMalloc((void**)&d_weight_0_T_ent, sizeof(long) * 256*31);
 	cudaMalloc((void**)&d_weight_1_T_ent, sizeof(long) * 256*2);
 	cudaMalloc((void**)&d_bias_0_ent, sizeof(long) * 256);
 	cudaMalloc((void**)&d_bias_1_ent, sizeof(long) *2);
 
-	cudaMemcpy(d_input_vec_i, input_vec_i, sizeof(long) * sizeof(LEN_INPUT), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_input_vec_i, input_vec_i, sizeof(long) * LEN_INPUT, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_bias_0_ent, bias_0_ent, sizeof(long) * 256, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_bias_1_ent, bias_1_ent, sizeof(long) * 2, cudaMemcpyHostToDevice);
 
-	cudaMalloc((void**)&d_mid_res_i, sizeof(long) *sizeof(LEN_LAYER_0));
-	cudaMalloc((void**)&d_final_res_i, sizeof(long) *sizeof(LEN_LAYER_1));
+	cudaMalloc((void**)&d_mid_res_i, sizeof(long) *LEN_LAYER_0);
+	cudaMalloc((void**)&d_final_res_i, sizeof(long) *LEN_LAYER_1);
 
 	prediction_mid_layer<<<1,1>>>(d_weight_0_T_ent, d_bias_0_ent, d_input_vec_i, d_mid_res_i);
+	cudaDeviceSynchronize();
+	cudaMemcpy(mid_res_i, d_mid_res_i, sizeof(long) * LEN_LAYER_0, cudaMemcpyDeviceToHost);
 	prediction_final_layer<<<1,1>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
 
 	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 2, cudaMemcpyDeviceToHost);
