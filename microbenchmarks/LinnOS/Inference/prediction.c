@@ -1,5 +1,6 @@
 #include<stdio.h>
 #include <stdbool.h> 
+#include <time.h>
 #define LEN_INPUT 31
 #define LEN_LAYER_0 256
 #define LEN_LAYER_0_HALF 128
@@ -28,7 +29,8 @@ static bool prediction_model(long *feat_vec) {
 
 	for (j = 0, offset=0; j < LEN_LAYER_0; j++, offset+=LEN_INPUT) {
         mid_res_i[j] = 0;
-        //loop unroll
+        //loop unroll'
+		//printf("\nj = %d, offset = %d", j, offset);
 
 		mid_res_i[j] += input_vec_i[0] * weight_0_T_ent[offset+0];
 		mid_res_i[j] += input_vec_i[1] * weight_0_T_ent[offset+1];
@@ -97,8 +99,8 @@ static bool prediction_model(long *feat_vec) {
 	}
 	// apply bias
 	final_res_i[1] += bias_1_ent[1];
-	printf("%ld\n",final_res_i[1]);
-	printf("%ld\n",final_res_i[0]);
+	// printf("%ld\n",final_res_i[1]);
+	// printf("%ld\n",final_res_i[0]);
 
     return final_res_i[0]>=(final_res_i[1])? false: true;
 }
@@ -640,8 +642,21 @@ long weight_i_0_T[256][31] = {
 	for(int i = 0; i < 31; i++) {
 		feature_vec2[i] = 10000;
 	}
-	bool res = prediction_model(&feature_vec[0]);
-	printf("result = %d\n", res);
+	struct timespec tstart={0,0}, tend={0,0};
+	//clock_gettime(CLOCK_MONOTONIC, &tstart);
+	clock_t start = clock();
+	for(int i = 0; i < 100000; i++) {
+		bool res = prediction_model(&feature_vec[0]);
+	}
+	clock_t end = clock();
+	float seconds = (float)(end - start) / CLOCKS_PER_SEC;
+	printf("\n time taken : %f \n", seconds);
+	// clock_gettime(CLOCK_MONOTONIC, &tstart);
+	// printf("Took about %.5f seconds\n",
+    //        ((double)tend.tv_sec ) - 
+    //        ((double)tstart.tv_sec));
+
+	//printf("result = %d\n", res);
     
    return 0;
 }
