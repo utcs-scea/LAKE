@@ -7,7 +7,6 @@
 #define LEN_LAYER_1 2
 #define FEAT_31
 
-
 __global__ void prediction_mid_layer(long *weight_0_T_ent, long *bias_0_ent, long *input_vec_i, long *mid_res_i) { 
 	int j, offset;
 
@@ -81,13 +80,9 @@ static bool prediction_model(long *d_input_vec_i, long *d_weight_0_T_ent,
 	long final_res_i[LEN_LAYER_1];
 
 	prediction_mid_layer<<<1,256>>>(d_weight_0_T_ent, d_bias_0_ent, d_input_vec_i, d_mid_res_i);
-	//cudaDeviceSynchronize();
-	//cudaMemcpy(mid_res_i, d_mid_res_i, sizeof(long) * LEN_LAYER_0, cudaMemcpyDeviceToHost);
 	prediction_final_layer<<<1,1>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
 
 	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 2, cudaMemcpyDeviceToHost);
-	// printf("\n%ld\n",final_res_i[1]);
-	// printf("%ld\n",final_res_i[0]);
 	return final_res_i[0]>=(final_res_i[1])? false: true;
 }
 

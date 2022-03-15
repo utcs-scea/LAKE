@@ -15,9 +15,7 @@ static bool prediction_model(long *input_vec_i, long *weight_0_T_ent, long *weig
 
 	for (j = 0, offset=0; j < LEN_LAYER_0; j++, offset+=LEN_INPUT) {
         mid_res_i[j] = 0;
-        //loop unroll'
-		//printf("\nj = %d, offset = %d", j, offset);
-
+        //loop unroll
 		mid_res_i[j] += input_vec_i[0] * weight_0_T_ent[offset+0];
 		mid_res_i[j] += input_vec_i[1] * weight_0_T_ent[offset+1];
 		mid_res_i[j] += input_vec_i[2] * weight_0_T_ent[offset+2];
@@ -91,10 +89,6 @@ static bool prediction_model(long *input_vec_i, long *weight_0_T_ent, long *weig
 int main() {
 
 	long feature_vec[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
-	// long feature_vec2[31];
-	// for(int i = 0; i < 31; i++) {
-	// 	feature_vec2[i] = 10000;
-	// }
 
 	clock_t start = clock();
 	for(int i = 0; i < 1000; i++) {
