@@ -5,19 +5,12 @@
 #include <iostream>
 #include <stdint.h>
 #include "consts.h"
+#include "kernels.h"
 
 #define m2d(x, i, j) (x)->values[i * (x)->ncol + j]
 #define m1d(x, i) (x)->values[i]
 #define _ReLU(x) (x > 0 ?  x : 0)
 
-void gpu_setup();
-void gpu_setup_input(float* inputs);
-float gpu_inference();
-void gpu_clean();
-void gpu_setup_double();
-void gpu_setup_input_double(float* inputs);
-float gpu_inference_double();
-void gpu_clean_double();
 
 struct matrix {
     int nrow;
@@ -139,8 +132,8 @@ int main(int argc, char** argv)
     }
 
     printf("Input read, inferencing..\n");
-    gpu_setup();
-    gpu_setup_input(inputs[0].values);
+    gpu_setup(1);
+    gpu_setup_inputs(inputs[0].values, 1);
     float rgpu = gpu_inference();
     float rcpu = forward_pass(inputs);
 
@@ -151,6 +144,9 @@ int main(int argc, char** argv)
         float output = forward_pass(inputs+j);
     }
 
+    /*
+     *  CPU timing
+     */
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     for (int j = 0 ; j < n ; j++) {
         float output = forward_pass(inputs+j);
@@ -159,34 +155,59 @@ int main(int argc, char** argv)
     auto total_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
     std::cout << "CPU time for " << n << " inferences: " << total_time << "ns. Average per inference:" << total_time/n << "ns." << std::endl;
 
-
+    /*
+     *  GPU naive timing
+     */
     uint32_t gpu_total(0);
     for (int j = 0 ; j < n ; j++) {
-        gpu_setup_input(inputs[j].values);
+        gpu_setup_inputs(inputs[j].values, 1);
         std::chrono::steady_clock::time_point begin_gpu = std::chrono::steady_clock::now();
         float output = gpu_inference();
         std::chrono::steady_clock::time_point end_gpu = std::chrono::steady_clock::now();
         
         gpu_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu - begin_gpu).count();
     }
-
-    std::cout << "GPU time for " << n << " inferences: " << gpu_total << "ns. Average per inference:" << gpu_total/n << "us." << std::endl;
-
-
+    std::cout << "GPU time for " << n << " sequential inferences: " << gpu_total << "ns. Average per inference:" << gpu_total/n << "ns." << std::endl;
     gpu_clean();
-    gpu_setup_double();
     
-    uint32_t gpu_total_dbl(0);
-    for (int j = 0 ; j < n ; j++) {
-        gpu_setup_input_double(inputs[j].values);
-        std::chrono::steady_clock::time_point begin_gpu_dbl = std::chrono::steady_clock::now();
-        float output = gpu_inference_double();
-        std::chrono::steady_clock::time_point end_gpu_dbl = std::chrono::steady_clock::now();
-        
-        gpu_total_dbl += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu_dbl - begin_gpu_dbl).count();
-    }
 
-    std::cout << "GPU time for " << n << " inferences using double: " << gpu_total_dbl << "ns. Average per inference:" << gpu_total_dbl/n << "us." << std::endl;
+    /*
+     *  GPU batched timing
+     */
+
+    int batch_sizes[] = {64, 128, 256, 512};
+
+
+    for (int &N_INPUTS_BATCH : batch_sizes) {
+        gpu_setup(256);
+        uint32_t gpubatch_total(0);
+
+        //flatten inputs
+        float* linear_inputs = new float[NR_FEAT*n];
+        for (int j = 0 ; j < n ; j++) {
+            for (int i = 0; i < NR_FEAT; i++) {
+                linear_inputs[j*NR_FEAT + i] = inputs[j].values[i];
+            }
+        }
+
+        //warmup
+        for (int j = 0 ; j < n/N_INPUTS_BATCH ; j++) {
+            gpu_setup_inputs(linear_inputs+j*N_INPUTS_BATCH, N_INPUTS_BATCH);
+            gpu_inference_many(N_INPUTS_BATCH);
+        }
+
+        //for each batch, measure
+        for (int j = 0 ; j < n/N_INPUTS_BATCH ; j++) {
+            gpu_setup_inputs(linear_inputs+j*N_INPUTS_BATCH, N_INPUTS_BATCH);
+            std::chrono::steady_clock::time_point begin_gpu = std::chrono::steady_clock::now();
+            gpu_inference_many(N_INPUTS_BATCH);
+            std::chrono::steady_clock::time_point end_gpu = std::chrono::steady_clock::now();
+
+            gpubatch_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu - begin_gpu).count();
+        }
+        std::cout << "Batched GPU time for " << n << " inferences (batch size " << N_INPUTS_BATCH << "): " << gpubatch_total << "ns. Average per inference:" << gpubatch_total/n << "ns." << std::endl;
+        gpu_clean();
+    }
 
 
     return 0;

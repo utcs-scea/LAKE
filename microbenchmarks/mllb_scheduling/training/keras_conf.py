@@ -12,7 +12,7 @@ EVALUATE_TAG = 'default'
 X_val           = 0
 
 EPOCHS = 3
-BATCH_SIZE = 64
+BATCH_SIZE = 512
 
 """ Features
 src_non_pref_nr,    delta_hot,      cpu_idle,       cpu_not_idle,   cpu_newly_idle,

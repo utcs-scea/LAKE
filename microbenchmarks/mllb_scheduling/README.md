@@ -1,24 +1,15 @@
-### Source code of paper [*Machine Learning for Load Balancing in the Linux Kernel*](https://doi.org/10.1145/3409963.3410492)
-
-Prerequisites:
-
-- [BCC](https://github.com/iovisor/bcc)
-- [Tensorflow](https://www.tensorflow.org/)
 
 
-Dump load balance data:
-``` bash
-sudo ./dump_lb.py -t tag --old
-```
-> use `--old` with original kernel without test flag
 
 
-Automated training and evaluation:
-```bash 
-cd training
-./automate.py -t tag1 tag2 tag3... -o model_name
-```
+Kernel code that uses load balancing:
 
-Preprocessing: `training/prep.py`
+https://github.com/torvalds/linux/blob/ac5a9bb6b4fa22135b3e371ac9787de120e18c8d/kernel/sched/fair.c#L7877
 
-Training: `training/keras_lb.py`
+
+struct list_head *tasks = &env->src_rq->cfs_tasks;
+...
+while (!list_empty(tasks)) {
+    ...
+    if (!can_migrate_task(p, env))
+			goto next;

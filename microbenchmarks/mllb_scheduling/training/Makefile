@@ -1,5 +1,5 @@
 gpu:
-	python keras_lb.py -o model1 -t -g
+	python keras_lb.py -o model2 -t -g
 
 cpu:
-	python keras_lb.py -o model1 -t
+	python keras_lb.py -o model2 -t
