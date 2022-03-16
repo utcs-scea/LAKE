@@ -210,8 +210,10 @@ float gpu_inference_many(int n_inputs) {
     cudaDeviceSynchronize();
 
     return 0;
+}
 
-    //float res;
-    //cudaMemcpy(&res, d_inputs, sizeof(float), cudaMemcpyDeviceToHost);
-    //return res;
+float gpu_get_result(int n_inputs) {
+    float res[n_inputs];
+    cudaMemcpy(&res, d_results, n_inputs*sizeof(float), cudaMemcpyDeviceToHost);
+    return 0;
 }
