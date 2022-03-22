@@ -16,6 +16,22 @@ int main(int argc, char** argv)
     std::stringstream csv;
     csv << ", inf_total, inf_avg, inf_transfer_total, inf_transfer_avg\n";
 
+
+    // /*
+    //  *  CPU timing
+    //  */
+    // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    // for (int j = 0 ; j < n ; j++) {
+    //     float output = forward_pass(inputs+j);
+    // }
+    // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    // auto total_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+    // std::cout << "CPU time for " << n << " inferences: " << total_time << "ns. Average per inference:" << total_time/n << "ns." << std::endl;
+
+    // csv << "cpu," << total_time << "," << total_time/n << "," << total_time << "," << total_time/n << std::endl;
+
+
+
     /*
      *  GPU naive timing
      */
@@ -38,7 +54,7 @@ int main(int argc, char** argv)
     }
     std::cout << "GPU time for " << n << " sequential inferences: " << gpu_total << "ns. Average per inference:" << gpu_total/n << "ns." << std::endl;
     clean_naive();
-    csv << "GPU naive" << "," << gpu_total << "," << gpu_total/n << "," << gpu_all_total << "," << gpu_all_total/n << "," << std::endl;
+    csv << "GPU naive" << "," << gpu_total << "," << gpu_total/n << "," << gpu_all_total << "," << gpu_all_total/n << std::endl;
 
 
 
@@ -75,7 +91,7 @@ int main(int argc, char** argv)
         std::cout << "Batched GPU time for " << n << " inferences (batch size " << N_INPUTS_BATCH << "): " << gpubatch_total << "ns. Average per inference:" << gpubatch_total/n << "ns." << std::endl;
         std::cout << "Including data transfers: " << gpubatch_all_total << "ns. Average per inference:" << gpubatch_all_total/n << "ns." << std::endl;
         
-        csv << "GPU batch" << N_INPUTS_BATCH << "," << gpubatch_total << "," << gpubatch_total/n << "," << gpubatch_all_total << "," << gpubatch_all_total/n << "," << std::endl;
+        csv << "GPU batch" << N_INPUTS_BATCH << "," << gpubatch_total << "," << gpubatch_total/n << "," << gpubatch_all_total << "," << gpubatch_all_total/n << std::endl;
         clean_batch();
     }
 
