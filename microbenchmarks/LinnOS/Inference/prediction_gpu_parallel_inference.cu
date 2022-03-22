@@ -1,12 +1,13 @@
 #include<stdio.h>
 #include <stdbool.h> 
 #include "weights.h"
+#include<sys/time.h>
 #define LEN_INPUT 31
 #define LEN_LAYER_0 256
 #define LEN_LAYER_0_HALF 128
 #define LEN_LAYER_1 2
 #define FEAT_31
-#define NUM_PARALLEL 2
+#define NUM_PARALLEL 16
 
 
 __global__ void prediction_mid_layer(long *weight_0_T_ent, long *bias_0_ent, long *input_vec_i, long *mid_res_i) { 
@@ -63,34 +64,54 @@ __global__ void prediction_mid_layer(long *weight_0_T_ent, long *bias_0_ent, lon
 
 __global__ void prediction_final_layer(long *weight_1_T_ent, long *bias_1_ent, long *mid_res_i, long *final_res_i) {
     
-	int index = threadIdx.x;
-	final_res_i[index*2] = 0;
+	int index = blockIdx.x;
+	int threadId = threadIdx.x;
+	int dim = blockDim.x;
 	int k;
-    for(k=0; k<LEN_LAYER_0; k ++) {
-        final_res_i[index*2] =  final_res_i[index*2] + mid_res_i[index*LEN_LAYER_0 + k] * weight_1_T_ent[k];
+	int update_index = index*dim + threadId;
+	if (threadId < 32) {
+		final_res_i[update_index] = 0;
+		for(k = threadId; k<LEN_LAYER_0; k = k + 32) {
+			final_res_i[update_index] =  final_res_i[update_index] + mid_res_i[index*LEN_LAYER_0 + k] * weight_1_T_ent[k];
+		}
+	} else {
+		final_res_i[update_index] = 0;
+		for(k = threadId - 32; k<LEN_LAYER_0; k = k + 32) {
+			final_res_i[update_index] =  final_res_i[update_index] + mid_res_i[index*LEN_LAYER_0 + k] * weight_1_T_ent[k+256];
+		}
 	}
-	// apply bias
-	final_res_i[index*2] =  final_res_i[index*2] + bias_1_ent[0];
-
-	final_res_i[index*2 + 1] = 0;
-    for(k=0; k<LEN_LAYER_0; k ++) {
-        final_res_i[index*2 + 1] =  final_res_i[index*2 + 1] + mid_res_i[index*LEN_LAYER_0 + k] * weight_1_T_ent[k+256];
+	__syncthreads();
+	if (threadId == 0) {
+		update_index = index*dim;
+		for(int i = 1; i < 32; i++) {
+			final_res_i[update_index] = final_res_i[update_index] + final_res_i[update_index + i];
+		}
+		final_res_i[update_index] =  final_res_i[update_index] + bias_1_ent[0];
 	}
-	// apply bias
-	final_res_i[index*2 + 1] =  final_res_i[index*2 + 1] + bias_1_ent[1];
+	if(threadId == 32) {
+		update_index = index*dim + 32;
+		for(int i = 1; i < 32; i++) {
+			final_res_i[update_index] = final_res_i[update_index] + final_res_i[update_index + i];
+		} 
+		final_res_i[update_index] =  final_res_i[update_index] + bias_1_ent[1];
+	}
 }
 
 static void prediction_model(long *d_input_vec_i, long *d_weight_0_T_ent, 
 			long *d_weight_1_T_ent, long *d_bias_0_ent, long *d_bias_1_ent, long *d_mid_res_i, long *d_final_res_i, bool *res) {
 
-	long final_res_i[LEN_LAYER_1*NUM_PARALLEL];
+	long final_res_i[NUM_PARALLEL*64];
 
 	prediction_mid_layer<<<NUM_PARALLEL,256>>>(d_weight_0_T_ent, d_bias_0_ent, d_input_vec_i, d_mid_res_i);
-	prediction_final_layer<<<1,NUM_PARALLEL>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
+	prediction_final_layer<<<NUM_PARALLEL, 64>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
 
-	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 2 * NUM_PARALLEL, cudaMemcpyDeviceToHost);
-	for(int i = 0; i < NUM_PARALLEL; i++)
-	res[i] = final_res_i[i*2]>=(final_res_i[i *2 + 1])? false: true;
+	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 64 * NUM_PARALLEL, cudaMemcpyDeviceToHost);
+	for(int i = 0; i < NUM_PARALLEL; i++) {
+		// printf("\n %ld", final_res_i[i*64]);
+		// printf("\n %ld", final_res_i[i*64 + 32]);
+		res[i] = final_res_i[i*64]>=(final_res_i[i *64 + 32])? false: true;
+	}
+	
 }
 
 int main() {
@@ -116,23 +137,27 @@ int main() {
 	cudaMalloc((void**)&d_bias_1_ent, sizeof(long) *2);
 
 	cudaMalloc((void**)&d_mid_res_i, sizeof(long) *LEN_LAYER_0 * NUM_PARALLEL);
-	cudaMalloc((void**)&d_final_res_i, sizeof(long) *LEN_LAYER_1 * NUM_PARALLEL);
+	cudaMalloc((void**)&d_final_res_i, sizeof(long) *LEN_LAYER_1 * NUM_PARALLEL *32);
 	bool res[NUM_PARALLEL];
 
-	clock_t start = clock();
+	
 	cudaMalloc((void**)&d_input_vec_i, sizeof(long) *LEN_INPUT * NUM_PARALLEL);
 	cudaMemcpy(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_bias_0_ent, bias_0_ent, sizeof(long) * 256, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_bias_1_ent, bias_1_ent, sizeof(long) * 2, cudaMemcpyHostToDevice);
+	struct timeval tval_before, tval_after, tval_result;
+	gettimeofday(&tval_before, NULL);
+	
 	for(int i = 0; i < 1; i++) {
 		cudaMemcpy(d_input_vec_i, parallel_input, sizeof(long) * LEN_INPUT * NUM_PARALLEL, cudaMemcpyHostToDevice);
 		 prediction_model(d_input_vec_i, d_weight_0_T_ent, 
 			d_weight_1_T_ent, d_bias_0_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i, res);
 	}
-	clock_t end = clock();
-	float seconds = (float)(end - start) / CLOCKS_PER_SEC;
-	printf("\n time taken : %f \n", seconds);
+	
+	gettimeofday(&tval_after, NULL);
+	timersub(&tval_after, &tval_before, &tval_result);
+	printf("Time elapsed: %ld.%06ld\n", (long int)tval_result.tv_sec, (long int)tval_result.tv_usec);
 
 	cudaFree(d_input_vec_i);
 	cudaFree(d_weight_0_T_ent);
@@ -141,6 +166,10 @@ int main() {
 	cudaFree(d_bias_1_ent);
 	cudaFree(d_mid_res_i);
 	cudaFree(d_final_res_i);
+
+	
+
+	
 		
    return 0;
 }
