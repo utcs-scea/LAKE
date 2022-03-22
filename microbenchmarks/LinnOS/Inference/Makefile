@@ -1,5 +1,5 @@
-all: prediction.c
-	gcc -o prediction prediction.c
+all: 
+	nvcc -o main main.cpp prediction_gpu.cu prediction_gpu_batch.cu weights.cpp -g
 
 clean: 
 	  $(RM) prediction

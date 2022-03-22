@@ -1,13 +1,10 @@
-#include<stdio.h>
+#include <stdio.h>
 #include <stdbool.h> 
 #include "weights.h"
-#define LEN_INPUT 31
-#define LEN_LAYER_0 256
-#define LEN_LAYER_0_HALF 128
-#define LEN_LAYER_1 2
-#define FEAT_31
+#include "kernels.h"
 
-__global__ void prediction_mid_layer(long *weight_0_T_ent, long *bias_0_ent, long *input_vec_i, long *mid_res_i) { 
+
+__global__ void prediction_mid_layer_naive(long *weight_0_T_ent, long *bias_0_ent, long *input_vec_i, long *mid_res_i) { 
 	int j, offset;
 
 	int index = threadIdx.x;
@@ -57,7 +54,7 @@ __global__ void prediction_mid_layer(long *weight_0_T_ent, long *bias_0_ent, lon
     }
 }
 
-__global__ void prediction_final_layer(long *weight_1_T_ent, long *bias_1_ent, long *mid_res_i, long *final_res_i) {
+__global__ void prediction_final_layer_naive(long *weight_1_T_ent, long *bias_1_ent, long *mid_res_i, long *final_res_i) {
     final_res_i[0] = 0;
 	int k;
     for(k=0; k<LEN_LAYER_0; k ++) {
@@ -74,28 +71,29 @@ __global__ void prediction_final_layer(long *weight_1_T_ent, long *bias_1_ent, l
 	final_res_i[1] =  final_res_i[1] + bias_1_ent[1];
 }
 
-static bool prediction_model(long *d_input_vec_i, long *d_weight_0_T_ent, 
+void prediction_model(long *d_input_vec_i, long *d_weight_0_T_ent, 
 			long *d_weight_1_T_ent, long *d_bias_0_ent, long *d_bias_1_ent, long *d_mid_res_i, long *d_final_res_i) {
+	prediction_mid_layer_naive<<<1,256>>>(d_weight_0_T_ent, d_bias_0_ent, d_input_vec_i, d_mid_res_i);
+	prediction_final_layer_naive<<<1,1>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
+	cudaDeviceSynchronize();
+}
 
-	long final_res_i[LEN_LAYER_1];
+static long final_res_i[LEN_LAYER_1];
+static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
+static long input_vec_i[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
+static long *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, *d_input_vec_i, *d_mid_res_i, *d_final_res_i;
 
-	prediction_mid_layer<<<1,256>>>(d_weight_0_T_ent, d_bias_0_ent, d_input_vec_i, d_mid_res_i);
-	prediction_final_layer<<<1,1>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
 
+bool get_result_naive() {
 	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 2, cudaMemcpyDeviceToHost);
 	return final_res_i[0]>=(final_res_i[1])? false: true;
 }
 
-int main() {
-	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
-	long input_vec_i[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
-
+void setup_naive() {
 	weight_0_T_ent = &weight_i_0_T[0][0];
 	weight_1_T_ent = &weight_i_1[0][0];
 	bias_0_ent = bias_i_0;
 	bias_1_ent = bias_i_1;
-
-	long *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, *d_input_vec_i, *d_mid_res_i, *d_final_res_i;
 
 	cudaMalloc((void**)&d_input_vec_i, sizeof(long) *LEN_INPUT);
 	cudaMalloc((void**)&d_weight_0_T_ent, sizeof(long) * 256*31);
@@ -110,18 +108,20 @@ int main() {
 
 	cudaMalloc((void**)&d_mid_res_i, sizeof(long) *LEN_LAYER_0);
 	cudaMalloc((void**)&d_final_res_i, sizeof(long) *LEN_LAYER_1);
-	bool res;
 
-	clock_t start = clock();
-	for(int i = 0; i < 1000; i++) {
-		cudaMemcpy(d_input_vec_i, input_vec_i, sizeof(long) * LEN_INPUT, cudaMemcpyHostToDevice);
-		res = prediction_model(d_input_vec_i, d_weight_0_T_ent, 
+}
+
+void copy_inputs_naive() {
+	cudaMemcpy(d_input_vec_i, input_vec_i, sizeof(long) * LEN_INPUT, cudaMemcpyHostToDevice);
+}
+
+	
+void infer_naive() {
+	prediction_model(d_input_vec_i, d_weight_0_T_ent, 
 			d_weight_1_T_ent, d_bias_0_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
-	}
-	clock_t end = clock();
-	float seconds = (float)(end - start) / CLOCKS_PER_SEC;
-	printf("\n time taken : %f \n", seconds);
-
+}
+	
+void clean_naive() {
 	cudaFree(d_input_vec_i);
 	cudaFree(d_weight_0_T_ent);
 	cudaFree(d_weight_1_T_ent);
@@ -129,8 +129,4 @@ int main() {
 	cudaFree(d_bias_1_ent);
 	cudaFree(d_mid_res_i);
 	cudaFree(d_final_res_i);
-	printf("\n %d", res);
-		
-   return 0;
 }
-

@@ -1,16 +1,8 @@
-#include<stdio.h>
-#include <stdbool.h> 
+#include <stdio.h>
 #include "weights.h"
-#include<sys/time.h>
-#define LEN_INPUT 31
-#define LEN_LAYER_0 256
-#define LEN_LAYER_0_HALF 128
-#define LEN_LAYER_1 2
-#define FEAT_31
-#define NUM_PARALLEL 16
+#include "kernels.h"
 
-
-__global__ void prediction_mid_layer(long *weight_0_T_ent, long *bias_0_ent, long *input_vec_i, long *mid_res_i) { 
+__global__ void prediction_mid_layer_batch(long *weight_0_T_ent, long *bias_0_ent, long *input_vec_i, long *mid_res_i) { 
 	int j, offset;
 
 	int threadId = threadIdx.x;
@@ -62,8 +54,7 @@ __global__ void prediction_mid_layer(long *weight_0_T_ent, long *bias_0_ent, lon
     }
 }
 
-__global__ void prediction_final_layer(long *weight_1_T_ent, long *bias_1_ent, long *mid_res_i, long *final_res_i) {
-    
+__global__ void prediction_final_layer_batch(long *weight_1_T_ent, long *bias_1_ent, long *mid_res_i, long *final_res_i) {
 	int index = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
@@ -97,68 +88,66 @@ __global__ void prediction_final_layer(long *weight_1_T_ent, long *bias_1_ent, l
 	}
 }
 
-static void prediction_model(long *d_input_vec_i, long *d_weight_0_T_ent, 
-			long *d_weight_1_T_ent, long *d_bias_0_ent, long *d_bias_1_ent, long *d_mid_res_i, long *d_final_res_i, bool *res) {
+static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
+static long input_vec_i[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
+static long *parallel_input;
+static long *final_res_i;
+static long *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, *d_input_vec_i, *d_mid_res_i, *d_final_res_i;
 
-	long final_res_i[NUM_PARALLEL*64];
 
-	prediction_mid_layer<<<NUM_PARALLEL,256>>>(d_weight_0_T_ent, d_bias_0_ent, d_input_vec_i, d_mid_res_i);
-	prediction_final_layer<<<NUM_PARALLEL, 64>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
+void copy_inputs_batch(int batch_size) {
+	cudaMemcpy(d_input_vec_i, parallel_input, sizeof(long) * LEN_INPUT * batch_size, cudaMemcpyHostToDevice);
+}
 
-	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 64 * NUM_PARALLEL, cudaMemcpyDeviceToHost);
-	for(int i = 0; i < NUM_PARALLEL; i++) {
+void infer_batch(int batch_size) {
+	prediction_mid_layer_batch<<<batch_size,256>>>(d_weight_0_T_ent, d_bias_0_ent, d_input_vec_i, d_mid_res_i);
+	prediction_final_layer_batch<<<batch_size, 64>>>(d_weight_1_T_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i);
+}
+
+bool get_result_batch(int batch_size) {
+	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size, cudaMemcpyDeviceToHost);
+	
+	bool res[batch_size];
+	for(int i = 0; i < batch_size; i++) {
 		// printf("\n %ld", final_res_i[i*64]);
 		// printf("\n %ld", final_res_i[i*64 + 32]);
 		res[i] = final_res_i[i*64]>=(final_res_i[i *64 + 32])? false: true;
 	}
-	
+
+	return res[0];
 }
 
-int main() {
-	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
-	long input_vec_i[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
-	long parallel_input[NUM_PARALLEL][31];
-	for(int i = 0 ; i < NUM_PARALLEL; i++) {
+void setup_batch(int batch_size) {
+	final_res_i = (long*) malloc(batch_size*64*sizeof(long));
+	parallel_input = (long*) malloc(batch_size*31*sizeof(long));
+	
+	for(int i = 0 ; i < batch_size; i++) {
 		for(int j = 0; j < 31; j++)
-			parallel_input[i][j] = input_vec_i[j];
+			parallel_input[i*batch_size+j] = input_vec_i[j];
 	}
-
+	
 	weight_0_T_ent = &weight_i_0_T[0][0];
 	weight_1_T_ent = &weight_i_1[0][0];
 	bias_0_ent = bias_i_0;
 	bias_1_ent = bias_i_1;
 
-	long *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, *d_input_vec_i, *d_mid_res_i, *d_final_res_i;
-
-	
 	cudaMalloc((void**)&d_weight_0_T_ent, sizeof(long) * 256*31);
 	cudaMalloc((void**)&d_weight_1_T_ent, sizeof(long) * 256*2);
 	cudaMalloc((void**)&d_bias_0_ent, sizeof(long) * 256);
 	cudaMalloc((void**)&d_bias_1_ent, sizeof(long) *2);
 
-	cudaMalloc((void**)&d_mid_res_i, sizeof(long) *LEN_LAYER_0 * NUM_PARALLEL);
-	cudaMalloc((void**)&d_final_res_i, sizeof(long) *LEN_LAYER_1 * NUM_PARALLEL *32);
-	bool res[NUM_PARALLEL];
+	cudaMalloc((void**)&d_mid_res_i, sizeof(long) *LEN_LAYER_0 * batch_size);
+	cudaMalloc((void**)&d_final_res_i, sizeof(long) *LEN_LAYER_1 * batch_size *32);
 
-	
-	cudaMalloc((void**)&d_input_vec_i, sizeof(long) *LEN_INPUT * NUM_PARALLEL);
+	cudaMalloc((void**)&d_input_vec_i, sizeof(long) *LEN_INPUT * batch_size);
 	cudaMemcpy(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_bias_0_ent, bias_0_ent, sizeof(long) * 256, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_bias_1_ent, bias_1_ent, sizeof(long) * 2, cudaMemcpyHostToDevice);
-	struct timeval tval_before, tval_after, tval_result;
-	gettimeofday(&tval_before, NULL);
-	
-	for(int i = 0; i < 1; i++) {
-		cudaMemcpy(d_input_vec_i, parallel_input, sizeof(long) * LEN_INPUT * NUM_PARALLEL, cudaMemcpyHostToDevice);
-		 prediction_model(d_input_vec_i, d_weight_0_T_ent, 
-			d_weight_1_T_ent, d_bias_0_ent, d_bias_1_ent, d_mid_res_i, d_final_res_i, res);
-	}
-	
-	gettimeofday(&tval_after, NULL);
-	timersub(&tval_after, &tval_before, &tval_result);
-	printf("Time elapsed: %ld.%06ld\n", (long int)tval_result.tv_sec, (long int)tval_result.tv_usec);
+}
 
+void clean_batch() {
+	printf("a\n");
 	cudaFree(d_input_vec_i);
 	cudaFree(d_weight_0_T_ent);
 	cudaFree(d_weight_1_T_ent);
@@ -166,11 +155,10 @@ int main() {
 	cudaFree(d_bias_1_ent);
 	cudaFree(d_mid_res_i);
 	cudaFree(d_final_res_i);
-
+	printf("b\n");
 	
+	free(final_res_i);
+	free(parallel_input);
 
-	
-		
-   return 0;
+	printf("c\n");
 }
-

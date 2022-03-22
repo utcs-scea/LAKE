@@ -190,7 +190,7 @@ int main(int argc, char** argv)
 
 
     for (int &N_INPUTS_BATCH : batch_sizes) {
-        gpu_setup(256);
+        gpu_setup(N_INPUTS_BATCH);
         uint32_t gpubatch_total(0);
         uint32_t gpubatch_all_total(0);
 
