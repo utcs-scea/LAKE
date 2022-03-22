@@ -8,7 +8,6 @@
 #include "kernels.h"
 
 
-
 int main(int argc, char** argv)
 {
     int n = 1024;
@@ -17,18 +16,19 @@ int main(int argc, char** argv)
     csv << ", inf_total, inf_avg, inf_transfer_total, inf_transfer_avg\n";
 
 
-    // /*
-    //  *  CPU timing
-    //  */
-    // std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    // for (int j = 0 ; j < n ; j++) {
-    //     float output = forward_pass(inputs+j);
-    // }
-    // std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    // auto total_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
-    // std::cout << "CPU time for " << n << " inferences: " << total_time << "ns. Average per inference:" << total_time/n << "ns." << std::endl;
+    /*
+     *  CPU timing
+     */
+    long input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    for (int j = 0 ; j < n ; j++) {
+        bool res = prediction_cpu(&input[0]);
+    }
+    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    auto total_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
+    std::cout << "CPU time for " << n << " inferences: " << total_time << "ns. Average per inference:" << total_time/n << "ns." << std::endl;
 
-    // csv << "cpu," << total_time << "," << total_time/n << "," << total_time << "," << total_time/n << std::endl;
+    csv << "cpu," << total_time << "," << total_time/n << "," << total_time << "," << total_time/n << std::endl;
 
 
 

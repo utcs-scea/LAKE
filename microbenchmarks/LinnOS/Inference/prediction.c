@@ -86,18 +86,22 @@ static bool prediction_model(long *input_vec_i, long *weight_0_T_ent, long *weig
     return final_res_i[0]>=(final_res_i[1])? false: true;
 }
 
-int main() {
-
-	long feature_vec[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
-
-	clock_t start = clock();
-	for(int i = 0; i < 1000; i++) {
-		bool res = prediction_model(&feature_vec[0], &weight_i_0_T[0][0], &weight_i_1[0][0], bias_i_0, bias_i_1);
-	}
-	clock_t end = clock();
-	float seconds = (float)(end - start) / CLOCKS_PER_SEC;
-	printf("\n time taken : %f \n", seconds);
-    
-   return 0;
+bool prediction_cpu(long *input_vec_i) {
+	return prediction_model(input_vec_i, &weight_i_0_T[0][0], &weight_i_1[0][0], bias_i_0, bias_i_1);
 }
+
+// int main() {
+
+// 	long feature_vec[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
+
+// 	clock_t start = clock();
+// 	for(int i = 0; i < 1000; i++) {
+// 		bool res = prediction_model(&feature_vec[0], &weight_i_0_T[0][0], &weight_i_1[0][0], bias_i_0, bias_i_1);
+// 	}
+// 	clock_t end = clock();
+// 	float seconds = (float)(end - start) / CLOCKS_PER_SEC;
+// 	printf("\n time taken : %f \n", seconds);
+    
+//    return 0;
+// }
 
