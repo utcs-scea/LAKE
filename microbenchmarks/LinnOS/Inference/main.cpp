@@ -61,11 +61,11 @@ int main(int argc, char** argv)
         //for each batch, measure
         for (int j = 0 ; j < n/N_INPUTS_BATCH ; j++) {
             std::chrono::steady_clock::time_point begin_gpu_all = std::chrono::steady_clock::now();
-            copy_inputs_batch(N_INPUTS_BATCH);
+            //copy_inputs_batch(N_INPUTS_BATCH);
             std::chrono::steady_clock::time_point begin_gpu = std::chrono::steady_clock::now();
-            infer_batch(N_INPUTS_BATCH);
+            //infer_batch(N_INPUTS_BATCH);
             std::chrono::steady_clock::time_point end_gpu = std::chrono::steady_clock::now();
-            get_result_batch(N_INPUTS_BATCH);
+            //get_result_batch(N_INPUTS_BATCH);
             std::chrono::steady_clock::time_point end_gpu_all = std::chrono::steady_clock::now();
 
             gpubatch_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu - begin_gpu).count();

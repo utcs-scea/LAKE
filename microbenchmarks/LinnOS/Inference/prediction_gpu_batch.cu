@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "weights.h"
 #include "kernels.h"
 
@@ -54,37 +55,37 @@ __global__ void prediction_mid_layer_batch(long *weight_0_T_ent, long *bias_0_en
     }
 }
 
-__global__ void prediction_final_layer_batch(long *weight_1_T_ent, long *bias_1_ent, long *mid_res_i, long *final_res_i) {
+__global__ void prediction_final_layer_batch(long *weight_1_T_ent, long *bias_1_ent, long *mid_res_i, long *dd_final_res_i) {
 	int index = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
 	int k;
 	int update_index = index*dim + threadId;
 	if (threadId < 32) {
-		final_res_i[update_index] = 0;
+		dd_final_res_i[update_index] = 0;
 		for(k = threadId; k<LEN_LAYER_0; k = k + 32) {
-			final_res_i[update_index] =  final_res_i[update_index] + mid_res_i[index*LEN_LAYER_0 + k] * weight_1_T_ent[k];
+			dd_final_res_i[update_index] =  dd_final_res_i[update_index] + mid_res_i[index*LEN_LAYER_0 + k] * weight_1_T_ent[k];
 		}
 	} else {
-		final_res_i[update_index] = 0;
+		dd_final_res_i[update_index] = 0;
 		for(k = threadId - 32; k<LEN_LAYER_0; k = k + 32) {
-			final_res_i[update_index] =  final_res_i[update_index] + mid_res_i[index*LEN_LAYER_0 + k] * weight_1_T_ent[k+256];
+			dd_final_res_i[update_index] =  dd_final_res_i[update_index] + mid_res_i[index*LEN_LAYER_0 + k] * weight_1_T_ent[k+256];
 		}
 	}
 	__syncthreads();
 	if (threadId == 0) {
 		update_index = index*dim;
 		for(int i = 1; i < 32; i++) {
-			final_res_i[update_index] = final_res_i[update_index] + final_res_i[update_index + i];
+			dd_final_res_i[update_index] = dd_final_res_i[update_index] + dd_final_res_i[update_index + i];
 		}
-		final_res_i[update_index] =  final_res_i[update_index] + bias_1_ent[0];
+		dd_final_res_i[update_index] =  dd_final_res_i[update_index] + bias_1_ent[0];
 	}
 	if(threadId == 32) {
 		update_index = index*dim + 32;
 		for(int i = 1; i < 32; i++) {
-			final_res_i[update_index] = final_res_i[update_index] + final_res_i[update_index + i];
+			dd_final_res_i[update_index] = dd_final_res_i[update_index] + dd_final_res_i[update_index + i];
 		} 
-		final_res_i[update_index] =  final_res_i[update_index] + bias_1_ent[1];
+		dd_final_res_i[update_index] =  dd_final_res_i[update_index] + bias_1_ent[1];
 	}
 }
 
@@ -96,7 +97,7 @@ static long *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, 
 
 
 void copy_inputs_batch(int batch_size) {
-	cudaMemcpy(d_input_vec_i, parallel_input, sizeof(long) * LEN_INPUT * batch_size, cudaMemcpyHostToDevice);
+	cudaMemcpy(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size, cudaMemcpyHostToDevice);
 }
 
 void infer_batch(int batch_size) {
@@ -118,12 +119,12 @@ bool get_result_batch(int batch_size) {
 }
 
 void setup_batch(int batch_size) {
-	final_res_i = (long*) malloc(batch_size*64*sizeof(long));
-	parallel_input = (long*) malloc(batch_size*31*sizeof(long));
-	
-	for(int i = 0 ; i < batch_size; i++) {
+	final_res_i = new long[batch_size*64];
+	parallel_input = new long[batch_size*31];
+
+	for(int b = 0 ; b < batch_size; b++) {
 		for(int j = 0; j < 31; j++)
-			parallel_input[i*batch_size+j] = input_vec_i[j];
+			parallel_input[ b*31 + j ] = input_vec_i[j];
 	}
 	
 	weight_0_T_ent = &weight_i_0_T[0][0];
@@ -144,10 +145,10 @@ void setup_batch(int batch_size) {
 	cudaMemcpy(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_bias_0_ent, bias_0_ent, sizeof(long) * 256, cudaMemcpyHostToDevice);
 	cudaMemcpy(d_bias_1_ent, bias_1_ent, sizeof(long) * 2, cudaMemcpyHostToDevice);
+	printf("done %d\n", batch_size);
 }
 
 void clean_batch() {
-	printf("a\n");
 	cudaFree(d_input_vec_i);
 	cudaFree(d_weight_0_T_ent);
 	cudaFree(d_weight_1_T_ent);
@@ -155,10 +156,6 @@ void clean_batch() {
 	cudaFree(d_bias_1_ent);
 	cudaFree(d_mid_res_i);
 	cudaFree(d_final_res_i);
-	printf("b\n");
-	
-	free(final_res_i);
-	free(parallel_input);
-
-	printf("c\n");
+	delete final_res_i;
+	delete parallel_input;
 }
