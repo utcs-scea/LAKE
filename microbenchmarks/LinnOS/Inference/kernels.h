@@ -17,4 +17,5 @@ void infer_batch(int batch_size);
 void copy_inputs_batch(int batch_size);
 void setup_batch(int batch_size);
 bool get_result_batch(int batch_size);
+
 bool prediction_cpu(long *input_vec_i);
