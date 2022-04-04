@@ -1,0 +1,12 @@
+#/bin/bash
+
+SCRIPTPATH="$( cd "$(dirname "$BASH_SOURCE")" >/dev/null 2>&1 ; pwd -P )"
+
+# KAVA KSM Directories
+KAVA_KSM_ROOT=$SCRIPTPATH/../kava_ksm
+KAVA_KSM_START_ROOT=$SCRIPTPATH/../kava_ksm_start
+KAVA_KERNEL_DIR=/project/kernel/linux-4.19-ksm
+KAVA_KBUILD_DIR=/project/kernel/kbuild-4.19-ksm
+
+# KAVA Directories
+export KAVA_ROOT=$SCRIPTPATH/../../../..

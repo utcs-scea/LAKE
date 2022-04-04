@@ -1,0 +1,1 @@
+sudo insmod needle.ko max_size=2048 penalty=10 cubin_p="/project/kava/driver/kava-benchmarks/rodinia-cuda/kern/needle"

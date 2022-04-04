@@ -1,0 +1,1 @@
+sudo insmod srad.ko niter=20 _lambda=2 Nr=502 Nc=458 cubin_p="/project/kava/driver/kava-benchmarks/rodinia-cuda/kern/srad_v1"

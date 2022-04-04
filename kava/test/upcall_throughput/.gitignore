@@ -1,0 +1,7 @@
+netlink_user
+poll_chardev_user
+signal_user
+ioctl_user
+spin_shm_user
+upcall_tester
+*.ko

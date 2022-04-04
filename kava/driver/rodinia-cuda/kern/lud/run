@@ -1,0 +1,1 @@
+cd cuda; sudo insmod lud.ko matrix_dim=2048 cubin_p="/project/kava/driver/kava-benchmarks/rodinia-cuda/kern/lud/cuda"
