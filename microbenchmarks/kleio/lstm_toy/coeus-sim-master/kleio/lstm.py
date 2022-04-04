@@ -91,11 +91,39 @@ class LSTM_model:
     self.model = None
 
   def create(self, layers, learning_rate, dropout, history_length, num_classes):
+
+    #input to LSTM is [batch, timesteps, feature]
+    #1st LSTM: 256 input_shape=(6, 621) 
+    #2nd LSTM: 256
+
+    #1st LSTM weights: W (621, 1024)  U (256, 1024)  b (1024,)
+    #2nd LSTM weights: W (256, 1024)  U (256, 1024)  b (1024,)
+
+    #Output Shapes 
+    # (None, 6, 256)
+    # (None, 256)
+    # (None, 621)
+
+
     self.model = Sequential()
+    print(f"1st LSTM: {layers} input_shape={(history_length, num_classes)}")
     self.model.add(LSTM(layers, input_shape=(history_length, num_classes), return_sequences=True, recurrent_dropout=dropout))
+    print(f"2nd LSTM: {layers}")
     self.model.add(LSTM(layers))
+    print(f"Dense: {num_classes}")
     self.model.add(Dense(num_classes, activation='softmax')) #not softmax
   
+    W = self.model.layers[0].get_weights()[0]
+    U = self.model.layers[0].get_weights()[1]
+    b = self.model.layers[0].get_weights()[2]
+    print(f"1st LSTM weights: W {W.shape}  U {U.shape}  b {b.shape}")
+    W = self.model.layers[1].get_weights()[0]
+    U = self.model.layers[1].get_weights()[1]
+    b = self.model.layers[1].get_weights()[2]
+    print(f"snd LSTM weights: W {W.shape}  U {U.shape}  b {b.shape}")
+
+
+
     # Optimizer, loss function, accuracy metrics
     self.model.compile(optimizer=SGD(lr=learning_rate), loss='categorical_crossentropy', metrics=['categorical_accuracy'])
     #self.model.compile(optimizer=Adam(lr=learning_rate), loss = 'mean_squared_error')

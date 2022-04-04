@@ -38,7 +38,9 @@ if __name__ == "__main__":
   
   ### Make the RNN input
   # Step 1: take the page access count across periods
+  print(f"using page {page_id_x}")
   cnts_x = prof.hmem.page_list[page_id_x].oracle_counts_binned_ep
+  print(f"oracle_counts_binned_ep of this page: {cnts_x} ")
   input = LSTM_input(cnts_x)
   
   # Step 2: Roll a window of history length over the periods
@@ -49,6 +51,7 @@ if __name__ == "__main__":
   input.split_data(0.2)
   
   # Step 4: Bring input into format for RNN training
+  print(f"set(cnts_x) {set(cnts_x)}")
   num_classes = max(set(cnts_x)) + 1
   input.to_categor(num_classes)
   #input.prepare()
