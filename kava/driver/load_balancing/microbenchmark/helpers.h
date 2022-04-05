@@ -37,7 +37,7 @@ static inline CUresult check_error(CUresult error, const char* error_str, int li
 
 void gpu_init(int dev, CUcontext* cuctx);
 void gpu_get_cufunc(char* cubin, char* kname, CUfunction *func);
-void gpu_setup(int n_inputs, CUdeviceptr d_inputs, CUdeviceptr d_w1, CUdeviceptr d_b1, CUdeviceptr d_w2, CUdeviceptr d_results);
+void gpu_setup(int n_inputs, CUdeviceptr *d_inputs, CUdeviceptr *d_w1, CUdeviceptr *d_b1, CUdeviceptr *d_w2, CUdeviceptr *d_results);
 void gpu_clean(CUdeviceptr d_inputs, CUdeviceptr d_w1, CUdeviceptr d_b1, CUdeviceptr d_w2, CUdeviceptr d_results);
 void gpu_setup_inputs(CUdeviceptr d_inputs, int* inputs, int n);
 //float gpu_inference();

@@ -165,7 +165,7 @@ float* d_w2;
 float* d_results;
 
 void gpu_setup(int n_inputs) {
-    cudaMalloc(&d_inputs, NR_FEAT*sizeof(float));
+    cudaMalloc(&d_inputs, n_inputs*NR_FEAT*sizeof(float));
     cudaMalloc(&d_w1, NR_FEAT*10*sizeof(float));
     cudaMalloc(&d_b1, 10*sizeof(float));
     cudaMalloc(&d_w2, 10*sizeof(float));

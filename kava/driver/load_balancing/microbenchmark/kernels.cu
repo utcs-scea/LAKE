@@ -54,6 +54,15 @@ __global__ void mllb_infer_v1(float* input, float* w1, float* b1,
 __global__ void mllb_infer_v2(float* inputs, 
     float* w1, float* b1, float* w2, float b2, float* results)
 {
+    // int id = blockIdx.x * blockDim.x + threadIdx.x;
+    // if (id < 2) {
+    //     inputs[id] = id;
+    //     w1[id] = id;
+    //     b1[id] = id;
+    //     w2[id] = id;
+    //     results[id] = id;
+    // }
+
     //multiply 2 matrices  (1,15) x (15, 10)
     //add matrix element wise  (1x10)
     //ReLU: for each element  (x > 0 ?  x : 0)

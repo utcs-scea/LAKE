@@ -23,13 +23,14 @@ static int run_cpu(void) {
 
 static int run_gpu(void) {
     int i, j;
-    const int n = 1024;
     int batch_sizes[] = {64, 128, 256, 512};
-    int n_batches = 1;
+    
+    //these are changeable
+    const int n = 1024;
+    int n_batches = 4;
+
     int batch_size;
-
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
-
     struct timespec t_start, t_stop, c_start, c_stop;
     long total_time, computation_time;
 
@@ -59,10 +60,11 @@ static int run_gpu(void) {
         total_time = 0;
         computation_time = 0;
 
-        gpu_setup(batch_size, d_inputs, d_w1, d_b1, d_w2, d_results);
+        gpu_setup(batch_size, &d_inputs, &d_w1, &d_b1, &d_w2, &d_results);
 
         //for each batch, measure
         for (j = 0 ; j < n/batch_size ; j++) {
+            PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
             getnstimeofday(&t_start);
             gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
 
@@ -81,6 +83,8 @@ static int run_gpu(void) {
         //std::cout << "Including data transfers: " << gpubatch_all_total << "ns. Average per inference:" << gpubatch_all_total/n << "ns." << std::endl;
         //csv << "GPU batch" << batch_size << "," << gpubatch_total << "," << gpubatch_total/n << "," << gpubatch_all_total << "," << gpubatch_all_total/n << "," << std::endl;
         
+        PRINT(V_INFO, "GPU batch_%d, %ld, %ld\n", batch_size, total_time, computation_time);
+
         gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
     }
 
