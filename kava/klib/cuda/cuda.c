@@ -1014,8 +1014,8 @@ void __print_command_cuda(FILE* file, const struct kava_chan *__chan,
             pr_info("cuInit is responded\n");
             break;
 
-        default:
-            pr_err("Unrecognized CUDA response: %lu\n", __cmd->command_id);
+        //default:
+        //    pr_err("Unrecognized CUDA response: %lu\n", __cmd->command_id);
     }
 }
 

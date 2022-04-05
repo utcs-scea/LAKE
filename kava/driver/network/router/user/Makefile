@@ -125,7 +125,7 @@ router: packet-collector.cu firewall.cu router.cu
 	$(NVCC) $(NVCCFLAGS) $(EXTRA_NVCCFLAGS) $(GENCODE_FLAGS) $(INCLUDES) -o $@ $+ $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 firewall.cubin: firewall.cu
-	$(NVCC) $(NVCCFLAGS) $(EXTRA_NVCCFLAGS) --cubin $(GENCODE_FLAGS) $(INCLUDES) -o $@ $+ $(LDFLAGS) $(EXTRA_LDFLAGS)
+	echo $(NVCC) $(NVCCFLAGS) $(EXTRA_NVCCFLAGS) --cubin $(GENCODE_FLAGS) $(INCLUDES) -o $@ $+ $(LDFLAGS) $(EXTRA_LDFLAGS)
 
 run: build
 	./router
