@@ -2,7 +2,9 @@
 # Makefile for the Linux CUDA router
 #
 
-KAVA_ROOT ?= ../../../../..
+mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
+mkfile_dir := $(dir $(mkfile_path))
+KAVA_ROOT = $(mkfile_dir)/../../../..
 
 ifneq ($(KERNELRELEASE),)
 
@@ -17,7 +19,8 @@ else
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
 all:
-	$(MAKE) -C $(KDIR) M=$(shell pwd) modules
+	echo Running make with kava root as $(KAVA_ROOT)
+	KBUILD_VERBOSE=1 $(MAKE) -C $(KDIR) M=$(shell pwd) modules
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(shell pwd) clean

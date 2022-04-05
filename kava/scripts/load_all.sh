@@ -9,6 +9,7 @@ function ctrl_c() {
 }
 
 cd ${ROOT}
+make clean
 make
 cd ${ROOT}/klib/shared_mem
 echo "Installing kshm..."

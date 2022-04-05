@@ -218,6 +218,7 @@ __wrapper_cuMemAlloc_v2(CUdeviceptr * dptr, size_t bytesize)
         CUresult ret;
 #ifdef KAVA_HAS_GPU
         ret = cuMemAlloc_v2(dptr, bytesize);
+        printf("Calling cuMemAlloc_v2, ret: %d\n", (int)ret);
 #endif
         return ret;
     }
@@ -446,7 +447,7 @@ __wrapper_cuMemAllocPitch(CUdeviceptr * dptr, size_t *pPitch,
 void __handle_command_cuda(struct kava_chan* __chan,
                         const struct kava_cmd_base* __cmd)
 {
-    __chan->cmd_print(__chan, __cmd);
+    //__chan->cmd_print(__chan, __cmd);
 
     switch (__cmd->command_id) {
         case CALL_CUDA___CUDA_TEST_INIT:
@@ -2689,7 +2690,7 @@ void __print_command_cuda(FILE* file, const struct kava_chan *__chan,
             pr_info("cuInit print is invoked\n");
             break;
 
-        default:
-            pr_err("Unrecognized CUDA command: %lu\n", __cmd->command_id);
+        //default:
+            //pr_err("Unrecognized CUDA command: %lu\n", __cmd->command_id);
     }
 }
