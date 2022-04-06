@@ -4,7 +4,7 @@ KAVA_ROOT = $(mkfile_dir)/../../..
 
 ifneq ($(KERNELRELEASE),)
 
-ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O0
+ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O1
 
 obj-m += mllb_kern.o
 mllb_kern-objs := driver.o helpers.o consts.o

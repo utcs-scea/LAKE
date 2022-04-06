@@ -76,9 +76,6 @@ int gpu_inference_many(CUfunction* cufunc, int n_inputs,
 
     //PRINT(V_INFO, "Launching with %d blocks and %d threads\n", blocks, 128);
 
-    //mllb_infer_v2<<<b, t, 10*8*sizeof(float)>>>(d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
-    //cudaDeviceSynchronize();
-
     void *args[] = {
 		&d_inputs, &d_w1, &d_b1, &d_w2, &b2, &d_results
 	};
@@ -89,6 +86,8 @@ int gpu_inference_many(CUfunction* cufunc, int n_inputs,
 				10*8*sizeof(float),   //shared mem
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
+
+    cuCtxSynchronize();
 
     return 0;
 }

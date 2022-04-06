@@ -13,6 +13,8 @@
 // getnstimeofday(&micro_proc_stop);
 // total_time = (micro_proc_stop.tv_sec - micro_proc_start.tv_sec) * 1000000 + (micro_proc_stop.tv_nsec - micro_proc_start.tv_nsec) / 1000;
 
+// https://stackoverflow.com/questions/69748923/how-to-measure-the-execution-time-of-a-function-in-linux-kernel-module
+
 static char *cubin_path = "mllb.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to mllb.cubin, default ./mllb.cubin");
@@ -32,13 +34,13 @@ static int run_gpu(void) {
     
     int batch_size;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
-    struct timespec t_start, t_stop, c_start, c_stop;
-    long total_time, computation_time;
     int rand_counter = 0;
-    
-    //int linear_inputs[NR_FEAT*n];
     int* linear_inputs;
-    
+    //struct timespec t_start, t_stop, c_start, c_stop;
+    //long total_time, computation_time;
+    u64 total_time, computation_time;
+    u64 t_start, t_stop, c_start, c_stop;
+
     CUcontext cuContext;
     CUfunction batch_mllb_kernel;
     CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
@@ -68,37 +70,40 @@ static int run_gpu(void) {
 
         //warmup
         //msleep(100);
-        //usleep_range(10000, 20000);
         gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
         gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
         cuCtxSynchronize();
     
         //for each batch, measure
-        for (j = 0 ; j < n/batch_size ; j++) {
+        //for (j = 0 ; j < n/batch_size ; j++) {
+        for (j = 0 ; j < 1 ; j++) {
             //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
 
-            getnstimeofday(&t_start);
+            //getnstimeofday(&t_start);
+            t_start = ktime_get_ns();
             //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
             gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
 
             //main computation
-            getnstimeofday(&c_start);
+            //getnstimeofday(&c_start);
+            c_start = ktime_get_ns();
             gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
-            getnstimeofday(&c_stop);
+            c_stop = ktime_get_ns();
+            //getnstimeofday(&c_stop);
 
             gpu_get_result(batch_size);
-            getnstimeofday(&t_stop);
+            //getnstimeofday(&t_stop);
+            t_stop = ktime_get_ns();
 
-            total_time       += (t_stop.tv_sec - t_start.tv_sec) * 1000000 + (t_stop.tv_nsec - t_start.tv_nsec) / 1000;
-            computation_time += (c_stop.tv_sec - c_start.tv_sec) * 1000000 + (c_stop.tv_nsec - c_start.tv_nsec) / 1000;
+            //total_time       += (t_stop.tv_sec - t_start.tv_sec) * 1000000 + (t_stop.tv_nsec - t_start.tv_nsec) / 1000;
+            //computation_time += (c_stop.tv_sec - c_start.tv_sec) * 1000000 + (c_stop.tv_nsec - c_start.tv_nsec) / 1000;
+            total_time += (t_stop - t_start);
+            computation_time += (c_stop - c_start);
         }
-        //std::cout << "Batched GPU time for " << n << " inferences (batch size " << batch_size << "): " << gpubatch_total << "ns. Average per inference:" << gpubatch_total/n << "ns." << std::endl;
-        //std::cout << "Including data transfers: " << gpubatch_all_total << "ns. Average per inference:" << gpubatch_all_total/n << "ns." << std::endl;
-        //csv << "GPU batch" << batch_size << "," << gpubatch_total << "," << gpubatch_total/n << "," << gpubatch_all_total << "," << gpubatch_all_total/n << "," << std::endl;
-        
-        PRINT(V_INFO, "GPU batch_%d, %ld, %ld\n", batch_size, computation_time, total_time);
-
+        PRINT(V_INFO, "GPU batch_%d, %lld, %lld\n", batch_size, computation_time/1000, total_time/1000);
         gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
+        //usleep_range(10000, 20000);
+        //usleep_range(10000, 20000);
     }
 
     kfree(linear_inputs);

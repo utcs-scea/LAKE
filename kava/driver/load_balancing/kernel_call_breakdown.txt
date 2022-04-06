@@ -16,3 +16,13 @@
 
 [ 1648.470330] [kava] coreprint_timestamp:20:: Timestamp at down: 1649272979105 480
 [ 1648.470394] [kava] coreprint_timestamp:20:: Timestamp at up:   1649272979105 544  64us
+
+
+
+
+OUTSIDE time for 1024 inferences (batch size 512): 181 us
+GPU batch512,54197,159239,52,155,
+
+
+OUTSIDE time for 1024 inferences (batch size 512): 352 us
+GPU batch512,83251,320991,81,313,
