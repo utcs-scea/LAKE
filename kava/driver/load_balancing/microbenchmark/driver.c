@@ -23,12 +23,12 @@ static int run_cpu(void) {
 
 static int run_gpu(void) {
     int i, j;
-    //int batch_sizes[] = {64, 128, 256, 512};
-    int batch_sizes[] = {512};
 
     //these are changeable
+    //int batch_sizes[] = {512};
+    int batch_sizes[] = {64, 128, 256, 512};
+    int n_batches = 4;
     const int n = 1024;
-    int n_batches = 1;
     
     int batch_size;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
@@ -66,12 +66,13 @@ static int run_gpu(void) {
 
         gpu_setup(batch_size, &d_inputs, &d_w1, &d_b1, &d_w2, &d_results);
 
-        // //warmup
-        // msleep(100);
+        //warmup
+        //msleep(100);
+        //usleep_range(10000, 20000);
         gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
         gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
         cuCtxSynchronize();
-            
+    
         //for each batch, measure
         for (j = 0 ; j < n/batch_size ; j++) {
             //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);

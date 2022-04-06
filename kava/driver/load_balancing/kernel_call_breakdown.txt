@@ -11,3 +11,8 @@
 
 1649211846255 770
 1649211846255 923
+
+
+
+[ 1648.470330] [kava] coreprint_timestamp:20:: Timestamp at down: 1649272979105 480
+[ 1648.470394] [kava] coreprint_timestamp:20:: Timestamp at up:   1649272979105 544  64us

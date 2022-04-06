@@ -63,6 +63,21 @@ make defconfig
 make kvmconfig
 make kvm_guest.config
 make olddefconfig
+```
+
+Make sure these are in the .config
+```
+CONFIG_CMA=y
+CONFIG_CMA_AREAS=7
+CONFIG_DMA_CMA=y
+CONFIG_CMA_SIZE_MBYTES=32
+CONFIG_CMA_SIZE_SEL_MBYTES=y
+CONFIG_CMA_ALIGNMENT=8
+CONFIG_INPUT_CMA3000=m
+CONFIG_INPUT_CMA3000_I2C=m
+```
+
+```
 make -j16
 sudo make modules_install
 sudo make install
