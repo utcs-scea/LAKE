@@ -1,6 +1,6 @@
 #include "helpers.h"
 #include "consts.h"
-
+#include <linux/delay.h>
 #include <linux/ktime.h>
 //#include <asm/fpu/api.h>
 
@@ -23,23 +23,27 @@ static int run_cpu(void) {
 
 static int run_gpu(void) {
     int i, j;
-    int batch_sizes[] = {64, 128, 256, 512};
-    
+    //int batch_sizes[] = {64, 128, 256, 512};
+    int batch_sizes[] = {512};
+
     //these are changeable
     const int n = 1024;
-    int n_batches = 4;
-
+    int n_batches = 1;
+    
     int batch_size;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
     struct timespec t_start, t_stop, c_start, c_stop;
     long total_time, computation_time;
-
-    int linear_inputs[NR_FEAT*n];
     int rand_counter = 0;
+    
+    //int linear_inputs[NR_FEAT*n];
+    int* linear_inputs;
     
     CUcontext cuContext;
     CUfunction batch_mllb_kernel;
     CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
+
+    linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
 
     //init cuda context
     gpu_init(0, &cuContext);
@@ -62,11 +66,19 @@ static int run_gpu(void) {
 
         gpu_setup(batch_size, &d_inputs, &d_w1, &d_b1, &d_w2, &d_results);
 
+        // //warmup
+        // msleep(100);
+        gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
+        gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
+        cuCtxSynchronize();
+            
         //for each batch, measure
         for (j = 0 ; j < n/batch_size ; j++) {
-            PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
+            //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
+
             getnstimeofday(&t_start);
-            gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
+            //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
+            gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
 
             //main computation
             getnstimeofday(&c_start);
@@ -83,11 +95,12 @@ static int run_gpu(void) {
         //std::cout << "Including data transfers: " << gpubatch_all_total << "ns. Average per inference:" << gpubatch_all_total/n << "ns." << std::endl;
         //csv << "GPU batch" << batch_size << "," << gpubatch_total << "," << gpubatch_total/n << "," << gpubatch_all_total << "," << gpubatch_all_total/n << "," << std::endl;
         
-        PRINT(V_INFO, "GPU batch_%d, %ld, %ld\n", batch_size, total_time, computation_time);
+        PRINT(V_INFO, "GPU batch_%d, %ld, %ld\n", batch_size, computation_time, total_time);
 
         gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
     }
 
+    kfree(linear_inputs);
     return 0;
 }
 

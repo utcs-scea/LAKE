@@ -94,6 +94,7 @@ int gpu_inference_many(CUfunction* cufunc, int n_inputs,
 }
 
 int gpu_get_result(int n_inputs) {
+    cuCtxSynchronize();
     return 0;
     //TODO
     

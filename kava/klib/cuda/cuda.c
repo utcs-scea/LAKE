@@ -350,6 +350,7 @@ void __handle_command_cuda(struct kava_chan* __chan,
 
         case RET_CUDA___CU_LAUNCH_KERNEL:
         {
+            print_timestamp("internal_start");
             struct cu_cu_launch_kernel_ret *__ret = (struct cu_cu_launch_kernel_ret *)__cmd;
             struct cu_cu_launch_kernel_call_record *__local;
             BUG_ON(__ret->base.mode != KAVA_CMD_MODE_API);
@@ -368,6 +369,7 @@ void __handle_command_cuda(struct kava_chan* __chan,
             if (__local->__handler_deallocate) {
                 vfree(__local);
             }
+            print_timestamp("internal_end");
             break;
         }
 
@@ -1410,6 +1412,7 @@ cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsig
     unsigned int blockDimX, unsigned int blockDimY, unsigned int blockDimZ, unsigned int sharedMemBytes,
     CUstream hStream, void **kernelParams, void **extra)
 {
+    print_timestamp("start");
     intptr_t __call_id = kava_get_call_id(&__kava_endpoint);
 
     struct cu_cu_launch_kernel_call *__cmd;
@@ -1465,6 +1468,7 @@ cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsig
                     chan, ((size_t) (kava_metadata(f)->func_argc)) * sizeof(void *));
         }
     }
+    print_timestamp("void**1st");
     __cmd = (struct cu_cu_launch_kernel_call *)chan->cmd_new(
             chan, sizeof(struct cu_cu_launch_kernel_call), __total_buffer_size);
     __cmd->base.mode = KAVA_CMD_MODE_API;
@@ -1472,7 +1476,7 @@ cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsig
     __cmd->base.thread_id = __thread_id = kava_shadow_thread_id(kava_shadow_thread_pool);
 
     __cmd->__call_id = __call_id;
-
+    print_timestamp("cmd_new");
     {
         /* Input: CUfunction f */
         {
@@ -1556,6 +1560,7 @@ cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsig
             } else {
                 __cmd->kernelParams = NULL;
             }
+            print_timestamp("params");
         }
         /* Input: void ** extra */
         {
@@ -1591,6 +1596,7 @@ cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsig
                 __cmd->extra = NULL;
             }
         }
+        print_timestamp("void**2nd");
     }
 
     __call_record = (struct cu_cu_launch_kernel_call_record *)vmalloc(
@@ -1609,13 +1615,17 @@ cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridDimY, unsig
     __call_record->__call_complete = 0;
     __call_record->__handler_deallocate = 0;
     kava_add_call(&__kava_endpoint, __call_id, __call_record);
+    print_timestamp("add_call");
 
     chan->cmd_send(chan, (struct kava_cmd_base *)__cmd);
     kava_endpoint_buffer_list_free(__kava_alloc_list_cuLaunchKernel); /* Deallocate all memory in the alloc list */
+    print_timestamp("cmd_send");
     shadow_thread_handle_command_until(kava_shadow_thread_pool,
             __thread_id, __call_record->__call_complete);
     ret = __call_record->ret;
+    print_timestamp("vfree");
     vfree(__call_record);
+    print_timestamp("end");
     return ret;
 }
 EXPORT_SYMBOL(cuLaunchKernel);

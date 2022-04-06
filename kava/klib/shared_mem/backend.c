@@ -149,6 +149,7 @@ void kava_allocator_init(size_t size)
     }
 
     /* Allocate memory */
+    pr_info("[kava-shm] Executing dma_alloc_coherent\n");
     start = dma_alloc_coherent(NULL, size, &dma_handle, GFP_KERNEL);
     if (start) {
         shm_allocator->is_dma = 1;

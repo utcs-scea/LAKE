@@ -4,7 +4,7 @@ KAVA_ROOT = $(mkfile_dir)/../../..
 
 ifneq ($(KERNELRELEASE),)
 
-ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O0 -g
+ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O3
 
 obj-m += mllb_kern.o
 mllb_kern-objs := driver.o helpers.o consts.o
@@ -14,7 +14,7 @@ else
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
 all: mllb.cubin
-	KBUILD_VERBOSE=1 $(MAKE) -C $(KDIR) M=$(shell pwd) modules
+	$(MAKE) -C $(KDIR) M=$(shell pwd) modules
 
 mllb.cubin:
 	make -f Makefile.cubin
