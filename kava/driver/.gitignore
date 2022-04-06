@@ -1,0 +1,6 @@
+*.out
+*.ptx
+*.cubin
+
+# TODO: add submodule
+kava-benchmarks

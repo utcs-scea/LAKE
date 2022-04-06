@@ -1,0 +1,22 @@
+Modified by Hangchen Yu 02/2017 for GDEV and CUDA 4.2
+Modified by Hangchen Yu 01/2020 for Kernel AvA
+
+Note: This program generate two sequences randomly. Please specify your own sequences for different uses.
+      At the current stage, the program only supports two sequences with the same lengh, which can be divided by 16. 
+Usage: needle 32 32 10
+	  32 //the length of the 1st sequence
+	  32 //the length of the 2nd sequence
+	  10 //penalty value
+
+Compile CUDA kernel
+
+```
+make -f Makefile_cu
+```
+
+Run needle
+
+```
+make
+sudo insmod needle.ko max_size=2048 penalty=10 cubin_p="/project/kava/driver/kava-benchmarks/rodinia-cuda/kern/needle"
+```

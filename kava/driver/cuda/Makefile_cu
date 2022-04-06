@@ -1,0 +1,21 @@
+CUDA_INSTALL_PATH ?= /usr/local/cuda
+
+GCC := gcc
+NVCC := nvcc
+INCLUDES := -I. -I$(CUDA_INSTALL_PATH)/include
+LIB_CUDA := -lcuda
+NVCC_OPTIONS = -arch sm_60 -cubin
+
+BIN = hello_world.out
+CUDA_OBJS = hello_world.cubin
+
+all: $(BIN) $(CUDA_OBJS)
+
+%.out: %.c
+	$(GCC) $(INCLUDES) $< -o $@ $(LIB_CUDA)
+
+%.cubin: %.cu
+	$(NVCC) $(NVCC_OPTIONS) $(INCLUDES) $< -o $@ $(LIB_CUDA)
+
+clean:
+	rm -rf *.cubin *.out

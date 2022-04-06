@@ -1,0 +1,10 @@
+#
+# The following must be provided:
+#
+
+# An executable name
+EXECUTABLE	:= lud
+# Cuda source files (compiled with nvcc)
+CUDA_FILES	:= lud_cuda_kernel.cu
+
+include ../../util/cuda.mk

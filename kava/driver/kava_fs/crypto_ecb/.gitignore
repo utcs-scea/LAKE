@@ -1,0 +1,5 @@
+*.swp
+*.cubin
+ecb_cuda
+*.txt
+*.bin

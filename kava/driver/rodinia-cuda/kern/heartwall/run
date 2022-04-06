@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [ -z "$DATA_DIR" ]
+then
+    export DATA_DIR=/project/rodinia-data
+fi
+
+sudo insmod heartwall.ko \
+    input_f="${DATA_DIR}/heartwall/test.avi" \
+    nframes=100 \
+    cubin_p="/project/kava/driver/kava-benchmarks/rodinia-cuda/kern/heartwall"

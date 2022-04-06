@@ -1,0 +1,44 @@
+## Code and system structure
+
+```
+|____include [ Headers ]
+|____core    [ Core infrastructure for all klib implementations ]
+|____driver  [ Kernel modules that utilize the in-kernel accelerator framework ]
+|____klib    [ Accelerator framework API in kernel space ]
+|____worker  [ User-space server and worker that communicate with accelerator ]
+
+    |                            [worker]
+user|                             ^    |
+----------------------------------|----|--
+    |                             |    |
+kern|  [driver] --> [klib] --> [core]  |
+---------------------------------------|--
+                                       v
+                                     [hw]
+```
+
+`[Core]` works as the command handler and transport channel in AvA.
+The goal is to implement as many as optimizations in `[core]`,
+instead of in `[driver]` or `[klib]` to be driver-specific or API-specific:
+
+* Mmap shared memory
+* Zero-copy
+* Batching (huge buffer allocation)
+* Upcall and downcall (socket, ioctl spin, mmap, signal, etc.)
+
+For sake of simplicity, we keep these restrictions in the current implementation:
+
+* Each kernel driver only has one worker, connected by one command channel.
+* Only one klib module for each framework is installed, and it only has one channel mode enabled.
+
+## Ideas
+
+### API verification
+
+An API verifier should locate between `[driver]` and `[klib]`,
+which verifies all APIs with arguments invoked by `[driver]`.
+The verifier should check all memory accesses of the API to fall in the `[driver]`'s buffers.
+
+### Safety
+
+`[Klib]` and `[core]` should protect kernel from crash and blocking (busy waiting).

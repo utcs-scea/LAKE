@@ -1,0 +1,1 @@
+sudo insmod bfs.ko input_p="/project/rodinia-data/bfs" input_f="graph4096.bin" cubin_p="/project/kava/driver/kava-benchmarks/rodinia-cuda/kern/bfs"
