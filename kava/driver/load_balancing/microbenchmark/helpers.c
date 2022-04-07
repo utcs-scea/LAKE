@@ -59,15 +59,6 @@ void gpu_setup_inputs(CUdeviceptr d_inputs, int* inputs, int n) {
     //PRINT(V_INFO, "copied\n");
 }
 
-// float gpu_inference() {
-//     dim3 b(1);
-//     dim3 t(10);
-
-//     mllb_infer_v1<<<b, t, 64*sizeof(float)>>>(d_inputs, d_w1, d_b1, NR_FEAT, 10, d_w2, *b2);
-//     cudaDeviceSynchronize();
-//     return 0;
-// }
-
 int gpu_inference_many(CUfunction* cufunc, int n_inputs,
         CUdeviceptr d_inputs, CUdeviceptr d_w1, CUdeviceptr d_b1, CUdeviceptr d_w2, float b2, CUdeviceptr d_results) {
     int total_threads = n_inputs * 16;
