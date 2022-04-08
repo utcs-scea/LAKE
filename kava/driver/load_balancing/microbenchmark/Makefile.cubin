@@ -1,0 +1,11 @@
+NVCCFLAGS     := -O3
+CUDA_PATH     := /usr/local/cuda
+CUDA_INC_PATH := $(CUDA_PATH)/include
+CUDA_LIB_PATH := $(CUDA_PATH)/lib64
+INCLUDES      := -I$(CUDA_INC_PATH) -I.
+LDFLAGS       := -L$(CUDA_LIB_PATH) -lcuda
+GENCODE_SM60  := -gencode arch=compute_61,code=sm_61
+GENCODE_FLAGS   := $(GENCODE_SM60)
+
+mllb.cubin: kernels.cu
+	nvcc $(NVCCFLAGS) --cubin $(GENCODE_FLAGS) $(INCLUDES) -o $@ $+ $(LDFLAGS)
