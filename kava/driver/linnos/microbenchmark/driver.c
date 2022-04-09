@@ -1,6 +1,7 @@
 #include "weights.h"
 #include <linux/delay.h>
 #include <linux/ktime.h>
+#include "helpers.h"
 //#include <asm/fpu/api.h>
 #define LEN_INPUT 31
 #define LEN_LAYER_0 256
@@ -31,13 +32,16 @@ CUdeviceptr *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, 
 static long *parallel_input;
 static long *final_res_i;
 
-static void setup_batch(int batch_size, long[] input_vec_i) {
+static void setup_batch(int batch_size, long* input_vec_i) {
     static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
-	final_res_i = new long[batch_size*64];
-	parallel_input = new long[batch_size*31];
+	// final_res_i = new long[batch_size*64];
+	// parallel_input = new long[batch_size*31];
 
-	for(int b = 0 ; b < batch_size; b++) {
-		for(int j = 0; j < 31; j++)
+    final_res_i = (long*) kmalloc(batch_size*64*sizeof(long), GFP_KERNEL);
+    parallel_input = (long*) kmalloc(batch_size*31*sizeof(long), GFP_KERNEL);
+    int b, j;
+	for(b = 0 ; b < batch_size; b++) {
+		for(j = 0; j < 31; j++)
 			parallel_input[ b*31 + j ] = input_vec_i[j];
 	}
     weight_0_T_ent = &weight_i_0_T[0][0];
@@ -78,7 +82,7 @@ static void setup_batch(int batch_size, long[] input_vec_i) {
 	// cudaMemcpy(d_bias_1_ent, bias_1_ent, sizeof(long) * 2, cudaMemcpyHostToDevice);
 }
 
-int gpu_inference_many(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size) {
+int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size) {
     //PRINT(V_INFO, "Launching with %d blocks and %d threads\n", blocks, 128);
 
     void *args[] = {
@@ -109,18 +113,19 @@ int gpu_inference_many(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size)
     return 0;
 }
 
-// bool get_result_batch(int batch_size) {
-// 	cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size, cudaMemcpyDeviceToHost);
+void get_result_batch(int batch_size) {
+	//cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size, cudaMemcpyDeviceToHost);
+
+    check_error(cuMemcpyDtoH(final_res_i, *d_final_res_i, sizeof(long) * 64 * batch_size), "cuMemcpyDtoH", __LINE__);
 	
-// 	bool res[batch_size];
-// 	for(int i = 0; i < batch_size; i++) {
-// 		res[i] = final_res_i[i*64]>=(final_res_i[i *64 + 32])? false: true;
-// 	}
+	bool res[batch_size];
+    int i;
+	for(i = 0; i < batch_size; i++) {
+		res[i] = final_res_i[i*64]>=(final_res_i[i *64 + 32])? false: true;
+	}
+}
 
-// 	return res[0];
-// }
-
-void clean_batch() {
+void clean_batch(void) {
 	cuMemFree(d_input_vec_i);
 	cuMemFree(d_weight_0_T_ent);
 	cuMemFree(d_weight_1_T_ent);
@@ -128,8 +133,8 @@ void clean_batch() {
 	cuMemFree(d_bias_1_ent);
 	cuMemFree(d_mid_res_i);
 	cuMemFree(d_final_res_i);
-	delete final_res_i;
-	delete parallel_input;
+	kfree(final_res_i);
+	kfree(parallel_input);
 }
 
 static int run_gpu(void) {
@@ -170,22 +175,26 @@ static int run_gpu(void) {
 
         //warmup
         //usleep_range(1000, 2000);
-        gpu_inference_many(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
+        gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
         cuCtxSynchronize();
     
         for (j = 0 ; j < RUNS ; j++) {
-            //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
-            t_start = ktime_get_ns();
-            //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
-            setup_batch(batch_size, input);
-            c_start = ktime_get_ns();
-            gpu_inference_many(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
-            c_stop = ktime_get_ns();
-            gpu_get_result(batch_size);
-            t_stop = ktime_get_ns();
-
-            comp_run_times[j] = (c_stop - c_start);
-            total_run_times[j] = (t_stop - t_start);
+            comp_run_times[j] =0;
+            total_run_times[j] = 0;
+            int k;
+            for(k = 0; k < n/batch_size; k++) {
+                //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
+                t_start = ktime_get_ns();
+                //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
+                setup_batch(batch_size, input);
+                c_start = ktime_get_ns();
+                gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
+                c_stop = ktime_get_ns();
+                get_result_batch(batch_size);
+                t_stop = ktime_get_ns();
+                comp_run_times[j] += (c_stop - c_start);
+                total_run_times[j] += (t_stop - t_start);
+            }
         }
 
         //usleep_range(1000, 2000);

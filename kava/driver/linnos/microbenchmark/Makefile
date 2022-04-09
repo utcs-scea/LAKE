@@ -6,17 +6,17 @@ ifneq ($(KERNELRELEASE),)
 
 ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O1
 
-obj-m += mllb_kern.o
-mllb_kern-objs := driver.o helpers.o consts.o
+obj-m += linnos_kern.o
+linnos_kern-objs := driver.o helpers.o weights.o consts.o
 
 else
 
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
-all: mllb.cubin
+all: linnos.cubin
 	$(MAKE) -C $(KDIR) M=$(shell pwd) modules
 
-mllb.cubin:
+linnos.cubin:
 	make -f Makefile.cubin
 
 clean:
