@@ -183,7 +183,7 @@ static int run_gpu(void) {
             total_run_times[j] = 0;
             int k;
             for(k = 0; k < n/batch_size; k++) {
-                //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
+                PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
                 t_start = ktime_get_ns();
                 //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
                 setup_batch(batch_size, input);
