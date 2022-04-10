@@ -36,7 +36,7 @@ static void setup_batch(int batch_size, long* input_vec_i) {
     static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
 	// final_res_i = new long[batch_size*64];
 	// parallel_input = new long[batch_size*31];
-
+    PRINT("Entering setup batch!!");
     final_res_i = (long*) kmalloc(batch_size*64*sizeof(long), GFP_KERNEL);
     parallel_input = (long*) kmalloc(batch_size*31*sizeof(long), GFP_KERNEL);
     int b, j;
@@ -48,9 +48,9 @@ static void setup_batch(int batch_size, long* input_vec_i) {
 	weight_1_T_ent = &weight_i_1[0][0];
 	bias_0_ent = bias_i_0;
 	bias_1_ent = bias_i_1;
-
+	PRINT("starting cuMalloc!!");
     check_error(cuMemAlloc((CUdeviceptr*) d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
+    /*check_error(cuMemAlloc((CUdeviceptr*) d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
 
@@ -74,7 +74,7 @@ static void setup_batch(int batch_size, long* input_vec_i) {
     check_error(cuMemcpyHtoD(*d_bias_0_ent, bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
     check_error(cuMemcpyHtoD(*d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
 
-    check_error(cuMemcpyHtoD(*d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(*d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);*/
 
 	// cudaMemcpy(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31, cudaMemcpyHostToDevice);
 	// cudaMemcpy(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2, cudaMemcpyHostToDevice);
@@ -140,8 +140,8 @@ void clean_batch(void) {
 static int run_gpu(void) {
     int i, j;
     int RUNS;
-    int batch_sizes[] = {64, 128, 256, 512};
-    int n_batches = 4;
+    int batch_sizes[] = {64};
+    int n_batches = 1;
     const int n = 1024;
     
     int batch_size;
@@ -158,27 +158,27 @@ static int run_gpu(void) {
     // linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
 
     //init cuda context
-    gpu_init(0, &cuContext);
+        gpu_init(0, &cuContext);
 
     //initialize a linear matrix with fake inputs
     CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
 
-    gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
-    gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
+    //gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
+    //gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
     RUNS = 2;
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
 
     for (i = 0 ; i < n_batches ; i++) {
         batch_size = batch_sizes[i];
-        setup_batch(batch_size, input);
+        setup_batch(batch_size, input);}
 
         //warmup
         //usleep_range(1000, 2000);
-        gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
-        cuCtxSynchronize();
+        //gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
+        //cuCtxSynchronize();
     
-        for (j = 0 ; j < RUNS ; j++) {
+        /*for (j = 0 ; j < RUNS ; j++) {
             comp_run_times[j] =0;
             total_run_times[j] = 0;
             int k;
@@ -195,10 +195,10 @@ static int run_gpu(void) {
                 comp_run_times[j] += (c_stop - c_start);
                 total_run_times[j] += (t_stop - t_start);
             }
-        }
+	    }*/
 
         //usleep_range(1000, 2000);
-        avg = 0; avg_total = 0;
+	/*        avg = 0; avg_total = 0;
         best = 0; best_total = 0;
         for (j = 0 ; j < RUNS ; j++) {
             avg += comp_run_times[j];
@@ -211,7 +211,7 @@ static int run_gpu(void) {
 
         PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
         clean_batch();
-    }
+	}*/
 
     return 0;
 }
@@ -220,21 +220,21 @@ static int run_gpu(void) {
 /**
  * Program main
  */
-static int __init mllb_init(void)
+static int __init linnos_init(void)
 {
 	return run_gpu();
 }
 
-static void __exit mllb_fini(void)
+static void __exit linnos_fini(void)
 {
     //cleanup
 }
 
-module_init(mllb_init);
-module_exit(mllb_fini);
+module_init(linnos_init);
+module_exit(linnos_fini);
 
 MODULE_AUTHOR("Henrique Fingler");
-MODULE_DESCRIPTION("Kernel module of a mllb program in kava");
+MODULE_DESCRIPTION("Kernel module of a linnos program in kava");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(__stringify(1) "."
                __stringify(0) "."
