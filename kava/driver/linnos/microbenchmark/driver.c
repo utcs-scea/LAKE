@@ -138,9 +138,10 @@ void clean_batch(void) {
 }
 
 static int run_gpu(void) {
-    int i, j;
-    int RUNS;
-    int batch_sizes[] = {64};
+  PRINT("starting!!");
+  //int i, j;
+  //int RUNS;
+  /*int batch_sizes[] = {64};
     int n_batches = 1;
     const int n = 1024;
     
@@ -151,27 +152,30 @@ static int run_gpu(void) {
     u64* total_run_times;
     u64 avg, avg_total;
     u64 best, best_total;
-
+  */
     CUcontext cuContext;
     // CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
 
     // linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
 
     //init cuda context
+    PRINT("starting GPU init!");
         gpu_init(0, &cuContext);
 
     //initialize a linear matrix with fake inputs
-    CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
+    //CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
 
     //gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     //gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
-    RUNS = 2;
+    /*RUNS = 2;
+    PRINT("before allocating mem");
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
-
-    for (i = 0 ; i < n_batches ; i++) {
-        batch_size = batch_sizes[i];
-        setup_batch(batch_size, input);}
+    */
+    PRINT("right before setup!!!");
+    //for (i = 0 ; i < n_batches ; i++) {
+    //  batch_size = batch_sizes[i];
+    //  setup_batch(batch_size, input);}
 
         //warmup
         //usleep_range(1000, 2000);
