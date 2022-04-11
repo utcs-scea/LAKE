@@ -28,7 +28,7 @@ static int run_cpu(void) {
     return 0;
 }
 
-CUdeviceptr *d_weight_0_T_ent, *d_weight_1_T_ent, *d_bias_0_ent, *d_bias_1_ent, *d_input_vec_i, *d_mid_res_i, *d_final_res_i;
+CUdeviceptr d_weight_0_T_ent, d_weight_1_T_ent, d_bias_0_ent, d_bias_1_ent, d_input_vec_i, d_mid_res_i, d_final_res_i;
 static long *parallel_input;
 static long *final_res_i;
 
@@ -36,20 +36,22 @@ static void setup_batch(int batch_size, long* input_vec_i) {
     static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
 	// final_res_i = new long[batch_size*64];
 	// parallel_input = new long[batch_size*31];
-    PRINT("Entering setup batch!!");
+    PRINT(V_INFO, "Entering setup batch!!");
     final_res_i = (long*) kmalloc(batch_size*64*sizeof(long), GFP_KERNEL);
     parallel_input = (long*) kmalloc(batch_size*31*sizeof(long), GFP_KERNEL);
+
     int b, j;
 	for(b = 0 ; b < batch_size; b++) {
 		for(j = 0; j < 31; j++)
 			parallel_input[ b*31 + j ] = input_vec_i[j];
 	}
-    weight_0_T_ent = &weight_i_0_T[0][0];
-	weight_1_T_ent = &weight_i_1[0][0];
-	bias_0_ent = bias_i_0;
-	bias_1_ent = bias_i_1;
-	PRINT("starting cuMalloc!!");
-    check_error(cuMemAlloc((CUdeviceptr*) d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
+
+	weight_0_T_ent = &weight_i_0_T[0][0];
+    weight_1_T_ent = &weight_i_1[0][0];
+    	bias_0_ent = bias_i_0;
+    	bias_1_ent = bias_i_1;
+	PRINT(V_INFO, "starting cuMalloc!!  size %d\n", sizeof(long) * 256*31);
+	check_error(cuMemAlloc((CUdeviceptr*) &d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
     /*check_error(cuMemAlloc((CUdeviceptr*) d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
@@ -116,7 +118,7 @@ int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size) {
 void get_result_batch(int batch_size) {
 	//cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size, cudaMemcpyDeviceToHost);
 
-    check_error(cuMemcpyDtoH(final_res_i, *d_final_res_i, sizeof(long) * 64 * batch_size), "cuMemcpyDtoH", __LINE__);
+    //check_error(cuMemcpyDtoH(final_res_i, *d_final_res_i, sizeof(long) * 64 * batch_size), "cuMemcpyDtoH", __LINE__);
 	
 	bool res[batch_size];
     int i;
@@ -138,10 +140,10 @@ void clean_batch(void) {
 }
 
 static int run_gpu(void) {
-  PRINT("starting!!");
-  //int i, j;
-  //int RUNS;
-  /*int batch_sizes[] = {64};
+    PRINT("starting!!");
+    int i, j;
+    int RUNS;
+    int batch_sizes[] = {64};
     int n_batches = 1;
     const int n = 1024;
     
@@ -152,27 +154,30 @@ static int run_gpu(void) {
     u64* total_run_times;
     u64 avg, avg_total;
     u64 best, best_total;
-  */
+  
     CUcontext cuContext;
-    // CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
+    CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
 
     // linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
 
     //init cuda context
-    PRINT("starting GPU init!");
-        gpu_init(0, &cuContext);
+    PRINT(V_INFO, "starting GPU init!\n");
+    gpu_init(0, &cuContext);
 
     //initialize a linear matrix with fake inputs
-    //CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
+    CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
 
-    //gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
-    //gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
-    /*RUNS = 2;
-    PRINT("before allocating mem");
+    gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
+    gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
+    RUNS = 2;
+    PRINT(V_INFO, "before allocating mem");
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
-    */
-    PRINT("right before setup!!!");
+    
+    PRINT(V_INFO, "right before setup!!!");
+    setup_batch(64, input);
+    return 0;
+
     //for (i = 0 ; i < n_batches ; i++) {
     //  batch_size = batch_sizes[i];
     //  setup_batch(batch_size, input);}
