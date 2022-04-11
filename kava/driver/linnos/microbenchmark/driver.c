@@ -35,11 +35,11 @@ static long *final_res_i;
 static void setup_batch(int batch_size, long* input_vec_i) {
     static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
 	// final_res_i = new long[batch_size*64];
-	// parallel_input = new long[batch_size*31];
+	parallel_input = new long[batch_size*31];
     long *parallel_input;
     PRINT(V_INFO, "Entering setup batch!!");
     final_res_i = (long*) kmalloc(batch_size*64*sizeof(long), GFP_KERNEL);
-    parallel_input = (long*) kmalloc(batch_size*31*sizeof(long), GFP_KERNEL);
+    //parallel_input = (long*) kmalloc(batch_size*31*sizeof(long), GFP_KERNEL);
 
     int b, j;
 	for(b = 0 ; b < batch_size; b++) {
@@ -59,25 +59,16 @@ static void setup_batch(int batch_size, long* input_vec_i) {
 
     check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * batch_size *32), "cuMemAlloc ", __LINE__);
-
     check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_INPUT * batch_size), "cuMemAlloc ", __LINE__);
-
-    PRINT(V_INFO, "cuMalloc done.");
-    PRINT(V_INFO, "start memcpy.");
 
     check_error(cuMemcpyHtoD(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
-	PRINT(V_INFO, "cuMalloc done.");
 	check_error(cuMemcpyHtoD(d_bias_0_ent, bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
     check_error(cuMemcpyHtoD(d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
-   PRINT(V_INFO, "cuMalloc done1.");
-   PRINT(V_INFO, "cuMalloc done.");
+   
+    PRINT(V_INFO, "cuMalloc done.");
     check_error(cuMemcpyHtoD(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);
-kfree(parallel_input);
-	// cudaMemcpy(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31, cudaMemcpyHostToDevice);
-	// cudaMemcpy(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2, cudaMemcpyHostToDevice);
-	// cudaMemcpy(d_bias_0_ent, bias_0_ent, sizeof(long) * 256, cudaMemcpyHostToDevice);
-	// cudaMemcpy(d_bias_1_ent, bias_1_ent, sizeof(long) * 2, cudaMemcpyHostToDevice);
+    //kfree(parallel_input);
 }
 
 int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size) {
@@ -139,7 +130,7 @@ static int run_gpu(void) {
     PRINT("starting!!");
     int i, j;
     int RUNS;
-    int batch_sizes[] = {64};
+    int batch_sizes[] = {1};
     int n_batches = 1;
     const int n = 1024;
     
@@ -171,8 +162,8 @@ static int run_gpu(void) {
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     
     PRINT(V_INFO, "right before setup!!!");
-    setup_batch(64, input);
-    return 0;
+    //setup_batch(64, input);
+    //return 0;
 
     for (i = 0 ; i < n_batches ; i++) {
          batch_size = batch_sizes[i];
