@@ -52,14 +52,14 @@ static void setup_batch(int batch_size, long* input_vec_i) {
     	bias_1_ent = bias_i_1;
 	PRINT(V_INFO, "starting cuMalloc!!  size %d\n", sizeof(long) * 256*31);
 	check_error(cuMemAlloc((CUdeviceptr*) &d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
-    /*check_error(cuMemAlloc((CUdeviceptr*) d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
 
-    check_error(cuMemAlloc((CUdeviceptr*) d_mid_res_i, sizeof(long) *LEN_LAYER_0 * batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) d_final_res_i, sizeof(long) *LEN_LAYER_1 * batch_size *32), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * batch_size *32), "cuMemAlloc ", __LINE__);
 
-    check_error(cuMemAlloc((CUdeviceptr*) d_final_res_i, sizeof(long) *LEN_INPUT * batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_INPUT * batch_size), "cuMemAlloc ", __LINE__);
 
 	// cudaMalloc((void**)&d_weight_0_T_ent, sizeof(long) * 256*31);
 	// cudaMalloc((void**)&d_weight_1_T_ent, sizeof(long) * 256*2);
@@ -71,12 +71,12 @@ static void setup_batch(int batch_size, long* input_vec_i) {
 
 	// cudaMalloc((void**)&d_input_vec_i, sizeof(long) *LEN_INPUT * batch_size);
 
-    check_error(cuMemcpyHtoD(*d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD(*d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD(*d_bias_0_ent, bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD(*d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(d_bias_0_ent, bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
 
-    check_error(cuMemcpyHtoD(*d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);*/
+    check_error(cuMemcpyHtoD(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);*/
 
 	// cudaMemcpy(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31, cudaMemcpyHostToDevice);
 	// cudaMemcpy(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2, cudaMemcpyHostToDevice);
@@ -178,9 +178,9 @@ static int run_gpu(void) {
     setup_batch(64, input);
     return 0;
 
-    //for (i = 0 ; i < n_batches ; i++) {
-    //  batch_size = batch_sizes[i];
-    //  setup_batch(batch_size, input);}
+    for (i = 0 ; i < n_batches ; i++) {
+         batch_size = batch_sizes[i];
+        setup_batch(batch_size, input);}
 
         //warmup
         //usleep_range(1000, 2000);
