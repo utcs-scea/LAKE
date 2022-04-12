@@ -36,7 +36,7 @@ static void setup_batch(int batch_size, long* input_vec_i) {
     weight_1_T_ent = &weight_i_1[0][0];
     	bias_0_ent = bias_i_0;
     	bias_1_ent = bias_i_1;
-	PRINT(V_INFO, "starting cuMalloc!!  size %d\n", sizeof(long) * 256*31);
+	//PRINT(V_INFO, "starting cuMalloc!!  size %d\n", sizeof(long) * 256*31);
 	check_error(cuMemAlloc((CUdeviceptr*) &d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
@@ -57,8 +57,6 @@ static void setup_batch(int batch_size, long* input_vec_i) {
 }
 
 int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size) {
-    //PRINT(V_INFO, "Launching with %d blocks and %d threads\n", blocks, 128);
-
     void *args[] = {
 		&d_weight_0_T_ent, &d_bias_0_ent, &d_input_vec_i, &d_mid_res_i
 	};
@@ -109,7 +107,6 @@ void clean_batch(void) {
 }
 
 static int run_gpu(void) {
-  //PRINT("starting!!");
     int i, j;
     int RUNS;
     int batch_sizes[] = {32, 64, 128, 256};
@@ -133,13 +130,8 @@ static int run_gpu(void) {
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
     RUNS = 5;
-    //PRINT(V_INFO, "before allocating mem");
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
-    
-    //PRINT(V_INFO, "right before setup!!!");
-    //setup_batch(64, input);
-    //return 0;
 
     for (i = 0 ; i < n_batches ; i++) {
          batch_size = batch_sizes[i];
@@ -154,7 +146,7 @@ static int run_gpu(void) {
             total_run_times[j] = 0;
             int k;
             for(k = 0; k < n/batch_size; k++) {
-	      //    PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
+	            //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
                 t_start = ktime_get_ns();
                 setup_batch(batch_size, input);
                 c_start = ktime_get_ns();
