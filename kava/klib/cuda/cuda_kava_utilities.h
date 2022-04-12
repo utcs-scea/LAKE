@@ -107,7 +107,7 @@ inline void print_timestamp(const char *name) {
     getnstimeofday(&ts);
     //pr_info("Timestamp at %s: sec=%lu, usec=%lu\n", name, ts.tv_sec, ts.tv_nsec / 1000);
 
-    pr_info("Timestamp at %s: %lu \n", name, ts.tv_sec*1000000 + ts.tv_nsec / 1000);
+    //pr_info("Timestamp at %s: %lu \n", name, ts.tv_sec*1000000 + ts.tv_nsec / 1000);
 }
 #undef ava_utility
 #undef ava_begin_utility
