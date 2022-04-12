@@ -48,7 +48,7 @@ static void setup_batch(int batch_size, long* input_vec_i) {
 
     check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * batch_size *32), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_INPUT * batch_size), "cuMemAlloc ", __LINE__);
+    //    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_INPUT * batch_size), "cuMemAlloc ", __LINE__);
 
     check_error(cuMemcpyHtoD(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
@@ -95,7 +95,7 @@ int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size) {
 void get_result_batch(int batch_size) {
 	//cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size, cudaMemcpyDeviceToHost);
 
-    //check_error(cuMemcpyDtoH(final_res_i, *d_final_res_i, sizeof(long) * 64 * batch_size), "cuMemcpyDtoH", __LINE__);
+    check_error(cuMemcpyDtoH(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size), "cuMemcpyDtoH", __LINE__);
 	
 	bool res[batch_size];
     int i;
@@ -120,8 +120,8 @@ static int run_gpu(void) {
     PRINT("starting!!");
     int i, j;
     int RUNS;
-    int batch_sizes[] = {32};
-    int n_batches = 1;
+    int batch_sizes[] = {32, 64, 128, 256};
+    int n_batches = 4;
     const int n = 1024;
     
     int batch_size;
@@ -138,14 +138,14 @@ static int run_gpu(void) {
     // linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
 
     //init cuda context
-    PRINT(V_INFO, "starting GPU init!\n");
+    //PRINT(V_INFO, "starting GPU init!\n");
     gpu_init(0, &cuContext);
 
     CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
-    RUNS = 2;
+    RUNS = 1;
     PRINT(V_INFO, "before allocating mem");
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
@@ -167,14 +167,14 @@ static int run_gpu(void) {
             total_run_times[j] = 0;
             int k;
             for(k = 0; k < n/batch_size; k++) {
-                PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
+                PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
                 t_start = ktime_get_ns();
                 //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
                 setup_batch(batch_size, input);
                 c_start = ktime_get_ns();
                 gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
                 c_stop = ktime_get_ns();
-                //get_result_batch(batch_size);
+                get_result_batch(batch_size);
                 t_stop = ktime_get_ns();
                 comp_run_times[j] += (c_stop - c_start);
                 total_run_times[j] += (t_stop - t_start);
