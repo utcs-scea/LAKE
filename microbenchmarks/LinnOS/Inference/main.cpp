@@ -15,22 +15,30 @@ int main(int argc, char** argv)
     int n = 1024;
 
     std::stringstream csv;
-    csv << ", inf_total, inf_avg, inf_transfer_total, inf_transfer_avg\n";
+    csv << ", inference, inference+transfer\n";
+    long input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
+
+    for (int j = 0 ; j < 1 ; j++) {
+            bool res = prediction_cpu(&input[0]);
+        }
 
 
     /*
      *  CPU timing
      */
-    long input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
-    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-    for (int j = 0 ; j < n ; j++) {
-        bool res = prediction_cpu(&input[0]);
-    }
-    std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-    auto total_time = std::chrono::duration_cast<std::chrono::nanoseconds>(end - begin).count();
-    std::cout << "CPU time for " << n << " inferences: " << total_time << "ns. Average per inference:" << total_time/n << "ns." << std::endl;
+    int cpu_sizes[] = {64, 128, 256, 512};
 
-    csv << "cpu," << total_time << "," << total_time/n << "," << total_time << "," << total_time/n << std::endl;
+    for (int &N_INPUTS_BATCH : cpu_sizes) {
+        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+        for (int j = 0 ; j < N_INPUTS_BATCH ; j++) {
+            bool res = prediction_cpu(&input[0]);
+        }
+        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+        auto total_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+        std::cout << "CPU time for " << N_INPUTS_BATCH << " inferences: " << total_time << "us. Average per inference:" << total_time/n << "us." << std::endl;
+
+        csv << "cpu" <<N_INPUTS_BATCH<<", " << total_time << "," << total_time << std::endl;
+    }
 
 
 
