@@ -9,17 +9,6 @@
 #define LEN_LAYER_1 2
 
 
-
-//kernel_fpu_begin()
-//kernel_fpu_end()
-
-// struct timespec t_start, t_stop
-// long total_time;
-// getnstimeofday(&micro_proc_stop);
-// total_time = (micro_proc_stop.tv_sec - micro_proc_start.tv_sec) * 1000000 + (micro_proc_stop.tv_nsec - micro_proc_start.tv_nsec) / 1000;
-
-// https://stackoverflow.com/questions/69748923/how-to-measure-the-execution-time-of-a-function-in-linux-kernel-module
-
 static char *cubin_path = "linnos.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin");
@@ -34,7 +23,6 @@ static long *final_res_i;
 
 static void setup_batch(int batch_size, long* input_vec_i) {
     static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
-	//parallel_input = new long[batch_size*31];
     static long *parallel_input;
     PRINT(V_INFO, "Entering setup batch!!");
     final_res_i = (long*) kmalloc(batch_size*64*sizeof(long), GFP_KERNEL);
@@ -153,7 +141,6 @@ static int run_gpu(void) {
     PRINT(V_INFO, "starting GPU init!\n");
     gpu_init(0, &cuContext);
 
-    //initialize a linear matrix with fake inputs
     CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
@@ -172,11 +159,10 @@ static int run_gpu(void) {
         setup_batch(batch_size, input);
 
         //warmup
-        //usleep_range(1000, 2000);
-        gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);}
-        //cuCtxSynchronize();
+        gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
+        cuCtxSynchronize();
     
-        /*for (j = 0 ; j < RUNS ; j++) {
+        for (j = 0 ; j < RUNS ; j++) {
             comp_run_times[j] =0;
             total_run_times[j] = 0;
             int k;
@@ -188,15 +174,13 @@ static int run_gpu(void) {
                 c_start = ktime_get_ns();
                 gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
                 c_stop = ktime_get_ns();
-                get_result_batch(batch_size);
+                //get_result_batch(batch_size);
                 t_stop = ktime_get_ns();
                 comp_run_times[j] += (c_stop - c_start);
                 total_run_times[j] += (t_stop - t_start);
             }
-	    }*/
-
-        //usleep_range(1000, 2000);
-	/*        avg = 0; avg_total = 0;
+	    }
+	    avg = 0; avg_total = 0;
         best = 0; best_total = 0;
         for (j = 0 ; j < RUNS ; j++) {
             avg += comp_run_times[j];
@@ -209,7 +193,7 @@ static int run_gpu(void) {
 
         PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
         clean_batch();
-	}*/
+	}
 
     return 0;
 }
@@ -231,7 +215,7 @@ static void __exit linnos_fini(void)
 module_init(linnos_init);
 module_exit(linnos_fini);
 
-MODULE_AUTHOR("Henrique Fingler");
+MODULE_AUTHOR("Isha Tarte");
 MODULE_DESCRIPTION("Kernel module of a linnos program in kava");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(__stringify(1) "."
