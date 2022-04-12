@@ -54,6 +54,7 @@ static void setup_batch(int batch_size, long* input_vec_i) {
 	check_error(cuMemAlloc((CUdeviceptr*) &d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
     
     check_error(cuMemAlloc((CUdeviceptr*) &d_input_vec_i, sizeof(long) * 31 * batch_size), "cuMemAlloc ", __LINE__);
 
@@ -64,10 +65,11 @@ static void setup_batch(int batch_size, long* input_vec_i) {
     check_error(cuMemcpyHtoD(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_bias_0_ent, bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD(d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
    
     PRINT(V_INFO, "cuMalloc done.");
-    check_error(cuMemcpyHtoD(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);
+    PRINT(V_INFO, "cuMalloc done");
+       check_error(cuMemcpyHtoD(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);
     kfree(parallel_input);
 }
 
@@ -167,11 +169,11 @@ static int run_gpu(void) {
 
     for (i = 0 ; i < n_batches ; i++) {
          batch_size = batch_sizes[i];
-        setup_batch(batch_size, input);}
+        setup_batch(batch_size, input);
 
         //warmup
         //usleep_range(1000, 2000);
-        //gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
+        gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);}
         //cuCtxSynchronize();
     
         /*for (j = 0 ; j < RUNS ; j++) {
