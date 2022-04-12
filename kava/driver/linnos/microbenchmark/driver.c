@@ -18,13 +18,11 @@ static int run_cpu(void) {
 }
 
 CUdeviceptr d_weight_0_T_ent, d_weight_1_T_ent, d_bias_0_ent, d_bias_1_ent, d_input_vec_i, d_mid_res_i, d_final_res_i;
-//static long *parallel_input;
 static long *final_res_i;
 
 static void setup_batch(int batch_size, long* input_vec_i) {
     static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
     static long *parallel_input;
-    PRINT(V_INFO, "Entering setup batch!!");
     final_res_i = (long*) kmalloc(batch_size*64*sizeof(long), GFP_KERNEL);
     parallel_input = (long*) kmalloc(batch_size*31*sizeof(long), GFP_KERNEL);
 
@@ -48,16 +46,13 @@ static void setup_batch(int batch_size, long* input_vec_i) {
 
     check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * batch_size *32), "cuMemAlloc ", __LINE__);
-    //    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_INPUT * batch_size), "cuMemAlloc ", __LINE__);
 
     check_error(cuMemcpyHtoD(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_bias_0_ent, bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
    
-    PRINT(V_INFO, "cuMalloc done.");
-    PRINT(V_INFO, "cuMalloc done");
-       check_error(cuMemcpyHtoD(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size), "cuMemcpyHtoD", __LINE__);
     kfree(parallel_input);
 }
 
@@ -93,8 +88,6 @@ int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size) {
 }
 
 void get_result_batch(int batch_size) {
-	//cudaMemcpy(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size, cudaMemcpyDeviceToHost);
-
     check_error(cuMemcpyDtoH(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size), "cuMemcpyDtoH", __LINE__);
 	
 	bool res[batch_size];
@@ -113,7 +106,6 @@ void clean_batch(void) {
 	cuMemFree(d_mid_res_i);
 	cuMemFree(d_final_res_i);
 	kfree(final_res_i);
-	//kfree(parallel_input);
 }
 
 static int run_gpu(void) {
@@ -134,11 +126,6 @@ static int run_gpu(void) {
   
     CUcontext cuContext;
     CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
-
-    // linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
-
-    //init cuda context
-    //PRINT(V_INFO, "starting GPU init!\n");
     gpu_init(0, &cuContext);
 
     CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
@@ -169,7 +156,6 @@ static int run_gpu(void) {
             for(k = 0; k < n/batch_size; k++) {
                 PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
                 t_start = ktime_get_ns();
-                //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
                 setup_batch(batch_size, input);
                 c_start = ktime_get_ns();
                 gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
