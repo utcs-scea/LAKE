@@ -136,8 +136,6 @@ static int run_gpu(void) {
     for (i = 0 ; i < n_batches ; i++) {
          batch_size = batch_sizes[i];
         setup_batch(batch_size, input);
-
-        //warmup
         gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
         cuCtxSynchronize();
     
