@@ -109,7 +109,7 @@ void clean_batch(void) {
 static int run_gpu(void) {
     int i, j;
     int RUNS;
-    int batch_sizes[] = {32, 64, 128, 256};
+    int batch_sizes[] = {32, 64, 128, 256, 512};
     int n_batches = 4;
     const int n = 1024;
     
@@ -129,7 +129,7 @@ static int run_gpu(void) {
 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
-    RUNS = 5;
+    RUNS = 10;
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
 
@@ -142,21 +142,17 @@ static int run_gpu(void) {
         cuCtxSynchronize();
     
         for (j = 0 ; j < RUNS ; j++) {
-            comp_run_times[j] =0;
-            total_run_times[j] = 0;
             int k;
-            for(k = 0; k < n/batch_size; k++) {
-	            //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
-                t_start = ktime_get_ns();
-                setup_batch(batch_size, input);
-                c_start = ktime_get_ns();
-                gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
-                c_stop = ktime_get_ns();
-                get_result_batch(batch_size);
-                t_stop = ktime_get_ns();
-                comp_run_times[j] += (c_stop - c_start);
-                total_run_times[j] += (t_stop - t_start);
-            }
+            //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
+            t_start = ktime_get_ns();
+            setup_batch(batch_size, input);
+            c_start = ktime_get_ns();
+            gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size);
+            c_stop = ktime_get_ns();
+            get_result_batch(batch_size);
+            t_stop = ktime_get_ns();
+            comp_run_times[j] = (c_stop - c_start);
+            total_run_times[j] = (t_stop - t_start);
 	    }
 	    avg = 0; avg_total = 0;
         best = 0; best_total = 0;
