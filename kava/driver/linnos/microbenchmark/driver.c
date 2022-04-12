@@ -109,7 +109,7 @@ void clean_batch(void) {
 }
 
 static int run_gpu(void) {
-    PRINT("starting!!");
+  //PRINT("starting!!");
     int i, j;
     int RUNS;
     int batch_sizes[] = {32, 64, 128, 256};
@@ -132,12 +132,12 @@ static int run_gpu(void) {
 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
-    RUNS = 1;
-    PRINT(V_INFO, "before allocating mem");
+    RUNS = 5;
+    //PRINT(V_INFO, "before allocating mem");
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     
-    PRINT(V_INFO, "right before setup!!!");
+    //PRINT(V_INFO, "right before setup!!!");
     //setup_batch(64, input);
     //return 0;
 
@@ -154,7 +154,7 @@ static int run_gpu(void) {
             total_run_times[j] = 0;
             int k;
             for(k = 0; k < n/batch_size; k++) {
-                PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
+	      //    PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
                 t_start = ktime_get_ns();
                 setup_batch(batch_size, input);
                 c_start = ktime_get_ns();
