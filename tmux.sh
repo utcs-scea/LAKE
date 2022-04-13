@@ -1,7 +1,9 @@
 #!/bin/sh
 
-tmux new-session -d -c ~/HACK/kava/scripts
-tmux split-window -h -c ~/HACK/kava/driver -l 60
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+tmux new-session -d -c ${SCRIPT_DIR}/kava/scripts
+tmux split-window -h -c ${SCRIPT_DIR}/kava/driver -l 60
 tmux select-pane -t 0
 tmux split-window -v 'dmesg -w'
 tmux select-pane -t 0
