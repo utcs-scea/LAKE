@@ -86,9 +86,9 @@ kava_utility void kava_parse_function_args(const char *name, int *func_argc,
         i++;
     }
 
-    for (i = 0; i < *func_argc; i++) {
-        DEBUG_PRINT("function arg#%d it is %sa handle\n", i, func_arg_is_handle[i]?"":"not ");
-    }
+    //for (i = 0; i < *func_argc; i++) {
+    //    DEBUG_PRINT("function arg#%d it is %sa handle\n", i, func_arg_is_handle[i]?"":"not ");
+    //}
 }
 
 kava_utility size_t cuLaunchKernel_extra_size(void **extra) {

@@ -90,9 +90,9 @@ kava_utility void kava_parse_function_args(const char *name, int *func_argc,
         i++;
     }
 
-    for (i = 0; i < *func_argc; i++) {
-        DEBUG_PRINT("function arg#%d it is %sa handle\n", i, func_arg_is_handle[i]?"":"not ");
-    }
+    //for (i = 0; i < *func_argc; i++) {
+    //    DEBUG_PRINT("function arg#%d it is %sa handle\n", i, func_arg_is_handle[i]?"":"not ");
+    //}
 }
 
 kava_utility size_t cuLaunchKernel_extra_size(void **extra) {
@@ -102,12 +102,15 @@ kava_utility size_t cuLaunchKernel_extra_size(void **extra) {
     return size;
 }
 
+#define BREAKDOWNT 0
+
 inline void print_timestamp(const char *name) {
+    #if BREAKDOWNT
     struct timespec ts;
     getnstimeofday(&ts);
     //pr_info("Timestamp at %s: sec=%lu, usec=%lu\n", name, ts.tv_sec, ts.tv_nsec / 1000);
-
     pr_info("Timestamp at %s: %lu \n", name, ts.tv_sec*1000000 + ts.tv_nsec / 1000);
+    #endif
 }
 #undef ava_utility
 #undef ava_begin_utility

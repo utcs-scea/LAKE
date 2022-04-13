@@ -17,6 +17,10 @@
 #include "../klib/cuda/cuda_kava.h"
 #include "cuda_kava_utilities.h"
 
+
+#define TBREAKDOWN 0
+
+
 static struct kava_endpoint __kava_endpoint;
 
 typedef struct {
@@ -1070,8 +1074,10 @@ void __handle_command_cuda(struct kava_chan* __chan,
 
         case CALL_CUDA___CU_LAUNCH_KERNEL:
         {
+            #if TBREAKDOWN == 0
             struct timespec start, stop, p1, p2, p3;
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+            #endif 
 
             GPtrArray *__kava_alloc_list_cuLaunchKernel =
                 g_ptr_array_new_full(0, (GDestroyNotify)kava_buffer_with_deallocator_free);
@@ -1194,7 +1200,10 @@ void __handle_command_cuda(struct kava_chan* __chan,
             }
 
             /* Input: void ** kernelParams */
+            #if TBREAKDOWN == 0
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &p1);
+            #endif
+
             void **kernelParams;
             {
                 kernelParams = ((__call->kernelParams) != (NULL)) ?
@@ -1274,7 +1283,10 @@ void __handle_command_cuda(struct kava_chan* __chan,
                     }
                 }
             }
+
+            #if TBREAKDOWN == 0
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &p2);
+            #endif
 
             /* Perform Call */
             CUresult ret;
@@ -1282,9 +1294,12 @@ void __handle_command_cuda(struct kava_chan* __chan,
                                            blockDimX, blockDimY, blockDimZ,
                                            sharedMemBytes, hStream,
                                            extra, kernelParams);
-            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &p3);
-            size_t __total_buffer_size = 0;
 
+            #if TBREAKDOWN == 0
+            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &p3);
+            #endif
+
+            size_t __total_buffer_size = 0;
 
             struct cu_cu_launch_kernel_ret *__ret =
                 (struct cu_cu_launch_kernel_ret *)__chan->cmd_new(__chan,
@@ -1303,18 +1318,19 @@ void __handle_command_cuda(struct kava_chan* __chan,
             __chan->cmd_send(__chan, (struct kava_cmd_base *)__ret);
             g_ptr_array_unref(__kava_alloc_list_cuLaunchKernel);     /* Deallocate all memory in the alloc list */
 
-            clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
-            double result = (stop.tv_sec - start.tv_sec) * 1e6 + (stop.tv_nsec - start.tv_nsec) / 1e3;  
-            double rp = (p2.tv_sec - p1.tv_sec) * 1e6 + (p2.tv_nsec - p1.tv_nsec) / 1e3;  
-            double ae = (p1.tv_sec - start.tv_sec) * 1e6 + (p1.tv_nsec - start.tv_nsec) / 1e3;  
-            double after = (stop.tv_sec - p3.tv_sec) * 1e6 + (stop.tv_nsec - p3.tv_nsec) / 1e3;  
-            double kl = (p3.tv_sec - p2.tv_sec) * 1e6 + (p3.tv_nsec - p2.tv_nsec) / 1e3;
-            
-            printf("kernel args      : %f\n", rp);
-            printf("array+extra      : %f\n", ae);
-            printf("wrap_kernel      : %f\n", kl);
-            printf("ret+sendmsg      : %f\n", after);
-            printf("_CU_LAUNCH_KERNEL: %f\n", result);
+            #if TBREAKDOWN == 0
+                clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
+                double result = (stop.tv_sec - start.tv_sec) * 1e6 + (stop.tv_nsec - start.tv_nsec) / 1e3;  
+                double rp = (p2.tv_sec - p1.tv_sec) * 1e6 + (p2.tv_nsec - p1.tv_nsec) / 1e3;  
+                double ae = (p1.tv_sec - start.tv_sec) * 1e6 + (p1.tv_nsec - start.tv_nsec) / 1e3;  
+                double after = (stop.tv_sec - p3.tv_sec) * 1e6 + (stop.tv_nsec - p3.tv_nsec) / 1e3;  
+                double kl = (p3.tv_sec - p2.tv_sec) * 1e6 + (p3.tv_nsec - p2.tv_nsec) / 1e3;
+                printf("kernel args      : %f\n", rp);
+                printf("array+extra      : %f\n", ae);
+                printf("wrap_kernel      : %f\n", kl);
+                printf("ret+sendmsg      : %f\n", after);
+                printf("_CU_LAUNCH_KERNEL: %f\n", result);
+            #endif
 
             break;
         }
@@ -1594,8 +1610,11 @@ void __handle_command_cuda(struct kava_chan* __chan,
 
         case CALL_CUDA___CU_CTX_SYNCHRONIZE:
         {
+            #if TBREAKDOWN == 0
             struct timespec start, stop;
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
+            #endif
+
             GPtrArray *__kava_alloc_list_cuCtxSynchronize =
                 g_ptr_array_new_full(0, (GDestroyNotify)kava_buffer_with_deallocator_free);
             struct cu_cu_ctx_synchronize_call *__call = (struct cu_cu_ctx_synchronize_call *)__cmd;
@@ -1629,10 +1648,12 @@ void __handle_command_cuda(struct kava_chan* __chan,
             __chan->cmd_send(__chan, (struct kava_cmd_base *)__ret);
             g_ptr_array_unref(__kava_alloc_list_cuCtxSynchronize);   /* Deallocate all memory in the alloc list */
 
+            #if TBREAKDOWN == 0
             clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
             double result = (stop.tv_sec - start.tv_sec) * 1e6 + (stop.tv_nsec - start.tv_nsec) / 1e3;  
             printf("CALL_CUDA___CU_CTX_SYNCHRONIZE: %f\n", result);
-
+            #endif
+            
             break;
         }
 

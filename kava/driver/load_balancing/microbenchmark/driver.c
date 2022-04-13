@@ -82,9 +82,7 @@ static int run_gpu(void) {
             //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
             gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
             c_start = ktime_get_ns();
-            PRINT(V_INFO, ">>>>>>>>> kernel launching\n");
             gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
-            PRINT(V_INFO, "<<<<<<<<<\n");
             c_stop = ktime_get_ns();
             gpu_get_result(batch_size);
             t_stop = ktime_get_ns();

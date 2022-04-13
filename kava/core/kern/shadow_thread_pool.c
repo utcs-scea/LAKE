@@ -13,11 +13,15 @@
 
 #include <linux/time.h>
 
+#define COREBREAKDOWNT 0
+
 inline void coreprint_timestamp(const char *name) {
+    #if COREBREAKDOWNT
     struct timespec ts;
     getnstimeofday(&ts);
     //pr_info("Timestamp at %s: sec=%lu, usec=%lu\n", name, ts.tv_sec, ts.tv_nsec / 1000);
     pr_info("Timestamp at %s: %lu \n", name, ts.tv_sec*1000000 + ts.tv_nsec / 1000);
+    #endif
 }
 
 struct shadow_thread_t;
