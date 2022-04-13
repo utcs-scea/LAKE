@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     /*
      *  CPU timing
      */
-    int cpu_sizes[] = {64, 128, 256, 512};
+    int cpu_sizes[] = {8, 16, 32, 64, 128, 256, 512};
 
     for (int &N_INPUTS_BATCH : cpu_sizes) {
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -52,27 +52,28 @@ int main(int argc, char** argv)
     uint32_t gpu_all_total(0);
     for (int j = 0 ; j < n ; j++) {
         std::chrono::steady_clock::time_point begin_gpu_all = std::chrono::steady_clock::now();
-        copy_inputs_naive();
+        copy_inputs_batch(1);
         std::chrono::steady_clock::time_point begin_gpu = std::chrono::steady_clock::now();
-        infer_naive();
+        infer_batch(1);
         std::chrono::steady_clock::time_point end_gpu = std::chrono::steady_clock::now();
-        get_result_naive();
+        get_result_batch(1);
         std::chrono::steady_clock::time_point end_gpu_all = std::chrono::steady_clock::now();
 
-        gpu_all_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu_all - begin_gpu_all).count();
-        gpu_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu - begin_gpu).count();
+        gpu_all_total += std::chrono::duration_cast<std::chrono::microseconds>(end_gpu_all - begin_gpu_all).count();
+        gpu_total += std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - begin_gpu).count();
     }
-    std::cout << "GPU time for " << n << " sequential inferences: " << gpu_total << "ns. Average per inference:" << gpu_total/n << "ns." << std::endl;
-    clean_naive();
-    csv << "GPU naive" << "," << gpu_total << "," << gpu_total/n << "," << gpu_all_total << "," << gpu_all_total/n << std::endl;
 
+    std::cout << "GPU time for " << n << " sequential inferences: " << gpu_total << "us. Average per inference:" << gpu_total/n << "us." << std::endl;
+    clean_batch();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));    
+    csv << "GPU naive" << "," << gpu_total << "," <<  gpu_all_total << std::endl;
 
 
     /*
      *  GPU batched timing
      */
 
-    int batch_sizes[] = {32, 64, 128, 256, 512};
+    int batch_sizes[] = {8, 16, 32, 64, 128, 256, 512};
     for (int &N_INPUTS_BATCH : batch_sizes) {
         setup_batch(N_INPUTS_BATCH);
         uint32_t gpubatch_total(0);
