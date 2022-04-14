@@ -59,8 +59,8 @@ int main(int argc, char** argv)
         get_result_batch(1);
         std::chrono::steady_clock::time_point end_gpu_all = std::chrono::steady_clock::now();
 
-        gpu_all_total += std::chrono::duration_cast<std::chrono::microseconds>(end_gpu_all - begin_gpu_all).count();
-        gpu_total += std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - begin_gpu).count();
+        gpu_all_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu_all - begin_gpu_all).count();
+        gpu_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu - begin_gpu).count();
     }
 
     std::cout << "GPU time for " << n << " sequential inferences: " << gpu_total << "us. Average per inference:" << gpu_total/n << "us." << std::endl;
@@ -98,8 +98,8 @@ int main(int argc, char** argv)
             get_result_batch(N_INPUTS_BATCH);
             std::chrono::steady_clock::time_point end_gpu_all = std::chrono::steady_clock::now();
 
-            gpubatch_total += std::chrono::duration_cast<std::chrono::microseconds>(end_gpu - begin_gpu).count();
-            gpubatch_all_total += std::chrono::duration_cast<std::chrono::microseconds>(end_gpu_all - begin_gpu_all).count();
+            gpubatch_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu - begin_gpu).count();
+            gpubatch_all_total += std::chrono::duration_cast<std::chrono::nanoseconds>(end_gpu_all - begin_gpu_all).count();
 
             std::this_thread::sleep_for(std::chrono::milliseconds(20)); 
         }
@@ -107,7 +107,7 @@ int main(int argc, char** argv)
 
         //std::cout << "Batched GPU time for " << n << " inferences (batch size " << N_INPUTS_BATCH << "): " << gpubatch_total << "us. Average per inference:" << gpubatch_total/n << "us." << std::endl;
         //std::cout << "Including data trausfers: " << gpubatch_all_total << "us. Average per inference:" << gpubatch_all_total/n << "us." << std::endl;
-        std::cout << "Avg OUTSIDE time for " << N_INPUTS_BATCH << " inferences: " << std::chrono::duration_cast<std::chrono::microseconds>(end_out - begin_out).count()/RUNS << " us\n";
+        std::cout << "Avg OUTSIDE time for " << N_INPUTS_BATCH << " inferences: " << std::chrono::duration_cast<std::chrono::nanoseconds>(end_out - begin_out).count()/RUNS << " us\n";
         
         csv << "GPU batch" << N_INPUTS_BATCH << "," << gpubatch_total/RUNS << "," <<  gpubatch_all_total/RUNS << std::endl; 
         clean_batch();
