@@ -46,7 +46,7 @@ int main(int argc, char** argv)
      *  GPU naive timing
      */
 
-    setup_naive();
+    setup_batch(1);
 
     uint32_t gpu_total(0);
     uint32_t gpu_all_total(0);

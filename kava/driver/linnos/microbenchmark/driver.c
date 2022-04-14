@@ -110,7 +110,7 @@ static int run_gpu(void) {
     int i, j;
     int RUNS;
     int batch_sizes[] = {8, 16, 32, 64, 128, 256, 512};
-    int n_batches = 4;
+    int n_batches = 7;
     const int n = 1024;
     
     int batch_size;
