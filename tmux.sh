@@ -1,6 +1,9 @@
 #!/bin/sh
 
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+#SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+
+SCRIPT=`realpath $0`
+SCRIPT_DIR=`dirname $SCRIPT`
 
 tmux new-session -d -c ${SCRIPT_DIR}/kava/scripts
 tmux split-window -h -c ${SCRIPT_DIR}/kava/driver -l 60
