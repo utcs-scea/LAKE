@@ -1,6 +1,10 @@
 # HAK
 
 
+task kavad:15916 blocked for more than 120 seconds.
+[10996.862116]       Tainted: P           OE     4.19.237 #2
+[10996.862189] "echo 0 > /proc/sys/kernel/hung_task_timeout_secs" disables this message.
+
 
 
 # To play with mllb training, which uses tensorflow and python
@@ -35,3 +39,5 @@ First there is some prep to do (replace 2 with the number in the input file)
 then
 `python keras_lb.py -o model2 -t`.
 Add `-g` to use a GPU.
+
+

@@ -27,9 +27,9 @@ static int run_gpu(void) {
     int i, j;
     int RUNS;
     //these are changeable
-    int batch_sizes[] = {512};
-    //int batch_sizes[] = {64, 128, 256, 512};
-    int n_batches = 1;
+    //int batch_sizes[] = {512};
+    int batch_sizes[] = {64, 128, 256, 512};
+    int n_batches = 4;
     const int n = 512;
     
     int batch_size;
