@@ -128,11 +128,11 @@ int shadow_thread_handle_single_cmd(struct kava_shadow_thread_pool_t *pool,
 
     BUG_ON(t == NULL);
 
-    coreprint_timestamp("down");
+    // coreprint_timestamp("down");
     down(&t->queue_empty_sem);
     kfifo_out_spinlocked(&t->queue, &scmd, 1, &t->queue_spinlock);
     up(&t->queue_full_sem);
-    coreprint_timestamp("up");
+    // coreprint_timestamp("up");
 
     chan = scmd->chan;
     cmd = scmd->cmd;
@@ -148,9 +148,9 @@ int shadow_thread_handle_single_cmd(struct kava_shadow_thread_pool_t *pool,
 
     // TODO: checks MSG_SHUTDOWN messages/channel close from the other side.
 
-    coreprint_timestamp("> kava_handle_cmd_and_notify");
+    // coreprint_timestamp("> kava_handle_cmd_and_notify");
     kava_handle_cmd_and_notify(chan, cmd);
-    coreprint_timestamp("< kava_handle_cmd_and_notify>");
+    // coreprint_timestamp("< kava_handle_cmd_and_notify>");
     return 0;
 }
 
