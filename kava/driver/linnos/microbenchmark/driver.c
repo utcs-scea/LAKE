@@ -109,8 +109,8 @@ void clean_batch(void) {
 static int run_gpu(void) {
     int i, j;
     int RUNS;
-    int batch_sizes[] = {8, 16, 32, 64, 128, 256, 512};
-    int n_batches = 7;
+    int batch_sizes[] = {1, 2,4, 8, 16, 32, 64, 128, 256, 512};
+    int n_batches = 10;
     const int n = 1024;
     
     int batch_size;

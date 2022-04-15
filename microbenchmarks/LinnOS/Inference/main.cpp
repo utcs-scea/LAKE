@@ -26,7 +26,7 @@ int main(int argc, char** argv)
     /*
      *  CPU timing
      */
-    int cpu_sizes[] = {8, 16, 32, 64, 128, 256, 512};
+    int cpu_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
 
     for (int &N_INPUTS_BATCH : cpu_sizes) {
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
