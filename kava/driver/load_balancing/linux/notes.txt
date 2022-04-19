@@ -46,6 +46,10 @@
 
 # DATASOURCE.py
 
+src_cpu = event.src_cpu
+dst_cpu = event.dst_cpu
+src_nid = cpu_nodemap[src_cpu]
+dst_nid = cpu_nodemap[dst_cpu]
 row['curr_pid'] = event.curr_pid
 row['pid'] = event.pid
 row['src_cpu'] = src_cpu
@@ -95,6 +99,67 @@ row['pc_1'] = event.perf_count_1
     df.dst_load = df.dst_load / 1000
     df.delta_faults = df.delta_faults / df.total_faults.mask(df.total_faults.eq(0), 1)
 
+# List features in kernel code
+
+src_non_pref_nr
+    src_rq->nr_running > src_rq->nr_preferred_running ? 1 : 0
+
+delta_hot
+    (rq_clock_task(env->src_rq) - p->se.exec_start) < 500000 ? 1 : 0
+
+cpu_idle
+    idle == CPU_IDLE;
+
+cpu_not_idle
+    idle == CPU_NOT_IDLE
+
+cpu_newly_idle
+    idle == CPU_NEWLY_IDLE
+
+same_node
+    src_cpu = event.src_cpu
+    dst_cpu = event.dst_cpu
+    src_nid = cpu_nodemap[src_cpu]
+    dst_nid = cpu_nodemap[dst_cpu]
+    src_nid == dst_nid ? 1 : 0
+
+prefer_src
+    p->numa_preferred_nid == src_nid ? 1 : 0
+
+prefer_dst
+    p->numa_preferred_nid == dst_nid ? 1 : 0
+
+src_len
+    src_rq->nr_running;
+
+src_load
+    src_rq->cfs.avg.load_avg / 1000
+
+dst_load
+    dst_rq->cfs.avg.load_avg; / 1000
+
+dst_len
+    dst_rq->nr_running;
+
+delta_faults
+    for (n = 0; n < NR_NODES; n++) {
+        data.p_numa_faults[n] = task_faults(p, n);
+    }
+    src_faults = event.p_numa_faults[src_nid]
+    dst_faults = event.p_numa_faults[dst_nid]
+    delta_faults = (dst_faults - src_faults) / p->total_numa_faults == 0 ? 1 : p->total_numa_faults
+
+extra_fails
+    env->sd->nr_balance_failed > env->sd->cache_nice_tries ? 1 : 0
+
+buddy_hot
+    if (dst_rq->nr_running && (&p->se == cfs_rq_of(&p->se)->next || &p->se == cfs_rq_of(&p->se)->last))
+        data.buddy_hot = 1;
+    else
+        data.buddy_hot = 0;
+
+
+
 
 # List raw
 
@@ -138,21 +203,21 @@ total_faults
 delta_faults
 imbalance
 delta
-cpu_idle         
-cpu_not_idle     
-cpu_newly_idle   
-src_len          
-src_numa_len     
+cpu_idle
+cpu_not_idle
+cpu_newly_idle
+src_len
+src_numa_len
 src_preferred_len
-dst_len          
-src_load         
-dst_load         
-nr_fails         
-cache_nice_tries 
-buddy_hot        
-p_running        
-throttled        
-can_migrate      
+dst_len
+src_load
+dst_load
+nr_fails
+cache_nice_tries
+buddy_hot
+p_running
+throttled
+can_migrate
 test_aggressive
 pc_0
 pc_1
@@ -171,18 +236,18 @@ delta_faults
 
 # List features
 
-src_non_pref_nr,    
-delta_hot,      
-cpu_idle,       
-cpu_not_idle,   
+src_non_pref_nr,
+delta_hot,
+cpu_idle,
+cpu_not_idle,
 cpu_newly_idle,
-same_node,          
-prefer_src,     
-prefer_dst,     
-src_len,        
+same_node,
+prefer_src,
+prefer_dst,
+src_len,
 src_load,
-dst_load,           
-dst_len,        
-delta_faults,   
-extra_fails,    
+dst_load,
+dst_len,
+delta_faults,
+extra_fails,
 buddy_hot
