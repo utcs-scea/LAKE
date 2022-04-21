@@ -47,7 +47,7 @@ static int forward_pass(struct matrix *input) {
     float output;
     float o1[10] = {0};
     float o2[10] = {0};
-    int ret;
+    int ret, i;
 
     struct matrix W1 = {NR_FEAT, 10, w1};
     struct matrix out1 = {1, 10, o1};
@@ -58,7 +58,12 @@ static int forward_pass(struct matrix *input) {
 
     kernel_fpu_begin();
 
-    input->values[12] = input->values[12] / input->values[15];
+    for (i=0 ; i < NR_FEAT ; i++) {
+        if (i==12) 
+            input->values[12] = input->values[12] / input->values[15];
+        else
+            input->values[i] = (float) ((int)input->values[i]);
+    }
 
     matmul(input, &W1, &out1);
     matadd(&out1, &B1, &out1);
