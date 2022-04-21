@@ -4,7 +4,7 @@
 #include <linux/ktime.h>
 #include <linux/sched.h>
 
-#include "mllb_comon.h"
+#include "mllb_common.h"
 #include "mllb_cpu.h"
 
 MODULE_AUTHOR("Henrique Fingler");
@@ -20,6 +20,21 @@ MODULE_VERSION(__stringify(1) "."
  */
 __attribute__ ((unused))
 static int run_both_rebalance(void) {
+    int i;
+    int n = 30; //how many seconds to let it run
+
+    printk(KERN_INFO  "> Registering default fn\n");
+    hack_mllb_register_fn(can_migrate_task_both_cpu);
+
+    printk(KERN_INFO  "> loopin\n");
+    for (i=0 ; i < n ; i++) {
+        msleep(1000);
+    }
+
+    printk(KERN_INFO  "> Unregistering fn\n");
+    hack_mllb_unregister_fn();
+    msleep(5);
+
     return 0;
 }
 
@@ -49,6 +64,12 @@ static int run_test_default_rebalance(void) {
 /*
  *  Test: set a test fn to be called by the balancer code
  */
+// just a test function that we can make the kernel call
+void mllb_ping(void) {
+    printk(KERN_CRIT "  ! MLLB ping!\n");
+}
+EXPORT_SYMBOL(mllb_ping);
+
 __attribute__ ((unused))
 static int run_test_register(void) {
     int i;
@@ -70,7 +91,8 @@ static int run_test_register(void) {
 }
 
 static int __init mllb_init(void) {
-    return run_test_default_rebalance();
+    return run_both_rebalance();
+    //return run_test_default_rebalance();
 	//return run_test_register();
 }
 

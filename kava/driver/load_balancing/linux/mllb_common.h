@@ -1,3 +1,8 @@
+#ifndef _MLLB_COMMON_H_
+#define _MLLB_COMMON_H_
+
+#include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/sched.h>
 
 /*
@@ -14,8 +19,4 @@ extern int can_migrate_task_linux(struct task_struct *p, struct lb_env *env);
 
 extern void hack_mllb_lb_struct_to_feature_vec(struct task_struct *p, struct lb_env *env, int* vecs);
 
-// just a test function that we can make the kernel call
-void mllb_ping(void) {
-    printk(KERN_CRIT "  ! MLLB ping!\n");
-}
-EXPORT_SYMBOL(mllb_ping);
+#endif

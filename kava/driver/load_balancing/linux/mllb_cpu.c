@@ -1,9 +1,11 @@
-#include "consts.h"
-#include <stddef.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <asm/fpu/api.h>
+#include <linux/ktime.h>
+
+#include "consts.h"
+#include "mllb_common.h"
 
 #define _ReLU(x)        (x > 0 ?  x : 0)
 #define ftox(f)         (*(unsigned *)&((float){f}))
@@ -47,7 +49,7 @@ static int forward_pass(struct matrix *input) {
     float output;
     float o1[10] = {0};
     float o2[10] = {0};
-    int ret, i;
+    int ret, i, temp;
 
     struct matrix W1 = {NR_FEAT, 10, w1};
     struct matrix out1 = {1, 10, o1};
@@ -58,11 +60,15 @@ static int forward_pass(struct matrix *input) {
 
     kernel_fpu_begin();
 
-    for (i=0 ; i < NR_FEAT ; i++) {
+    //printk("feats [%d]: ", NR_FEAT);
+    for (i = 0 ; i < NR_FEAT ; i++) {
         if (i==12) 
             input->values[12] = input->values[12] / input->values[15];
-        else
-            input->values[i] = (float) ((int)input->values[i]);
+        else {
+            temp = *((int*)&(input->values[i]));
+            input->values[i] = (float) temp;
+        }
+        //printk("%08x, ", ftox(input->values[i]));
     }
 
     matmul(input, &W1, &out1);
@@ -71,7 +77,7 @@ static int forward_pass(struct matrix *input) {
     matmul(&out1, &W2, &out2);
     matadd(&out2, &B2, &out2);
     output = out2.values[0];
-    printk("forward_pass output: %08x", ftox(output));
+    //printk("forward_pass output: %08x", ftox(output));
     ret = output > 0.5 ? 1 : 0;
 
     kernel_fpu_end();
@@ -92,3 +98,41 @@ int can_migrate_task_mllb_cpu(struct task_struct *p, struct lb_env *env) {
     return forward_pass(&m);
 }
 EXPORT_SYMBOL(can_migrate_task_mllb_cpu);
+
+static int count = 0;
+static int print_at = 200;
+u64 mllb_sum, linux_sum;
+
+int can_migrate_task_both_cpu(struct task_struct *p, struct lb_env *env) {
+    u64 mllb_st, mllb_end, linux_st, linux_end;
+    int ret, linux_ret;
+    //plus one because we get an extra value from the kernel and need to do one float op
+    float input[NR_FEAT+1];
+    struct matrix m;
+    mllb_st = ktime_get_ns();
+    m.nrow = 1;
+    m.ncol = NR_FEAT;
+    m.values = input;
+    hack_mllb_lb_struct_to_feature_vec(p, env, (int*)input);
+    ret = forward_pass(&m);
+    mllb_end = ktime_get_ns();
+
+    linux_st = ktime_get_ns();
+    linux_ret = can_migrate_task_linux(p, env);
+    linux_end = ktime_get_ns();
+    
+    mllb_sum = mllb_end - mllb_st;
+    linux_sum = linux_end - linux_st;
+
+    if (++count == print_at) {
+        count = 0;
+        printk("linux avg, mllb_avg\n");
+        printk("%lld, %lld\n", linux_sum/print_at, mllb_sum/print_at);
+    }
+
+    printk("returns: linux=%d  mllb=%d\n", linux_ret, ret);
+
+    return linux_ret;
+}
+
+EXPORT_SYMBOL(can_migrate_task_both_cpu);
