@@ -6,8 +6,10 @@ ifneq ($(KERNELRELEASE),)
 
 ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O0
 
+CFLAGS_mllb_cpu.o := -O0 -mhard-float
+
 obj-m += hack_mllb.o
-hack_mllb-objs := driver.o mllb_helper.o
+hack_mllb-objs := driver.o consts.o mllb_cpu.o
 
 else
 
