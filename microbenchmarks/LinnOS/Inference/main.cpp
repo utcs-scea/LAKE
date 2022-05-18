@@ -19,19 +19,23 @@ int main(int argc, char** argv)
     long input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
 
     for (int j = 0 ; j < 1 ; j++) {
-            bool res = prediction_cpu(&input[0]);
+            long input_copy[31];
+            memcpy (input_copy, input, sizeof(input));
+            bool res = prediction_cpu(&input_copy[0]);
         }
 
 
     /*
      *  CPU timing
      */
-    int cpu_sizes[] = {8, 16, 32, 64, 128, 256, 512};
+    int cpu_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
 
     for (int &N_INPUTS_BATCH : cpu_sizes) {
         std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
         for (int j = 0 ; j < N_INPUTS_BATCH ; j++) {
-            bool res = prediction_cpu(&input[0]);
+	    long input_copy[31];
+            memcpy (input_copy, input, sizeof(input));
+            bool res = prediction_cpu(&input_copy[0]);
         }
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         auto total_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
