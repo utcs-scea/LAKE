@@ -19,6 +19,10 @@ static char *cubin_path = "mllb.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to mllb.cubin, default ./mllb.cubin");
 
+static inline void check_malloc(void *p, const char* error_str, int line) {
+	if (p == NULL) printk(KERN_ERR "ERROR: Failed to allocate %s (line %d)\n", error_str, line);
+}
+
 static int run_cpu(void) {
     return 0;
 }
@@ -49,7 +53,7 @@ static int run_gpu(void) {
     CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
 
     //linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
-    float* linear_inputs = kava_alloc(NR_FEAT*n);
+    linear_inputs = kava_alloc(NR_FEAT*max_batch);
     check_malloc(linear_inputs, "check_malloc", __LINE__);
 
     //init cuda context
