@@ -25,13 +25,15 @@ static int run_cpu(void) {
 
 static int run_gpu(void) {
     int i, j;
-    int RUNS;
     //these are changeable
     //int batch_sizes[] = {512};
-    int batch_sizes[] = {64, 128, 256, 512};
-    int n_batches = 4;
-    const int n = 512;
+    int batch_sizes[] = {1,2,4,8,16,32,64, 128, 256, 512,1024};
+    int n_batches = 11;
+    const int max_batch = 1024;
     
+    //int WARMUP_RUNS = 2;
+    int RUNS = 10;
+
     int batch_size;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
     int rand_counter = 0;
@@ -46,13 +48,15 @@ static int run_gpu(void) {
     CUfunction batch_mllb_kernel;
     CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
 
-    linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
+    //linear_inputs = (int*) kmalloc(NR_FEAT*n*sizeof(float), GFP_KERNEL);
+    float* linear_inputs = kava_alloc(NR_FEAT*n);
+    check_malloc(linear_inputs, "check_malloc", __LINE__);
 
     //init cuda context
     gpu_init(0, &cuContext);
 
     //initialize a linear matrix with fake inputs
-    for (j = 0 ; j < n ; j++) {
+    for (j = 0 ; j < max_batch ; j++) {
         for (i = 0; i < NR_FEAT; i++) {
             linear_inputs[j*NR_FEAT + i] = rand_floats_as_int[rand_counter];
             rand_counter++;
@@ -61,7 +65,6 @@ static int run_gpu(void) {
     }
 
     gpu_get_cufunc(cubin_path, "_Z13mllb_infer_v2PfS_S_S_fS_", &batch_mllb_kernel);
-    RUNS = 4;
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
 
@@ -70,7 +73,6 @@ static int run_gpu(void) {
         gpu_setup(batch_size, &d_inputs, &d_w1, &d_b1, &d_w2, &d_results);
 
         //warmup
-        //usleep_range(1000, 2000);
         gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
         gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
         usleep_range(1000, 2000);
@@ -79,7 +81,6 @@ static int run_gpu(void) {
         for (j = 0 ; j < RUNS ; j++) {
             //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
             t_start = ktime_get_ns();
-            //gpu_setup_inputs(d_inputs, linear_inputs+j*batch_size, batch_size);
             gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
             c_start = ktime_get_ns();
             gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
@@ -89,9 +90,9 @@ static int run_gpu(void) {
 
             comp_run_times[j] = (c_stop - c_start);
             total_run_times[j] = (t_stop - t_start);
+            usleep_range(250, 1000);
         }
 
-        usleep_range(1000, 2000);
         avg = 0; avg_total = 0;
         best = 0; best_total = 0;
         for (j = 0 ; j < RUNS ; j++) {
