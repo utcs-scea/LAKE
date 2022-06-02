@@ -10,6 +10,8 @@
 #include "helpers.h"
 #include "xxhash.h"
 
+#define USE_V2 0
+
 const char *xxhash_function_name_v2 = "_Z7XXH32v2PviPjS0_jS0_";
 const char *xxhash_function_name_v1 = "_Z5XXH32PvPj";
 
@@ -50,7 +52,10 @@ int ksm_gpu_init(void) {
 	check_error(cuCtxCreate(&ctx.context, 0, ctx.device), "cuCtxCreate");
 	check_error(cuModuleLoad(&ctx.module, xxhash_cubin_path), "cuModuleLoad");
 	printk("[kava_ksm] Loaded xxhash cubin\n");
-	check_error(cuModuleGetFunction(&ctx.checksum_fn, ctx.module, xxhash_function_name_v2), "cuModuleGetFunction");
+	if(USE_V2)
+		check_error(cuModuleGetFunction(&ctx.checksum_fn, ctx.module, xxhash_function_name_v2), "cuModuleGetFunction");
+	else
+		check_error(cuModuleGetFunction(&ctx.checksum_fn, ctx.module, xxhash_function_name_v1), "cuModuleGetFunction");
 	printk("[kava_ksm] loaded checksum function\n");
 
 	check_error(cuMemAlloc(&d_seeds, sizeof(uint32_t) * 4), "cuMemAlloc d_seeds");
@@ -80,12 +85,25 @@ void ksm_gpu_setup_inputs(char* kpages, uint32_t npages) {
 }
 
 void ksm_gpu_run(uint32_t npages) {
-	int threads = 128;
-	uint32_t seed = 17;
-	int blocks = npages*4 / 128;
-	if (blocks == 0) blocks = 1;
-	void *args[] = { &d_page_buf, &npages, &d_checksum_buf, &d_workspace, &seed, &d_seeds };
-	cuLaunchKernel(ctx.checksum_fn, blocks, 1, 1, threads, 1, 1, 0, NULL, args, NULL);
+	if(USE_V2) {
+		int threads = 128;
+		uint32_t seed = 17;
+		int blocks = npages*4 / 128;
+		if (blocks == 0) blocks = 1;
+		void *args[] = { &d_page_buf, &npages, &d_checksum_buf, &d_workspace, &seed, &d_seeds };
+		cuLaunchKernel(ctx.checksum_fn, blocks, 1, 1, threads, 1, 1, 0, NULL, args, NULL);
+	} else {
+		int threads, blocks;
+		if (npages <= 128) {
+			threads = npages;
+			blocks = 1;
+		} else {
+			threads = 128;
+			blocks = npages / 128;
+		}
+		void *args[] = { &d_page_buf, &d_checksum_buf };
+		cuLaunchKernel(ctx.checksum_fn, blocks, 1, 1, threads, 1, 1, 0, NULL, args, NULL);
+	}
 }
 
 #define USE_KSHM 1
