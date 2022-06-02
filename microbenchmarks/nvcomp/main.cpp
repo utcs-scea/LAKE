@@ -18,7 +18,7 @@ uint32_t PAGE_SIZE = 4096;
 // manually set these numbers
 /********************************************/
 int max_batch = 2048;
-int batch_sizes[] = {4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048};
+int batch_sizes[] = {1,2,4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048};
 uint64_t page_bytes = max_batch*PAGE_SIZE;
 int nrounds = 2;
 int nwarm = 1;
@@ -225,6 +225,8 @@ struct gpu_compress_ops gdeflate_ops = {
 void compress_gpu(struct gpu_compress_ops& ops, char* pages, std::stringstream& csv) {
  
     csv << "GPU_" << ops.name;
+    std::stringstream total_time_csv;
+    total_time_csv << "GPU+data_" << ops.name;
 
     char* d_pages;
     cudaMalloc((void**)&d_pages, page_bytes);
@@ -244,8 +246,8 @@ void compress_gpu(struct gpu_compress_ops& ops, char* pages, std::stringstream& 
         size_t* d_uncompressed_bytes;
         cudaMalloc((void**)&d_uncompressed_ptrs,  batch_size*sizeof(void*));
         cudaMalloc((void**)&d_uncompressed_bytes, batch_size*sizeof(size_t));
-        cudaMemcpy(d_uncompressed_ptrs,  host_uncompressed_ptrs,  batch_size*sizeof(void*),  cudaMemcpyHostToDevice);
-        cudaMemcpy(d_uncompressed_bytes, host_uncompressed_bytes, batch_size*sizeof(size_t), cudaMemcpyHostToDevice);
+        //cudaMemcpy(d_uncompressed_ptrs,  host_uncompressed_ptrs,  batch_size*sizeof(void*),  cudaMemcpyHostToDevice);
+        //cudaMemcpy(d_uncompressed_bytes, host_uncompressed_bytes, batch_size*sizeof(size_t), cudaMemcpyHostToDevice);
 
         //get temp size
         size_t temp_bytes;
@@ -265,8 +267,8 @@ void compress_gpu(struct gpu_compress_ops& ops, char* pages, std::stringstream& 
 
         void** d_compressed_ptrs;
         cudaMalloc((void**)&d_compressed_ptrs, sizeof(size_t) * batch_size);
-        cudaMemcpy(d_compressed_ptrs, host_compressed_ptrs, 
-            sizeof(size_t) * batch_size,cudaMemcpyHostToDevice);
+        //cudaMemcpy(d_compressed_ptrs, host_compressed_ptrs, 
+        //    sizeof(size_t) * batch_size,cudaMemcpyHostToDevice);
 
         size_t* d_compressed_bytes;
         cudaMalloc((void**)&d_compressed_bytes, sizeof(size_t) * batch_size);
@@ -277,8 +279,15 @@ void compress_gpu(struct gpu_compress_ops& ops, char* pages, std::stringstream& 
         std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
 
         uint64_t time_sum = 0;
+        uint64_t ctime_sum = 0;
         for (int i = 0 ; i < nrounds+nwarm ; i++) {
             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+
+            cudaMemcpy(d_uncompressed_ptrs,  host_uncompressed_ptrs,  batch_size*sizeof(void*),  cudaMemcpyHostToDevice);
+            cudaMemcpy(d_uncompressed_bytes, host_uncompressed_bytes, batch_size*sizeof(size_t), cudaMemcpyHostToDevice);
+            cudaMemcpy(d_compressed_ptrs, host_compressed_ptrs, sizeof(size_t) * batch_size,cudaMemcpyHostToDevice);
+
+            std::chrono::steady_clock::time_point cbegin = std::chrono::steady_clock::now();
 
             nvcompStatus_t comp_res = ops.compress_async(  
                 d_uncompressed_ptrs,    
@@ -299,10 +308,11 @@ void compress_gpu(struct gpu_compress_ops& ops, char* pages, std::stringstream& 
 
             std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
             auto total_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-
+            auto comp_time = std::chrono::duration_cast<std::chrono::microseconds>(end - cbegin).count();
             // only record non-warmups
             if (i >= nwarm) {
                 time_sum += total_time;
+                ctime_sum += comp_time;
             }
 
             std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
@@ -331,7 +341,8 @@ void compress_gpu(struct gpu_compress_ops& ops, char* pages, std::stringstream& 
         }
 
         std::cout << "Avg GPU time for " << batch_size << " on " << ops.name <<  ": " << time_sum/nrounds << std::endl;
-        csv << "," <<  time_sum/nrounds;
+        csv << "," << ctime_sum/nrounds;
+        total_time_csv << "," << time_sum/nrounds;
 
         cudaFree(d_uncompressed_ptrs);
         cudaFree(d_uncompressed_bytes);
@@ -342,6 +353,8 @@ void compress_gpu(struct gpu_compress_ops& ops, char* pages, std::stringstream& 
     }
 
     cudaFree(d_pages);
+    csv << std::endl;
+    csv << total_time_csv.str();
     csv << std::endl;
 }
 
@@ -355,8 +368,8 @@ int main() {
 
     lz4_cpu(pages, csv);
     compress_gpu(lz4_ops, pages, csv);
-    compress_gpu(snappy_ops, pages, csv);
-    compress_gpu(gdeflate_ops, pages, csv);
+    //compress_gpu(snappy_ops, pages, csv);
+    //compress_gpu(gdeflate_ops, pages, csv);
 
     std::cout << "CSV:\n" << csv.str();
 
