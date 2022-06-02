@@ -7,7 +7,7 @@ ifneq ($(KERNELRELEASE),)
 ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O1
 
 obj-m += ksm_kern.o
-ksm_kern-objs := ksm.o
+ksm_kern-objs := ksm.o xxhash.o
 
 else
 

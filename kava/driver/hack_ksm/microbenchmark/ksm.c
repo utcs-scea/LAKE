@@ -2,19 +2,20 @@
 #include <linux/mm.h>
 #include <linux/fs.h>
 #include <linux/mman.h>
-
 #include <linux/xxhash.h>
 #include <cuda_kava.h>
 #include <linux/delay.h>
 #include <linux/ktime.h>
 
 #include "helpers.h"
+#include "xxhash.h"
 
-const char *xxhash_function_name = "_Z5XXH32PvPj";
+const char *xxhash_function_name_v2 = "_Z7XXH32v2PviPjS0_jS0_";
+const char *xxhash_function_name_v1 = "_Z5XXH32PvPj";
 
-static char *xxhash_cubin_path = "mllb.cubin";
+static char *xxhash_cubin_path = "xxhash.cubin";
 module_param(xxhash_cubin_path, charp, 0444);
-MODULE_PARM_DESC(xxhash_cubin_path, "The path to mllb.cubin, default ./mllb.cubin");
+MODULE_PARM_DESC(xxhash_cubin_path, "The path to mllb.cubin, default ./xxhash.cubin");
 
 static const uint32_t PRIME32_1 = 0x9E3779B1U;   /* 0b10011110001101110111100110110001 */
 static const uint32_t PRIME32_2 = 0x85EBCA77U;   /* 0b10000101111010111100101001110111 */
@@ -32,39 +33,12 @@ struct kava_ksm_ctx {
 };
 static struct kava_ksm_ctx ctx;
 
-// static uint32_t calc_checksum(struct page *page, int use_gpu) {
-// 	// CUDA variables
-// 	CUdeviceptr d_addr = d_single_page;
-// 	CUdeviceptr d_checksum = d_single_checksum;
-// 	uint32_t h_checksum;
-// 	uint32_t checksum;
-// 	int res;
-// 	int block_x = 1;
-// 	int grid_x = 1;
-// 	void *args[] = { &d_addr, &d_checksum };
-// 	void *addr = kmap_atomic(page);
-// 	// Only run cuda functions if kava has been properly initialized
-// 	if (use_gpu) {
-// 		// Copy to device
-// 		res = cuMemcpyHtoD(d_addr, addr, PAGE_SIZE);
-// 		// Compute hash on device
-// 		cuLaunchKernel(ctx.checksum_fn, grid_x, 1, 1, block_x, 1, 1, 0, NULL, args, NULL);
-// 		// Copy to host
-// 		cuMemcpyDtoH(&h_checksum, d_checksum, sizeof(uint32_t));
-// 		// Set checksum to GPU checksum
-// 		checksum = h_checksum;
-// 	} else {
-// 		// Calc checksum on CPU
-// 		checksum = xxh32(addr, PAGE_SIZE / 4, 17);
-// 	}
-// 	kunmap_atomic(addr);
-// 	return checksum;
-// }
-
 CUdeviceptr d_page_buf;
 CUdeviceptr d_checksum_buf;
 CUdeviceptr d_seeds;
 CUdeviceptr d_workspace;
+
+const int kmax_batch = 256;
 
 int ksm_gpu_init(void) {
 	uint32_t seeds[4];
@@ -76,7 +50,7 @@ int ksm_gpu_init(void) {
 	check_error(cuCtxCreate(&ctx.context, 0, ctx.device), "cuCtxCreate");
 	check_error(cuModuleLoad(&ctx.module, xxhash_cubin_path), "cuModuleLoad");
 	printk("[kava_ksm] Loaded xxhash cubin\n");
-	check_error(cuModuleGetFunction(&ctx.checksum_fn, ctx.module, xxhash_function_name), "cuModuleGetFunction");
+	check_error(cuModuleGetFunction(&ctx.checksum_fn, ctx.module, xxhash_function_name_v2), "cuModuleGetFunction");
 	printk("[kava_ksm] loaded checksum function\n");
 
 	check_error(cuMemAlloc(&d_seeds, sizeof(uint32_t) * 4), "cuMemAlloc d_seeds");
@@ -91,13 +65,8 @@ int ksm_gpu_init(void) {
 
 void ksm_gpu_alloc(uint32_t npages) {
 	check_error(cuMemAlloc(&d_page_buf, PAGE_SIZE * npages), "cuMemAlloc 1");
-	printk("[kava_ksm] Allocated device page buffer at: %llx\n", d_page_buf);
-
 	check_error(cuMemAlloc(&d_checksum_buf, sizeof(uint32_t) * npages), "cuMemAlloc 2");
-	printk("[kava_ksm] Allocated device hash buffer at: %llx\n", d_checksum_buf);
-
 	check_error(cuMemAlloc(&d_workspace, sizeof(uint32_t) * 4 * npages), "cuMemAlloc 3");
-	printk("[kava_ksm] Allocated device hash buffer at: %llx\n", d_checksum_buf);
 }
 
 void ksm_gpu_clean(void) {
@@ -110,24 +79,23 @@ void ksm_gpu_setup_inputs(char* kpages, uint32_t npages) {
 	check_error(cuMemcpyHtoD(d_page_buf, kpages, npages*PAGE_SIZE), "cuMemAlloc 1");
 }
 
-void ksm_gpu_run(uint32_t batch_size) {
+void ksm_gpu_run(uint32_t npages) {
 	int threads = 128;
 	uint32_t seed = 17;
-	int blocks = batch_size*4 / 128;
+	int blocks = npages*4 / 128;
 	if (blocks == 0) blocks = 1;
-
-	void *args[] = { &d_page_buf, &d_checksum_buf, &d_workspace, &seed, &d_seeds };
-
+	void *args[] = { &d_page_buf, &npages, &d_checksum_buf, &d_workspace, &seed, &d_seeds };
 	cuLaunchKernel(ctx.checksum_fn, blocks, 1, 1, threads, 1, 1, 0, NULL, args, NULL);
 }
+
+#define USE_KSHM 0
 
 static int run_gpu(void) {
 	int i, j;
     //these are changeable
-    int batch_sizes[] = {128};
-    //int batch_sizes[] = {1,2,4,8,16,32,64, 128, 256, 512,1024};
-    int n_batches = 1;
-    const int max_batch = 128;
+	int batch_sizes[] = {1,2,4,8,16,32,64,128,256,512, 1024};
+    int n_batches = 11;
+    const int max_batch = 1024;
 	int RUNS = 2;
 
     int batch_size;
@@ -142,10 +110,35 @@ static int run_gpu(void) {
 	ksm_gpu_init();
 
 	//alloc on kernel
-	h_page_buf     = (char*) kava_alloc(PAGE_SIZE * max_batch);
-	h_checksum_buf = (char*) kava_alloc(sizeof(uint32_t) * max_batch);
+	if(USE_KSHM)
+		h_page_buf  = (char*) kava_alloc(PAGE_SIZE * max_batch);
+	else
+		h_page_buf  = (char*) kmalloc(PAGE_SIZE * max_batch, GFP_KERNEL);
+	if(h_page_buf == 0) {
+		printk("h_page_buf alloc failed\n");
+		return 0;
+	}
+
+	if(USE_KSHM)
+		h_checksum_buf = (char*) kava_alloc(sizeof(uint32_t) * max_batch);
+	else
+		h_checksum_buf = (char*) kmalloc(sizeof(uint32_t) * max_batch, GFP_KERNEL);
+	if(h_checksum_buf == 0) {
+		printk("h_checksum_buf alloc failed\n");
+		return 0;
+	}
+
 	comp_run_times  = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
+	if(comp_run_times == 0) {
+		printk("comp_run_times alloc failed\n");
+		return 0;
+	}
+
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
+	if(total_run_times == 0) {
+		printk("total_run_times alloc failed\n");
+		return 0;
+	}
 
 	for (i = 0 ; i < n_batches ; i++) {
         batch_size = batch_sizes[i];
@@ -153,46 +146,118 @@ static int run_gpu(void) {
 
 		//warmup
         ksm_gpu_setup_inputs(h_page_buf, batch_size);
-		ksm_gpu_run(max_batch);
+		ksm_gpu_run(batch_size);
         usleep_range(1000, 2000);
         cuCtxSynchronize();
 
-		// for (j = 0 ; j < RUNS ; j++) {
-        //     t_start = ktime_get_ns();
-        //     ksm_gpu_setup_inputs(h_page_buf, batch_size);
-        //     c_start = ktime_get_ns();
-        //     ksm_gpu_run(batch_size);
-        //     c_stop = ktime_get_ns();
-        //     //gpu_get_result(batch_size);
-        //     t_stop = ktime_get_ns();
+		for (j = 0 ; j < RUNS ; j++) {
+            t_start = ktime_get_ns();
+            ksm_gpu_setup_inputs(h_page_buf, batch_size);
+            c_start = ktime_get_ns();
+            ksm_gpu_run(batch_size);
+            c_stop = ktime_get_ns();
+            //gpu_get_result(batch_size);
+            t_stop = ktime_get_ns();
 
-        //     comp_run_times[j] = (c_stop - c_start);
-        //     total_run_times[j] = (t_stop - t_start);
-        //     usleep_range(250, 1000);
-        // }
-
-		avg = 0; avg_total = 0;
-        for (j = 0 ; j < RUNS ; j++) {
-            avg += comp_run_times[j];
-            avg_total += total_run_times[j];
+            comp_run_times[j] = (c_stop - c_start);
+            total_run_times[j] = (t_stop - t_start);
+            usleep_range(250, 1000);
         }
-        avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
+
+		avg = 0; 
+		avg_total = 0;
+		for (j = 0 ; j < RUNS ; j++) {
+			avg_total += total_run_times[j];
+			avg       += comp_run_times[j];
+		}
+		printk("GPU_%d, %lld, %lld\n", batch_size, avg/(RUNS*1000), avg_total/(RUNS*1000));
+		ksm_gpu_clean();
+	}
+
+	if(USE_KSHM) {
+		kava_free(h_page_buf);
+		kava_free(h_checksum_buf);
+	} else {
+		kfree(h_page_buf);
+		kfree(h_checksum_buf);
+	}
 	
-		printk(V_INFO, "GPU batch_%d, %lld, %lld\n", batch_size, avg, avg_total);
-        ksm_gpu_clean();
+	kfree(comp_run_times);
+    kfree(total_run_times);
+	cuMemFree(d_seeds);
+	return 0;
+}
+
+static void ksm_cpu_run(char* buf, int npages) {
+	int i;
+	u32 checksum;
+	for (i = 0 ; i < npages ; i++) {
+		checksum = xxh32(buf+(i*PAGE_SIZE), PAGE_SIZE / 4, 17);
+	}
+}
+
+static int run_cpu(void) {
+    int i, j;
+    //these are changeable
+	int batch_sizes[] = {1,2,4,8,16,32,64,128,256,512, 1024};
+    int n_batches = 11;
+    const int max_batch = 1024;
+	int RUNS = 2;
+
+    int batch_size;
+	u64 t_start, t_stop;
+    u64* total_run_times;
+    u64 avg_total;
+
+	char* h_page_buf;
+	char* h_checksum_buf;
+
+	//alloc on kernel
+	h_page_buf     = (char*) kava_alloc(PAGE_SIZE * max_batch);
+	if(h_page_buf == 0) {
+		printk("h_page_buf alloc failed\n");
+		return 0;
+	}
+
+	h_checksum_buf = (char*) kava_alloc(sizeof(uint32_t) * max_batch);
+	if(h_checksum_buf == 0) {
+		printk("h_checksum_buf alloc failed\n");
+		return 0;
+	}
+
+    total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
+	if(total_run_times == 0) {
+		printk("total_run_times alloc failed\n");
+		return 0;
+	}
+
+	for (i = 0 ; i < n_batches ; i++) {
+        batch_size = batch_sizes[i];
+
+		//warmup
+		ksm_cpu_run(h_page_buf, batch_size);
+        usleep_range(1000, 2000);
+
+		for (j = 0 ; j < RUNS ; j++) {
+            t_start = ktime_get_ns();
+            ksm_cpu_run(h_page_buf, batch_size);
+            t_stop = ktime_get_ns();
+
+            total_run_times[j] = (t_stop - t_start);
+            usleep_range(250, 1000);
+        }
+
+		avg_total = 0;
+		for (j = 0 ; j < RUNS ; j++) {
+			avg_total += total_run_times[j];
+		}
+		printk("CPU_%d, %lld\n", batch_size, avg_total/(RUNS*1000));
 	}
 
 	kava_free(h_page_buf);
 	kava_free(h_checksum_buf);
-	kfree(comp_run_times);
     kfree(total_run_times);
-	cuMemFree(d_seeds);
-
 	return 0;
-}
-
-static int run_cpu(void) {
-    return 0;
 }
 
 /**
@@ -200,7 +265,9 @@ static int run_cpu(void) {
  */
 static int __init ksm_init(void)
 {
-	return run_gpu();
+	run_gpu();
+	run_cpu();
+	return 0;
 }
 
 static void __exit ksm_fini(void)

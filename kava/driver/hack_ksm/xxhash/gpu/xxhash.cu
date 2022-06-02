@@ -279,14 +279,9 @@ __global__ void XXH32(void *input, XXH32_hash_t *output)
 
 
 // workspace must be 4 * (# of pages) * 4 bytes
-// xxh_u32 v1 = 17 + PRIME32_1 + PRIME32_2;
-// xxh_u32 v2 = 17 + PRIME32_2;
-// xxh_u32 v3 = 17 + 0;
-// xxh_u32 v4 = 17 - PRIME32_1;
-
-__global__ void XXH32v2(void *input, XXH32_hash_t *output, uint32_t* workspace, uint32_t seed, uint32_t* seeds)
+__global__ void XXH32v2(void *input, int npages, XXH32_hash_t *output, uint32_t* workspace, uint32_t seed, uint32_t* seeds)
 {
-    size_t page_size = 4096; 
+    const size_t page_size = 4096; 
     //XXH32_hash_t seed = 17;
     int idx =
         blockIdx.x * blockDim.x + threadIdx.x +
@@ -294,36 +289,38 @@ __global__ void XXH32v2(void *input, XXH32_hash_t *output, uint32_t* workspace, 
         (blockIdx.z * blockDim.z + threadIdx.z) * gridDim.x * blockDim.x * gridDim.y * blockDim.y;
 
     int page_offset = idx / 4;
-    int word_offset = idx % 4;
-    int ws_offset = (page_offset * 4) + word_offset;
 
-    XXH_alignment align = XXH_aligned;
+    if (page_offset < npages) {
+        int word_offset = idx % 4;
+        int ws_offset = (page_offset * 4) + word_offset;
 
-    // Calculate the offset of the page to be hashed
-    char *page_addr = ((char *) input) + (page_offset * page_size);
+        XXH_alignment align = XXH_aligned;
+        // Calculate the offset of the page to be hashed
+        char *page_addr = ((char *) input) + (page_offset * page_size);
 
-    const xxh_u8* page_end = (const xxh_u8*) page_addr + page_size;
-    const xxh_u8* const limit = page_end - 15;
-    xxh_u32 v = seeds[word_offset]; 
+        const xxh_u8* page_end = (const xxh_u8*) page_addr + page_size;
+        const xxh_u8* const limit = page_end - 15;
+        xxh_u32 v = seeds[word_offset]; 
 
-    xxh_u8* thread_input = (xxh_u8*) (page_addr + (word_offset*4));
-    do {
-        v = XXH32_round(v, XXH_get32bits(thread_input)); 
-        thread_input += 4;
-    } while (thread_input < limit);
-    workspace[ws_offset] = v;
+        xxh_u8* thread_input = (xxh_u8*) (page_addr + (word_offset*4));
+        do {
+            v = XXH32_round(v, XXH_get32bits(thread_input)); 
+            thread_input += 16;
+        } while (thread_input < limit);
+        workspace[ws_offset] = v;
 
-    __syncthreads();
+        __syncthreads();
 
-    if (word_offset == 0) {
-        v = XXH_rotl32(workspace[ws_offset], 1)  + XXH_rotl32(workspace[ws_offset+1], 7)
-            + XXH_rotl32(workspace[ws_offset+2], 12) + XXH_rotl32(workspace[ws_offset+3], 18);
-        v += (xxh_u32)page_size;
-        //finalize doesnt do anything on 4k pages
-        //v = XXH32_finalize(h32, input, page_size&15, align);
-        v = XXH32_avalanche(v);
-        uint32_t *out_addr = ((uint32_t *) output) + page_offset;
-        *out_addr = XXH32_endian_align((const xxh_u8*) page_addr, page_size, seed, XXH_aligned);
-    }        
+        if (word_offset == 0) {
+            v = XXH_rotl32(workspace[ws_offset], 1)  + XXH_rotl32(workspace[ws_offset+1], 7)
+                + XXH_rotl32(workspace[ws_offset+2], 12) + XXH_rotl32(workspace[ws_offset+3], 18);
+            v += (xxh_u32)page_size;
+            //finalize doesnt do anything on 4k pages
+            //v = XXH32_finalize(h32, input, page_size&15, align);
+            v = XXH32_avalanche(v);
+            uint32_t *out_addr = ((uint32_t *) output) + page_offset;
+            *out_addr = XXH32_endian_align((const xxh_u8*) page_addr, page_size, seed, XXH_aligned);
+        }        
+    }
 }
 
