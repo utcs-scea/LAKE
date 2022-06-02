@@ -88,14 +88,14 @@ void ksm_gpu_run(uint32_t npages) {
 	cuLaunchKernel(ctx.checksum_fn, blocks, 1, 1, threads, 1, 1, 0, NULL, args, NULL);
 }
 
-#define USE_KSHM 0
+#define USE_KSHM 1
 
 static int run_gpu(void) {
 	int i, j;
     //these are changeable
 	int batch_sizes[] = {1,2,4,8,16,32,64,128,256,512, 1024};
-    int n_batches = 11;
-    const int max_batch = 1024;
+    int n_batches = 9;
+    const int max_batch = 256;
 	int RUNS = 2;
 
     int batch_size;
@@ -200,8 +200,8 @@ static int run_cpu(void) {
     int i, j;
     //these are changeable
 	int batch_sizes[] = {1,2,4,8,16,32,64,128,256,512, 1024};
-    int n_batches = 11;
-    const int max_batch = 1024;
+    int n_batches = 9;
+    const int max_batch = 256;
 	int RUNS = 2;
 
     int batch_size;
@@ -213,13 +213,13 @@ static int run_cpu(void) {
 	char* h_checksum_buf;
 
 	//alloc on kernel
-	h_page_buf     = (char*) kava_alloc(PAGE_SIZE * max_batch);
+	h_page_buf  = (char*) kmalloc(PAGE_SIZE * max_batch, GFP_KERNEL);
 	if(h_page_buf == 0) {
 		printk("h_page_buf alloc failed\n");
 		return 0;
 	}
 
-	h_checksum_buf = (char*) kava_alloc(sizeof(uint32_t) * max_batch);
+	h_checksum_buf = (char*) kmalloc(sizeof(uint32_t) * max_batch, GFP_KERNEL);
 	if(h_checksum_buf == 0) {
 		printk("h_checksum_buf alloc failed\n");
 		return 0;
@@ -254,8 +254,8 @@ static int run_cpu(void) {
 		printk("CPU_%d, %lld\n", batch_size, avg_total/(RUNS*1000));
 	}
 
-	kava_free(h_page_buf);
-	kava_free(h_checksum_buf);
+	kfree(h_page_buf);
+	kfree(h_checksum_buf);
     kfree(total_run_times);
 	return 0;
 }
