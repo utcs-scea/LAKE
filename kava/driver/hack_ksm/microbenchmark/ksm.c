@@ -10,7 +10,7 @@
 #include "helpers.h"
 #include "xxhash.h"
 
-#define USE_V2 0
+#define USE_V2 1
 
 const char *xxhash_function_name_v2 = "_Z7XXH32v2PviPjS0_jS0_";
 const char *xxhash_function_name_v1 = "_Z5XXH32PvPj";
@@ -39,8 +39,6 @@ CUdeviceptr d_page_buf;
 CUdeviceptr d_checksum_buf;
 CUdeviceptr d_seeds;
 CUdeviceptr d_workspace;
-
-const int kmax_batch = 256;
 
 int ksm_gpu_init(void) {
 	uint32_t seeds[4];
@@ -86,9 +84,16 @@ void ksm_gpu_setup_inputs(char* kpages, uint32_t npages) {
 
 void ksm_gpu_run(uint32_t npages) {
 	if(USE_V2) {
-		int threads = 128;
+		int threads, blocks;
+		if (npages <= 128/4) {
+			threads = npages*4;
+			blocks = 1;
+		} else {
+			threads = 128;
+			blocks = npages*4 / 128;
+		}
+
 		uint32_t seed = 17;
-		int blocks = npages*4 / 128;
 		if (blocks == 0) blocks = 1;
 		void *args[] = { &d_page_buf, &npages, &d_checksum_buf, &d_workspace, &seed, &d_seeds };
 		cuLaunchKernel(ctx.checksum_fn, blocks, 1, 1, threads, 1, 1, 0, NULL, args, NULL);
@@ -163,16 +168,19 @@ static int run_gpu(void) {
 		ksm_gpu_alloc(batch_size);
 
 		//warmup
-        ksm_gpu_setup_inputs(h_page_buf, batch_size);
-		ksm_gpu_run(batch_size);
-        usleep_range(1000, 2000);
-        cuCtxSynchronize();
+		for (j = 0 ; j < RUNS ; j++) {
+			ksm_gpu_setup_inputs(h_page_buf, batch_size);
+			ksm_gpu_run(batch_size);
+			cuCtxSynchronize();
+			usleep_range(250, 1000);
+		}
 
 		for (j = 0 ; j < RUNS ; j++) {
             t_start = ktime_get_ns();
             ksm_gpu_setup_inputs(h_page_buf, batch_size);
             c_start = ktime_get_ns();
             ksm_gpu_run(batch_size);
+			cuCtxSynchronize();
             c_stop = ktime_get_ns();
             //gpu_get_result(batch_size);
             t_stop = ktime_get_ns();
