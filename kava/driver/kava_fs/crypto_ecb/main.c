@@ -23,9 +23,10 @@
 
 #include "kava_ecb.h"
 #include "aesni/aesni-intel_glue.h"
-#include <../../../../klib/cuda/cuda.h>
-#include <../../../../include/debug.h>
-#include <../../../../include/shared_memory.h>
+
+#include <cuda.h>
+#include <debug.h>
+#include <shared_memory.h>
 
 struct crypto_kava_ecb_inst {
     CUdevice device;
