@@ -10,7 +10,7 @@
 #include "helpers.h"
 #include "xxhash.h"
 
-#define USE_V2 1
+#define USE_V2 0
 
 const char *xxhash_function_name_v2 = "_Z7XXH32v2PviPjS0_jS0_";
 const char *xxhash_function_name_v1 = "_Z5XXH32PvPj";
@@ -79,7 +79,11 @@ void ksm_gpu_clean(void) {
 }
 
 void ksm_gpu_setup_inputs(char* kpages, uint32_t npages) {
-	check_error(cuMemcpyHtoD(d_page_buf, kpages, npages*PAGE_SIZE), "cuMemAlloc 1");
+	check_error(cuMemcpyHtoD(d_page_buf, kpages, npages*PAGE_SIZE), "cuMemcpyHtoD");
+}
+
+void ksm_gpu_output(char* out, uint32_t npages) {
+	check_error(cuMemcpyDtoH(out, d_checksum_buf, npages*sizeof(uint32_t)), "cuMemcpyHtoD");
 }
 
 void ksm_gpu_run(uint32_t npages) {
@@ -119,7 +123,8 @@ static int run_gpu(void) {
 	int batch_sizes[] = {1,2,4,8,16,32,64,128,256,512, 1024};
     int n_batches = 11;
     const int max_batch = 1024;
-	int RUNS = 2;
+	int RUNS = 3;
+	int WARMS = 1;
 
     int batch_size;
 	u64 t_start, t_stop, c_start, c_stop;
@@ -168,7 +173,7 @@ static int run_gpu(void) {
 		ksm_gpu_alloc(batch_size);
 
 		//warmup
-		for (j = 0 ; j < RUNS ; j++) {
+		for (j = 0 ; j < WARMS ; j++) {
 			ksm_gpu_setup_inputs(h_page_buf, batch_size);
 			ksm_gpu_run(batch_size);
 			cuCtxSynchronize();
@@ -180,9 +185,8 @@ static int run_gpu(void) {
             ksm_gpu_setup_inputs(h_page_buf, batch_size);
             c_start = ktime_get_ns();
             ksm_gpu_run(batch_size);
-			cuCtxSynchronize();
             c_stop = ktime_get_ns();
-            //gpu_get_result(batch_size);
+            ksm_gpu_output(h_checksum_buf, batch_size);
             t_stop = ktime_get_ns();
 
             comp_run_times[j] = (c_stop - c_start);
