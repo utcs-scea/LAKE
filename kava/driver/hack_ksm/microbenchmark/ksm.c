@@ -112,8 +112,8 @@ static int run_gpu(void) {
 	int i, j;
     //these are changeable
 	int batch_sizes[] = {1,2,4,8,16,32,64,128,256,512, 1024};
-    int n_batches = 9;
-    const int max_batch = 256;
+    int n_batches = 11;
+    const int max_batch = 1024;
 	int RUNS = 2;
 
     int batch_size;
@@ -218,8 +218,8 @@ static int run_cpu(void) {
     int i, j;
     //these are changeable
 	int batch_sizes[] = {1,2,4,8,16,32,64,128,256,512, 1024};
-    int n_batches = 9;
-    const int max_batch = 256;
+    int n_batches = 11;
+    const int max_batch = 1024;
 	int RUNS = 2;
 
     int batch_size;
