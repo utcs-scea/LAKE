@@ -11,19 +11,6 @@
 #include "shadow_thread_pool.h"
 #include "util.h"
 
-#include <linux/time.h>
-
-#define COREBREAKDOWNT 0
-
-inline void coreprint_timestamp(const char *name) {
-    #if COREBREAKDOWNT
-    struct timespec ts;
-    getnstimeofday(&ts);
-    //pr_info("Timestamp at %s: sec=%lu, usec=%lu\n", name, ts.tv_sec, ts.tv_nsec / 1000);
-    pr_info("Timestamp at %s: %lu \n", name, ts.tv_sec*1000000 + ts.tv_nsec / 1000);
-    #endif
-}
-
 struct shadow_thread_t;
 
 struct shadow_thread_object {
@@ -128,11 +115,9 @@ int shadow_thread_handle_single_cmd(struct kava_shadow_thread_pool_t *pool,
 
     BUG_ON(t == NULL);
 
-    // coreprint_timestamp("down");
     down(&t->queue_empty_sem);
     kfifo_out_spinlocked(&t->queue, &scmd, 1, &t->queue_spinlock);
     up(&t->queue_full_sem);
-    // coreprint_timestamp("up");
 
     chan = scmd->chan;
     cmd = scmd->cmd;
@@ -147,10 +132,7 @@ int shadow_thread_handle_single_cmd(struct kava_shadow_thread_pool_t *pool,
     BUG_ON(cmd->thread_id != t->thread_id);
 
     // TODO: checks MSG_SHUTDOWN messages/channel close from the other side.
-
-    // coreprint_timestamp("> kava_handle_cmd_and_notify");
     kava_handle_cmd_and_notify(chan, cmd);
-    // coreprint_timestamp("< kava_handle_cmd_and_notify>");
     return 0;
 }
 

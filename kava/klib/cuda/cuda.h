@@ -2,11 +2,10 @@
 #define __KAVA_CUDA_H__
 
 #ifdef __KERNEL__
-#include "contention.h"
 #include <linux/types.h>
+#include "contention.h"
 #else
 #include <sys/types.h>
-//#include "contention_notkernel.h"
 #endif
 
 #ifndef __cuda_cuda_h__
@@ -1083,49 +1082,49 @@ extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_
 #endif // __cuda_cuda_h__
 
 
-// #ifndef kava_policy
-// #define kava_policy static
+#ifndef kava_policy
+#define kava_policy static
 
-// kava_policy void *cu_policy_default(kava_offload_func_t dev_func,
-//                                     void *dev_args,
-//                                     kava_offload_func_t cpu_func,
-//                                     void *cpu_args)
-// {
-//     static const int util_threshold = 80;
-//     static struct timespec last_check_ts = {0, 0};
+kava_policy void *cu_policy_default(kava_offload_func_t dev_func,
+                                    void *dev_args,
+                                    kava_offload_func_t cpu_func,
+                                    void *cpu_args)
+{
+    static const int util_threshold = 80;
+    static struct timespec last_check_ts = {0, 0};
 
-//     struct timespec check_ts;
-//     int gpu_util = 0;
-//     static int denominator = 100;
-//     static int numerator = 100;
-//     int modulus = numerator / denominator;
+    struct timespec check_ts;
+    int gpu_util = 0;
+    static int denominator = 100;
+    static int numerator = 100;
+    int modulus = numerator / denominator;
 
-//     getnstimeofday(&check_ts);
+    getnstimeofday(&check_ts);
 
-//     /* Check GPU utilization every 5 ms */
-//     if (last_check_ts.tv_sec == 0 ||
-//             (check_ts.tv_sec - last_check_ts.tv_sec) * 1000 + (check_ts.tv_nsec - last_check_ts.tv_nsec) / 1000000 > 5) {
-//         gpu_util = cudaGetGPUUtilizationRates();
-//     }
+    /* Check GPU utilization every 5 ms */
+    if (last_check_ts.tv_sec == 0 ||
+            (check_ts.tv_sec - last_check_ts.tv_sec) * 1000 + (check_ts.tv_nsec - last_check_ts.tv_nsec) / 1000000 > 5) {
+        gpu_util = cudaGetGPUUtilizationRates();
+    }
 
-//     if (gpu_util > util_threshold) {
-//         numerator /= 2;
-//     }
-//     else if (numerator < denominator) {
-//         numerator = denominator;
-//     }
-//     if (numerator > denominator) {
-//         numerator = denominator;
-//     }
+    if (gpu_util > util_threshold) {
+        numerator /= 2;
+    }
+    else if (numerator < denominator) {
+        numerator = denominator;
+    }
+    if (numerator > denominator) {
+        numerator = denominator;
+    }
 
-//     last_check_ts = check_ts;
+    last_check_ts = check_ts;
 
-//     if (dev_func && modulus > 0)
-//         dev_func(dev_args);
-//     else if (cpu_func)
-//         cpu_func(cpu_args);
-//     return NULL;
-// }
-// #endif // kava_policy
+    if (dev_func && modulus > 0)
+        dev_func(dev_args);
+    else if (cpu_func)
+        cpu_func(cpu_args);
+    return NULL;
+}
+#endif // kava_policy
 
 #endif // __KAVA_CUDA_H__

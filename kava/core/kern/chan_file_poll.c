@@ -170,19 +170,19 @@ static void file_poll_cmd_free(struct kava_chan *chan, struct kava_cmd_base *cmd
  */
 static void file_poll_cmd_print(const struct kava_chan *chan, const struct kava_cmd_base *cmd)
 {
-    // DEBUG_PRINT("struct command_base {\n"
-    //             "  command_type=%ld\n"
-    //             "  mode=%d\n"
-    //             "  command_id=%ld\n"
-    //             "  command_size=%lx\n"
-    //             "  region_size=%lx\n"
-    //             "}\n",
-    //             cmd->command_type,
-    //             cmd->mode,
-    //             cmd->command_id,
-    //             cmd->command_size,
-    //             cmd->region_size);
-    // DEBUG_PRINT_COMMAND(chan, cmd);
+    DEBUG_PRINT("struct command_base {\n"
+                "  command_type=%ld\n"
+                "  mode=%d\n"
+                "  command_id=%ld\n"
+                "  command_size=%lx\n"
+                "  region_size=%lx\n"
+                "}\n",
+                cmd->command_type,
+                cmd->mode,
+                cmd->command_id,
+                cmd->command_size,
+                cmd->region_size);
+    DEBUG_PRINT_COMMAND(chan, cmd);
 }
 
 /**

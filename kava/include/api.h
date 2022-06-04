@@ -14,6 +14,7 @@ typedef enum {
     KAVA_API_ID_CUDA,
     KAVA_API_ID_GENANN,
     KAVA_API_ID_MVNC,
+    KAVA_API_ID_LSTM_TF,
     KAVA_API_ID_MAX,
 } kava_api_id;
 
@@ -22,6 +23,7 @@ static const char* const kava_api_name[KAVA_API_ID_MAX] = {
     "cuda",
     "genann",
     "mvnc",
+    "lstm_tf",
 };
 
 #ifdef __KERNEL__

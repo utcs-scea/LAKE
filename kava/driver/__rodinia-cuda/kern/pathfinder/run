@@ -1,1 +1,0 @@
-sudo insmod pathfinder.ko rows=100 cols=100000 pyramid_height=20 cubin_p="/project/kava/driver/kava-benchmarks/rodinia-cuda/kern/pathfinder"
