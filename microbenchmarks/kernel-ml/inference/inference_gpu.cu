@@ -185,7 +185,7 @@ void readahead_normalized_online_data(double *readahead_online_data, int readahe
 
 int readahead_online_data_cols, readahead_std_dev_rows, readahead_std_dev_cols, readahead_avg_rows, readahead_avg_cols, readahead_variance_rows, readahead_variance_cols;
 
-    double *get_normalized_readahead_data(double *readahead,
+double *get_normalized_readahead_data(double *readahead,
                                         int current_readahead_val, double *d_readahead_norm_online_data) {
     double *normalized_data = NULL;
     int readahead_online_data_cols = 5, readahead_std_dev_rows = 1, 

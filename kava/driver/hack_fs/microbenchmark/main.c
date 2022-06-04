@@ -301,8 +301,8 @@ static int run(int use_gpu, int async) {
 					cpu_run_sync(h_page_buf, batch_size);
 			}
             c_stop = ktime_get_ns();
-            //if (use_gpu) gpu_output(h_page_buf, batch_size);
-            cuCtxSynchronize();
+            if (use_gpu) gpu_output(h_page_buf, batch_size);
+            //cuCtxSynchronize();
 			t_stop = ktime_get_ns();
 
             comp_run_times[j] = (c_stop - c_start);
@@ -353,9 +353,9 @@ static int run(int use_gpu, int async) {
 
 static int __init hackcbc_init(void)
 {
-	run(USE_CPU, CPU_SYNC);
-	run(USE_CPU, CPU_ASYNC);
-	//run(USE_GPU, 0);
+	//run(USE_CPU, CPU_SYNC);
+	//run(USE_CPU, CPU_ASYNC);
+	run(USE_GPU, 0);
 	return 0;
 }
 

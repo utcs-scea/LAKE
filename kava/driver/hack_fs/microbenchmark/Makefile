@@ -17,7 +17,7 @@ all: ecb.cubin
 	$(MAKE) -C $(KDIR) M=$(shell pwd) modules
 
 ecb.cubin:
-	make -f Makefile.cubin
+	make -f Makefile_cubin
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(shell pwd) clean
