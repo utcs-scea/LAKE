@@ -107,3 +107,8 @@ sudo mount /dev/nbd0p1 mnt
 sudo umount mnt
 sudo qemu-nbd --disconnect /dev/nbd0
 ```
+
+
+# For PCI passthrough
+
+Host cmdline:  intel_iommu=on video=efifb:off,vesafb:off log_buf_len=16M cma=128M@0-4G

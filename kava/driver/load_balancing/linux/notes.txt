@@ -1,0 +1,253 @@
+
+# RAW
+
+    data.throttled = (throttled_lb_pair(p->sched_task_group, env->src_cpu, env->dst_cpu));
+    data.p_running = p->on_cpu;
+    data.ts = ts;
+    data.src_cpu = env->src_cpu;
+    data.dst_cpu = env->dst_cpu;
+    data.imbalance = env->imbalance;
+    data.cpu_idle = idle == CPU_IDLE;
+    data.cpu_not_idle = idle == CPU_NOT_IDLE;
+    data.cpu_newly_idle = idle == CPU_NEWLY_IDLE;
+    data.curr_pid = pid;
+    data.pid = p->pid;
+    data.numa_preferred_nid = p->numa_preferred_nid;
+    data.src_nr_running = src_rq->nr_running;
+    data.src_nr_numa_running = src_rq->nr_numa_running;
+    data.src_nr_preferred_running = src_rq->nr_preferred_running;
+    data.dst_nr_running = dst_rq->nr_running;
+    data.src_load = src_rq->cfs.avg.load_avg;
+    data.dst_load = dst_rq->cfs.avg.load_avg;
+	data.delta = rq_clock_task(env->src_rq) - p->se.exec_start;
+    data.nr_balance_failed = env->sd->nr_balance_failed;
+    data.cache_nice_tries = env->sd->cache_nice_tries;
+
+    if (dst_rq->nr_running && (&p->se == cfs_rq_of(&p->se)->next || &p->se == cfs_rq_of(&p->se)->last))
+        data.buddy_hot = 1;
+    else
+        data.buddy_hot = 0;
+
+    int n;
+    for (n = 0; n < NR_NODES; n++) {
+        data.p_numa_faults[n] = task_faults(p, n);
+    }
+    data.total_numa_faults = p->total_numa_faults;
+
+    data.perf_count_0 = src_rq->perf_count_0;
+    data.perf_count_1 = src_rq->perf_count_1;
+
+    context.ts = ts;
+    context.cpu = cpu;
+    context.p = p;
+    context.env = env;
+    context.data = data;
+
+
+# DATASOURCE.py
+
+src_cpu = event.src_cpu
+dst_cpu = event.dst_cpu
+src_nid = cpu_nodemap[src_cpu]
+dst_nid = cpu_nodemap[dst_cpu]
+row['curr_pid'] = event.curr_pid
+row['pid'] = event.pid
+row['src_cpu'] = src_cpu
+row['dst_cpu'] = dst_cpu
+preferred_nid = event.numa_preferred_nid
+row['same_node'] = 1 if src_nid == dst_nid else 0
+row['prefer_src'] = 1 if preferred_nid == src_nid else 0
+row['prefer_dst'] = 1 if preferred_nid == dst_nid else 0
+row['total_faults'] = event.total_numa_faults
+src_faults = event.p_numa_faults[src_nid]
+dst_faults = event.p_numa_faults[dst_nid]
+row['delta_faults'] = dst_faults - src_faults
+row['imbalance'] = event.imbalance
+row['delta'] = event.delta
+row['cpu_idle           '] = event.cpu_idle
+row['cpu_not_idle       '] = event.cpu_not_idle
+row['cpu_newly_idle         '] = event.cpu_newly_idle
+row['src_len            '] = event.src_nr_running
+row['src_numa_len       '] = event.src_nr_numa_running
+row['src_preferred_len  '] = event.src_nr_preferred_running
+row['dst_len            '] = event.dst_nr_running
+row['src_load           '] = event.src_load
+row['dst_load           '] = event.dst_load
+row['nr_fails           '] = event.nr_balance_failed
+row['cache_nice_tries   '] = event.cache_nice_tries
+row['buddy_hot              '] = event.buddy_hot
+row['p_running              '] = event.p_running
+row['throttled              '] = event.throttled
+row['can_migrate            '] = event.can_migrate
+
+row['test_aggressive'] = event.test_aggressive
+row['pc_0'] = event.perf_count_0
+row['pc_1'] = event.perf_count_1
+
+
+# PREPROCESS
+
+    df = df.loc[df.p_running.eq(0)]
+    df = df.loc[df.test_aggressive.eq(1)]
+
+    df['delta_hot'] = np.where(df['delta'] < 500000, 1, 0)
+    df['src_non_pref_nr'] = np.where(df['src_len'] > df['src_preferred_len'], 1, 0)
+    df['src_non_numa_nr'] = (df['src_len'] - df['src_numa_len']) #/ df['src_len']).mask(df['src_len'] == 0, 0)
+    df['extra_fails'] = np.where((df['nr_fails'] > df['cache_nice_tries']), 1, 0)
+    df.src_len = df.src_len - 2
+    df.src_load = df.src_load / 1000
+    df.dst_load = df.dst_load / 1000
+    df.delta_faults = df.delta_faults / df.total_faults.mask(df.total_faults.eq(0), 1)
+
+# List features in kernel code
+
+src_non_pref_nr
+    src_rq->nr_running > src_rq->nr_preferred_running ? 1 : 0
+
+delta_hot
+    (rq_clock_task(env->src_rq) - p->se.exec_start) < 500000 ? 1 : 0
+
+cpu_idle
+    idle == CPU_IDLE;
+
+cpu_not_idle
+    idle == CPU_NOT_IDLE
+
+cpu_newly_idle
+    idle == CPU_NEWLY_IDLE
+
+same_node
+    src_cpu = event.src_cpu
+    dst_cpu = event.dst_cpu
+    src_nid = cpu_nodemap[src_cpu]
+    dst_nid = cpu_nodemap[dst_cpu]
+    src_nid == dst_nid ? 1 : 0
+
+prefer_src
+    p->numa_preferred_nid == src_nid ? 1 : 0
+
+prefer_dst
+    p->numa_preferred_nid == dst_nid ? 1 : 0
+
+src_len
+    src_rq->nr_running;
+
+src_load
+    src_rq->cfs.avg.load_avg / 1000
+
+dst_load
+    dst_rq->cfs.avg.load_avg; / 1000
+
+dst_len
+    dst_rq->nr_running;
+
+delta_faults
+    for (n = 0; n < NR_NODES; n++) {
+        data.p_numa_faults[n] = task_faults(p, n);
+    }
+    src_faults = event.p_numa_faults[src_nid]
+    dst_faults = event.p_numa_faults[dst_nid]
+    delta_faults = (dst_faults - src_faults) / p->total_numa_faults == 0 ? 1 : p->total_numa_faults
+
+extra_fails
+    env->sd->nr_balance_failed > env->sd->cache_nice_tries ? 1 : 0
+
+buddy_hot
+    if (dst_rq->nr_running && (&p->se == cfs_rq_of(&p->se)->next || &p->se == cfs_rq_of(&p->se)->last))
+        data.buddy_hot = 1;
+    else
+        data.buddy_hot = 0;
+
+
+
+
+# List raw
+
+throttled
+p_running
+ts
+src_cpu
+dst_cpu
+imbalance
+cpu_idle
+cpu_not_idle
+cpu_newly_idle
+curr_pid
+pid
+numa_preferred_nid
+src_nr_running
+src_nr_numa_running
+src_nr_preferred_running
+dst_nr_running
+src_load
+dst_load
+delta
+nr_balance_failed
+cache_nice_tries
+buddy_hot
+p_numa_faults
+total_numa_faults
+perf_count_0
+perf_count_1
+
+# List datasource.py
+
+curr_pid
+pid
+src_cpu
+dst_cpu
+same_node
+prefer_src
+prefer_dst
+total_faults
+delta_faults
+imbalance
+delta
+cpu_idle
+cpu_not_idle
+cpu_newly_idle
+src_len
+src_numa_len
+src_preferred_len
+dst_len
+src_load
+dst_load
+nr_fails
+cache_nice_tries
+buddy_hot
+p_running
+throttled
+can_migrate
+test_aggressive
+pc_0
+pc_1
+
+
+# List preprocessed
+
+delta_hot
+src_non_pref_nr
+src_non_numa_nr
+extra_fails
+src_len
+src_load
+dst_load
+delta_faults
+
+# List features
+
+src_non_pref_nr,
+delta_hot,
+cpu_idle,
+cpu_not_idle,
+cpu_newly_idle,
+same_node,
+prefer_src,
+prefer_dst,
+src_len,
+src_load,
+dst_load,
+dst_len,
+delta_faults,
+extra_fails,
+buddy_hot

@@ -14,6 +14,12 @@
 #define m1d(x, i) (x)->values[i]
 #define _ReLU(x) (x > 0 ?  x : 0)
 
+static inline void check_malloc(void *p, const char* error_str, int line)
+{
+	if (p == NULL) {
+		printk(KERN_ERR "ERROR: Failed to allocate %s (line %d)\n", error_str, line);
+	}
+}
 
 struct matrix {
     int nrow;
@@ -193,7 +199,7 @@ int main(int argc, char** argv)
      *  GPU batched timing
      */
 
-    int batch_sizes[] = {64, 128, 256, 512};
+    int batch_sizes[] = {1,2,4,8,16,32,64, 128, 256, 512,1024};
 
     for (int &N_INPUTS_BATCH : batch_sizes) {
         gpu_setup(N_INPUTS_BATCH);
