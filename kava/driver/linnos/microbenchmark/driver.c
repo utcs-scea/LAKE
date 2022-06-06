@@ -2,6 +2,7 @@
 #include <linux/delay.h>
 #include <linux/ktime.h>
 #include "helpers.h"
+
 //#include <asm/fpu/api.h>
 #define LEN_INPUT 31
 #define LEN_LAYER_0 256
@@ -42,7 +43,7 @@ static void setup_gpu(int batch_size) {
 	check_error(cuMemcpyHtoD(d_bias_0_ent, bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
 
-    final_res_i = (long*) kmalloc(batch_size*64*sizeof(long), GFP_KERNEL);
+    final_res_i = (long*) kava_alloc(batch_size*64*sizeof(long));
 }
 
 static long *parallel_input;
@@ -61,8 +62,8 @@ static void copy_batch_inputs(int batch_size) {
 }
 
 static void cleanup(void) {
-    kfree(parallel_input);
-    kfree(res);
+    kava_free(parallel_input);
+    kava_free(res);
 }
 
 void clean_batch(void) {
@@ -73,7 +74,7 @@ void clean_batch(void) {
 	cuMemFree(d_bias_1_ent);
 	cuMemFree(d_mid_res_i);
 	cuMemFree(d_final_res_i);
-	kfree(final_res_i);
+	kava_free(final_res_i);
 }
 
 int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size) {
@@ -114,8 +115,8 @@ void get_result_batch(int batch_size) {
 static int run_gpu(void) {
     int i, j;
     int RUNS;
-    int batch_sizes[] = {8, 16, 32, 64, 128, 256, 512};
-    int n_batches = 7;
+    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
+    int n_batches = 10;
     // n needs to be at least as large as the largest batch size
     const int n = 1024;
     
@@ -135,13 +136,13 @@ static int run_gpu(void) {
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
     RUNS = 10;
-    comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
-    total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
+    comp_run_times = (u64*) kava_alloc(RUNS*sizeof(u64));
+    total_run_times = (u64*) kava_alloc(RUNS*sizeof(u64));
 
     //flatten n inputs, which is enough for all batches
-    parallel_input = (long*) kmalloc(n*31*sizeof(long), GFP_KERNEL);
+    parallel_input = (long*) kava_alloc(n*31*sizeof(long));
     flatten_input(n, input);
-    res = (bool*) kmalloc(n*sizeof(bool), GFP_KERNEL);
+    res = (bool*) kava_alloc(n*sizeof(bool));
 
     for (i = 0 ; i < n_batches ; i++) {
         batch_size = batch_sizes[i];
