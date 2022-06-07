@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import gc
+
 import numpy as np
 import os
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
+# os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
 import preprocess
+
+
+counter = 0
 
 sequence_length = 20
 epochs = 10
@@ -86,10 +94,13 @@ def sequence_n_gram_parsing(alist,n_gram=20,num_class=341,sliding_window=1):
 
 
 def load_model(filepath="/home"):
+    # print(filepath)
+
     global model
     try:
         print("Loading Keras module...")
         model = keras.models.load_model(filepath)
+        model.summary()
     except ImportError:
         print("load_model: Loading from an hdf5 file and h5py is not available")
         return -1
@@ -97,10 +108,17 @@ def load_model(filepath="/home"):
         print("load_model: Invalid file path")
         return -1
 
-    print("Model successfully loaded.")
+    # print("Model successfully loaded.")
     return 0
  
 def standard_inference(syscalls, num_syscall, sliding_window=1):
+    # print(syscalls.shape)
+    # print(num_syscall)
+    # print(sliding_window)
+    global counter
+    
+    counter += 1
+
     if (len(syscalls) != num_syscall):
         print("standard_inference failed because number of syscalls sent is different to num_syscall\n")
         return -1
@@ -110,11 +128,11 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
         print("sequence_n_gram_parsing failed n standard_inference...")
         return -1
 
-    print(n_gram_data.shape)
+    # print(n_gram_data.shape)
 
     try:
         prediction = model.predict(n_gram_data)
-        print(prediction.shape)
+        # print(prediction.shape)
     except RuntimeError:
         print("model prediction runtime error...")
         return -1
@@ -124,7 +142,11 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
 
     result = summarize_results(prediction)
 
-    print(result)
+    # if counter % 30*15 == 0:
+    # if counter == 38*15 or counter == 15*138 or counter == 15 * 180:
+    #     gc.collect()
 
     return result
 
+def close_ctx():
+    gc.collect()

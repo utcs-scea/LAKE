@@ -6,7 +6,7 @@ sudo apt install python3.6 python3.6-dev
 wget https://bootstrap.pypa.io/pip/3.6/get-pip.py
 python3 get-pip.py
 python3 -m pip install numpy
-python3 -m pip install tensorflow
+python3 -m pip install tensorflow==2.3.0
 
 Verify this file exists (check home path):
     /home/hfingler/.local/lib/python3.6/site-packages/numpy/core/include/numpy/arrayobject.h

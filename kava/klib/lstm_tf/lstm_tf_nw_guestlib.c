@@ -356,7 +356,10 @@ standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int 
     {
         /* Size: const void * syscalls */
         if ((syscalls) != (NULL) && (num_syscall) > (0)) {
-            __total_buffer_size += chan->chan_buffer_size(chan, ((size_t) (num_syscall)) * sizeof(const void));
+            if (kava_shm_offset(syscalls) >= 0) {
+            } else {
+                __total_buffer_size += chan->chan_buffer_size(chan, ((size_t) (num_syscall)) * sizeof(const void));
+            }
         }
     }
     struct lstm_tf_standard_inference_call *__cmd =
@@ -373,9 +376,16 @@ standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int 
         /* Input: const void * syscalls */
         {
             if ((syscalls) != (NULL) && (num_syscall) > (0)) {
-                __cmd->syscalls =
-                    (void *)chan->chan_attach_buffer(chan, (struct kava_cmd_base *)__cmd, syscalls,
-                    ((size_t) (num_syscall)) * sizeof(const void));
+                if (kava_shm_offset(syscalls) >= 0) {
+                    __cmd->syscalls = (void *)kava_shm_offset(syscalls);
+                    __cmd->syscalls = 1;
+                } else {
+                    __cmd->syscalls = 0;
+
+                    __cmd->syscalls =
+                        (void *)chan->chan_attach_buffer(chan, (struct kava_cmd_base *)__cmd, syscalls,
+                        ((size_t) (num_syscall)) * sizeof(const void));
+                }
             } else {
                 __cmd->syscalls = NULL;
             }
