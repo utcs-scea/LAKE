@@ -32,9 +32,8 @@ int load_model(const char *filepath) {
     /*     return -1; */
     /* } */
 
-
-
-    char *libpath = "/home/edwardhu/kava/worker/lstm_tf/lstm_tf_wrapper/";
+    //char *libpath = "/home/edwardhu/kava/worker/lstm_tf/lstm_tf_wrapper/";
+    char *libpath = "/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper/";
     PyList_Append(sysPath, PyUnicode_FromString(libpath));
 
     /* PyRun_SimpleString("import numpy as np"); */
@@ -48,30 +47,29 @@ int load_model(const char *filepath) {
 
     PyObject *moduleString = PyUnicode_FromString("predict");
     PyObject *PyPredict = PyImport_Import(moduleString);
-    if (!PyPredict)
-    {
+    if (!PyPredict) {
         PyErr_Print();
         printf("ERROR in pModule\n");
         return -1;
-    } else {
-        pDict = PyModule_GetDict(PyPredict);
-        PyObject *loadModelFunc = PyDict_GetItem(pDict, PyUnicode_FromString("load_model"));
-        
-        if (loadModelFunc != NULL) {
-            /* PyObject *pyResult = PyObject_CallObject(loadModelFunc, PyFileDir); */
-            PyObject *pyResult = PyObject_CallFunction(loadModelFunc, "s", filepath);
-            if (PyLong_Check(pyResult) != 1) {
-                printf("load_model return error val");
-            }
-            int ret = (int) PyLong_AsLong(pyResult);
-            return ret;
-        } else {
-            printf("load python func failed\n");
-            return -1;
-        }
-    }
+    } 
 
+    pDict = PyModule_GetDict(PyPredict);
+    PyObject *loadModelFunc = PyDict_GetItem(pDict, PyUnicode_FromString("load_model"));
     
+    if (loadModelFunc != NULL) {
+        /* PyObject *pyResult = PyObject_CallObject(loadModelFunc, PyFileDir); */
+        PyObject *pyResult = PyObject_CallFunction(loadModelFunc, "s", filepath);
+        if (PyLong_Check(pyResult) != 1) {
+            printf("load_model return error val");
+        }
+        int ret = (int) PyLong_AsLong(pyResult);
+        return ret;
+    } else {
+        printf("load python func failed\n");
+        return -1;
+    }
+    
+
     //Py_Finalize();
     return 0;
 }

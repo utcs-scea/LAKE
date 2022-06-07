@@ -10,7 +10,6 @@ from tensorflow.keras import layers
 
 import preprocess
 
-
 sequence_length = 20
 epochs = 10
 batch_size = 32

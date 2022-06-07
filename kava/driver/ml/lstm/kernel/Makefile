@@ -1,14 +1,18 @@
 # The following must be provided:
 
 TARGET1 = lstm_kern
+TARGET2 = lstm_kern_gpu
 ifneq ($(KERNELRELEASE),)
 
 ccflags-y += -I$(KAVA_ROOT)/include -I$(KAVA_ROOT)/klib/lstm_tf \
 			 -Wall -Wno-shadow -O3 -g
 
-obj-m := $(TARGET1).o
+obj-m := $(TARGET1).o  $(TARGET2).o
 $(TARGET1)-src := lstm_tf.c
 $(TARGET1)-objs += $($(TARGET1)-src:.c=.o)
+
+$(TARGET2)-src := lstm_tf_gpu.c
+$(TARGET2)-objs += $($(TARGET2)-src:.c=.o)
 
 else
 

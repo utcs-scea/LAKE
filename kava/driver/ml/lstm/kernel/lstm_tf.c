@@ -22,8 +22,8 @@
 #define BUF_LEN 1024
 
 #define MAX_SYSCALL_IDX 340
-#define SYSCALL_MAX 300
-#define ITERATION 10
+#define SYSCALL_MAX 360
+#define ITERATION 15
 
 #define MEASURE_INFERENCE_TIME
 
@@ -58,26 +58,31 @@ static int __init lstm_init(void) {
     // 1. load LSTM model based on given file path
     const char *modelpath = model_name;
     model_id = load_model(modelpath);
+    /* model_id = load_model("/home/edwardhu/kava/worker/lstm_tf/lstm_tf_wrapper"); */
     if (model_id == MODEL_LOAD_FAILURE) {
         printk(KERN_ERR "Error loading LSTM model\n");
         return model_id;
     }
     /* printk(KERN_INFO "Return code from load_model is %d\n", model_id); */
+    sliding_window = 1;
 
-
+    /* syscalls = (int *)kava_alloc((size_t)(sizeof(int) * 20)); */
+    /* kava_free(syscalls); */
 
     for (i = 20; i < SYSCALL_MAX; i++) {
         // 2. perform inference
         num_syscall = i;
         /* syscalls = (int *)kava_alloc((size_t)(sizeof(int) * num_syscall)); */
         syscalls = (int *)vmalloc((size_t)(sizeof(int) * num_syscall));
-        sliding_window = 1;
 
         // generate random syscall traces
         for (j=0; j<num_syscall; j++) {
             get_random_bytes(&rand_num, sizeof(rand_num));
             syscalls[j] = rand_num % MAX_SYSCALL_IDX;
         }
+
+        // warmup
+        standard_inference((void *)syscalls, num_syscall, sliding_window);
 
 #ifdef MEASURE_INFERENCE_TIME
         getnstimeofday(&micro_inference_start);
@@ -87,21 +92,21 @@ static int __init lstm_init(void) {
         }
 #ifdef MEASURE_INFERENCE_TIME
         getnstimeofday(&micro_inference_stop); 
-        total_inference_micro += ELAPSED_TIME_MICRO_SEC(micro_inference_start, micro_inference_stop);
+        //total_inference_micro += ELAPSED_TIME_MICRO_SEC(micro_inference_start, micro_inference_stop);
+        total_inference_micro = ELAPSED_TIME_MICRO_SEC(micro_inference_start, micro_inference_stop);
 #endif
         /* printk(KERN_INFO "Inference result is: %d\n", result); */
 #ifdef MEASURE_INFERENCE_TIME
-        printk(KERN_INFO "[kava-lstm-tf-gpu] %d %ld\n", num_syscall, total_inference_micro/ITERATION);
+        //printk(KERN_INFO "[kava-lstm-tf-gpu] %d %ld\n", num_syscall, total_inference_micro/ITERATION);
+        printk(KERN_INFO "[kava-lstm-tf-cpu] %d %ld\n", num_syscall, total_inference_micro/ITERATION);
 #endif
 
         vfree(syscalls);
+        /* kava_free(syscalls); */
         total_inference_micro = 0;
     }
 
-
-
-
-    close_ctx();
+    //close_ctx();
     return 0;
 }
 

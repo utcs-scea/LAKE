@@ -16,4 +16,4 @@ core-y += $(CORE)/init.o \
 
 $(klib_lstm_tf)-y += $(core-y)
 
-ccflags-y += -I. -I$(src)/../../include -O3 -g
+ccflags-y += -I$(src) -I$(src)/../../include -O3 -g
