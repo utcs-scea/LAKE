@@ -346,7 +346,6 @@ EXPORT_SYMBOL(close_ctx);
 EXPORTED int
 standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window)
 {
-
     intptr_t __call_id = kava_get_call_id(&__kava_endpoint);
     int64_t __thread_id;
 
@@ -356,10 +355,11 @@ standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int 
     {
         /* Size: const void * syscalls */
         if ((syscalls) != (NULL) && (num_syscall) > (0)) {
-            if (kava_shm_offset(syscalls) >= 0) {
-            } else {
-                __total_buffer_size += chan->chan_buffer_size(chan, ((size_t) (num_syscall)) * sizeof(const void));
-            }
+            // if (kava_shm_offset(syscalls) >= 0) {
+            // } else {
+            //     __total_buffer_size += chan->chan_buffer_size(chan, ((size_t) (num_syscall)) * sizeof(const void));
+            // }
+             __total_buffer_size += chan->chan_buffer_size(chan, ((size_t) (num_syscall)) * sizeof(int));
         }
     }
     struct lstm_tf_standard_inference_call *__cmd =
@@ -372,20 +372,23 @@ standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int 
     __cmd->__call_id = __call_id;
 
     {
-
         /* Input: const void * syscalls */
         {
             if ((syscalls) != (NULL) && (num_syscall) > (0)) {
-                if (kava_shm_offset(syscalls) >= 0) {
-                    __cmd->syscalls = (void *)kava_shm_offset(syscalls);
-                    __cmd->syscalls = 1;
-                } else {
-                    __cmd->syscalls = 0;
+            //     if (kava_shm_offset(syscalls) >= 0) {
+            //         __cmd->syscalls = (void *)kava_shm_offset(syscalls);
+            //         __cmd->syscalls = 1;
+            //     } else {
+            //         __cmd->syscalls = 0;
 
-                    __cmd->syscalls =
-                        (void *)chan->chan_attach_buffer(chan, (struct kava_cmd_base *)__cmd, syscalls,
-                        ((size_t) (num_syscall)) * sizeof(const void));
-                }
+            //         __cmd->syscalls =
+            //             (void *)chan->chan_attach_buffer(chan, (struct kava_cmd_base *)__cmd, syscalls,
+            //             ((size_t) (num_syscall)) * sizeof(const void));
+            //     }
+            // } else {
+                __cmd->syscalls =
+                    (void *)chan->chan_attach_buffer(chan, (struct kava_cmd_base *)__cmd, syscalls,
+                    ((size_t) (num_syscall)) * sizeof(int));
             } else {
                 __cmd->syscalls = NULL;
             }

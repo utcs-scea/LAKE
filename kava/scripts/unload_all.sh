@@ -12,5 +12,6 @@ sudo rmmod kgenann
 sudo rmmod kmvnc
 sudo rmmod kshm
 sudo rmmod lstm_tf
+sudo rmmod kshm
 
 cd ${ROOT}/scripts

@@ -16,37 +16,19 @@ PyObject *makearray(int *array, size_t size) {
     return new_array;
 }
 
-
 int load_model(const char *filepath) {
     /* char *filepath = "/home/edwardhu/kava/worker/lstm_tf/lstm_tf_wrapper/"; */
     printf("%s\n", filepath);
-    //Py_SetProgramName("test");
-    //PyRun_SimpleString("import sys\n"
-    //                 "sys.argv = []");
 
     wchar_t** _argv = PyMem_Malloc(sizeof(wchar_t*)*1);
-    //for (int i=0; i<argc; i++) {
     wchar_t* arg = Py_DecodeLocale("test", NULL);
     _argv[0] = arg;
-    //}
 
     Py_Initialize();
-    printf("a\n");
     PySys_SetArgv(1, _argv);
-
     import_array();
 
-    printf("1\n");
-
-
     PyObject* sysPath = PySys_GetObject("path");
-    /* char cwd[PATH_MAX]; */
-    /* if (getcwd(cwd, sizeof(cwd)) != NULL) { */
-    /*     printf("Current working dir: %s\n", cwd); */
-    /* } else { */
-    /*     perror("getcwd() error"); */
-    /*     return -1; */
-    /* } */
 
     //char *libpath = "/home/edwardhu/kava/worker/lstm_tf/lstm_tf_wrapper/";
     char *libpath = "/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper";

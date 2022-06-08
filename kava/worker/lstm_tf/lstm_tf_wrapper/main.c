@@ -9,7 +9,7 @@
 #define ELAPSED_TIME_MICRO_SEC(start, stop) ((stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_usec - start.tv_usec))
 
 int main() {
-    char *filepath = "/home/edwardhu/kava/worker/lstm_tf/lstm_tf_wrapper/";
+    char *filepath = "/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper/";
     int ret = load_model(filepath);
     /* printf("load model ret value: %d\n", ret); */
 

@@ -250,29 +250,27 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
         }
 
         /* Input: const void * syscalls */
-        void *syscalls; {
+        void *syscalls; 
+        {
             syscalls =
                 ((__call->syscalls) != (NULL)) ? ((const void *)__chan->chan_get_buffer(__chan, __cmd,
                     __call->syscalls)) : ((const void *)__call->syscalls);
             if ((__call->syscalls) != (NULL)) {
-                if (__call->__shm_syscalls) {
-                    syscalls = kava_shm_address((long)__call->syscalls);
-                } else {
+                void *__src_syscalls_0;
+                __src_syscalls_0 = syscalls;
+                volatile size_t __buffer_size = 0;
+                __buffer_size = ((size_t) (num_syscall*sizeof(int)));
+                syscalls = (const void *)__chan->chan_get_buffer(__chan, __cmd, __call->syscalls);
 
-                    void *__src_syscalls_0;
-                    __src_syscalls_0 = syscalls;
-                    volatile size_t __buffer_size = 0;
-                    __buffer_size = ((size_t) (num_syscall));
-                    syscalls = (const void *)__chan->chan_get_buffer(__chan, __cmd, __call->syscalls);
-
-                    if ((syscalls) != (__src_syscalls_0)) {
-                        memcpy(syscalls, __src_syscalls_0, __buffer_size * sizeof(const void));
-                    }
-            }} else {
+                if ((syscalls) != (__src_syscalls_0)) {
+                    memcpy(syscalls, __src_syscalls_0, __buffer_size * sizeof(int));
+                }
+            } else {
                 syscalls =
                     ((__call->syscalls) != (NULL)) ? ((const void *)__chan->chan_get_buffer(__chan, __cmd,
                         __call->syscalls)) : ((const void *)__call->syscalls);
-        }}
+            }
+        }
 
         /* Perform Call */
 
@@ -281,13 +279,7 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
 
         size_t __total_buffer_size = 0;
         {
-            /* Size: const void * syscalls */
-            if ((syscalls) != (NULL) && (num_syscall) > (0)) {
-                if (__call->__shm_syscalls) {
-                } else {
-
-                }
-            }
+            
         }
         struct lstm_tf_standard_inference_ret *__ret =
             (struct lstm_tf_standard_inference_ret *)__chan->cmd_new(__chan,

@@ -94,7 +94,7 @@ def sequence_n_gram_parsing(alist,n_gram=20,num_class=341,sliding_window=1):
 
 
 def load_model(filepath="/home"):
-    # print(filepath)
+    print("loading model at ", filepath)
 
     global model
     try:
@@ -116,8 +116,10 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
     # print(num_syscall)
     # print(sliding_window)
     global counter
-    
     counter += 1
+
+    print(f"num_syscall {num_syscall}")
+    print(f"syscalls {syscalls}")
 
     if (len(syscalls) != num_syscall):
         print("standard_inference failed because number of syscalls sent is different to num_syscall\n")

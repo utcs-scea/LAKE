@@ -118,8 +118,8 @@ def run_network(model=None, data=None):
                 epochs=epochs,
                 validation_split=0.05)
         model.summary()
-        os.chdir(os.path.dirname(__file__))
-        model.save( os.path.join(os.getcwd(), "model.tf") )
+        #os.chdir(os.path.dirname(__file__))
+        model.save("model.tf")
         print("Done Training...")
 
     # predicted = model.predict(X_test)
