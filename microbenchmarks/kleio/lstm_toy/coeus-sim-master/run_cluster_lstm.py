@@ -33,12 +33,12 @@ if __name__ == "__main__":
   pages_ordered = page_selector.get_ordered_pages(pages_misplaced)
   
   # define how many RNNs you want to deploy, i am doing one now.
-  print(f"pages_ordered {pages_ordered}")
+  #print(f"pages_ordered {pages_ordered}")
   page_id_x = pages_ordered[0]
   
   ### Make the RNN input
   # Step 1: take the page access count across periods
-  print(f"using page {page_id_x}")
+  #print(f"using page {page_id_x}")
   cnts_x = prof.hmem.page_list[page_id_x].oracle_counts_binned_ep
   print(f"oracle_counts_binned_ep of this page: {cnts_x} ")
   input = LSTM_input(cnts_x)
@@ -48,24 +48,26 @@ if __name__ == "__main__":
   input.timeseries_to_history_seq(history_length)
   
   # Step 3: Split into training, validation and test samples througout the epochs
-  input.split_data(0.2)
+  #input.split_data(0.2)
+  input.split_data(1)
   
   # Step 4: Bring input into format for RNN training
-  print(f"set(cnts_x) {set(cnts_x)}")
+  #print(f"set(cnts_x) {set(cnts_x)}")
   num_classes = max(set(cnts_x)) + 1
+  print(f"num_classes {num_classes}")
   input.to_categor(num_classes)
   #input.prepare()
   
   ### Make the RNN model
   model = LSTM_model(input)
+  #print(f"num_classes {num_classes}")
 
-  print(f"num_classes {num_classes}")
+  #with Timer.get_handle("train"):
+  #  model.create(256, 0.00001, 0, history_length, num_classes)
+  #  model.train()
+  
+  model.load()
 
-  model.create(256, 0.00001, 0, history_length, num_classes)
-  
-  with Timer.get_handle("train"):
-    model.train()
-  
   with Timer.get_handle("inference"):
     model.infer()
 

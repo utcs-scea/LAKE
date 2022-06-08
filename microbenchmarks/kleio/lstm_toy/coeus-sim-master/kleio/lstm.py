@@ -11,7 +11,7 @@ from tensorflow.keras.callbacks import TerminateOnNaN
 from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import Callback
-from keras import backend as K
+from tensorflow.keras import backend as K
 from tensorflow.keras.utils import to_categorical
 
 
@@ -42,29 +42,39 @@ class LSTM_input:
       self.dataY.append(self.data_series[i + history_length])
 
   def split_data(self, ratio):
-  
     samples = np.array(self.dataY).shape[0]
     test_samples = (ratio) * samples
     samples_interval = 1
     if test_samples != 0:
       samples_interval = math.floor(samples / test_samples)
     s = 0
-    while s < samples:
-      if s % samples_interval == 0:
-        self.valX.append(self.dataX[s])
-        self.valY.append(self.dataY[s])
-        s += 1
-        self.testX.append(self.dataX[s])
-        self.testY.append(self.dataY[s])
-      else:
+
+    if ratio == 1:
+      while s < samples:
         self.trainX.append(self.dataX[s])
         self.trainY.append(self.dataY[s])
-      s += 1
-  
+        s += 1
+    else:
+      while s < samples:
+        if s % samples_interval == 0:
+          self.valX.append(self.dataX[s])
+          self.valY.append(self.dataY[s])
+          s += 1
+          self.testX.append(self.dataX[s])
+          self.testY.append(self.dataY[s])
+        else:
+          self.trainX.append(self.dataX[s])
+          self.trainY.append(self.dataY[s])
+        s += 1
+    print(f"trainX  {len(self.trainX)}")
+    
   def to_categor(self, num_classes):
     # shape is [samples, time steps, features]
     inter = to_categorical(np.array(self.trainX), num_classes = num_classes)
+    print(f"trainX shape  {np.array(self.trainX).shape}")
+    print(f"inter shape {inter.shape}")
     self.trainX_categor = np.reshape(inter, (inter.shape[0], inter.shape[1], num_classes))
+
     inter = to_categorical(np.array(self.valX), num_classes = num_classes)
     self.valX_categor = np.reshape(inter, (inter.shape[0], inter.shape[1], num_classes))
     inter = to_categorical(np.array(self.testX), num_classes = num_classes)
@@ -84,26 +94,21 @@ class LSTM_input:
     self.dataY_in = np.reshape(np.array(self.dataY), (self.dataY.shape[0], 1))
     
 
-
 class LSTM_model:
   def __init__(self, input):
     self.input = input
     self.model = None
 
   def create(self, layers, learning_rate, dropout, history_length, num_classes):
-
     #input to LSTM is [batch, timesteps, feature]
     #1st LSTM: 256 input_shape=(6, 621) 
     #2nd LSTM: 256
-
     #1st LSTM weights: W (621, 1024)  U (256, 1024)  b (1024,)
     #2nd LSTM weights: W (256, 1024)  U (256, 1024)  b (1024,)
-
     #Output Shapes 
     # (None, 6, 256)
     # (None, 256)
     # (None, 621)
-
 
     self.model = Sequential()
     print(f"1st LSTM: {layers} input_shape={(history_length, num_classes)}")
@@ -122,12 +127,9 @@ class LSTM_model:
     b = self.model.layers[1].get_weights()[2]
     print(f"snd LSTM weights: W {W.shape}  U {U.shape}  b {b.shape}")
 
-
-
     # Optimizer, loss function, accuracy metrics
     self.model.compile(optimizer=SGD(lr=learning_rate), loss='categorical_crossentropy', metrics=['categorical_accuracy'])
     #self.model.compile(optimizer=Adam(lr=learning_rate), loss = 'mean_squared_error')
-
     print (self.model.summary())
     
   def train(self):
@@ -135,20 +137,20 @@ class LSTM_model:
     #self.model.fit(self.input.dataX_in, self.input.dataY_in, epochs = 100)
     self.model.save("lstm_page_539")
     
+  def load(self):
+    self.model = load_model("lstm_page_539")
+
   def infer(self):
-
     print(f"Infering: {self.input.trainX_categor.shape}")
-
+    #print(f"content: {self.input.trainX_categor}")
     predictY = self.model.predict(self.input.trainX_categor)
     #print self.input.dataY_in
     #print predictY
     
     dataY = np.array([np.argmax(x) for x in self.input.trainY_categor])
     predictY = np.array([np.argmax(x) for x in predictY])
-    
     print (dataY)
     print (predictY)
-
 
   def calculate_prediction_error(self, dataY, predictY):
     print (dataY.shape, predictY.shape)

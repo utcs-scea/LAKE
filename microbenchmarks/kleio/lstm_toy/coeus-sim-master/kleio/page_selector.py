@@ -49,7 +49,7 @@ class PageSelector:
     for id in page_ids:
       page = self.prof.hmem.page_list[id]
       benefit = sum(page.oracle_counts_binned_ep) * page.misplacements
-      print(f"page {id} has {sum(page.oracle_counts_binned_ep)} sum of counts and {page.misplacements} misplacements")
+      #print(f"page {id} has {sum(page.oracle_counts_binned_ep)} sum of counts and {page.misplacements} misplacements")
       benefit_per_page.append(benefit)
     
     sorted_idxs = np.argsort(benefit_per_page)[::-1] # descending order
@@ -67,7 +67,6 @@ class PageSelector:
     sim.dump_stats(self.resdir_prefix + self.solution + '_' + policy + '.csv')
     
   def run_kleio(self):
-  
     # Step 1: get pages misplaced by a history-based page scheduler
     pages_misplaced = self.get_misplaced_pages()
 

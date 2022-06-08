@@ -42,13 +42,13 @@ class Scheduler:
     for page in self.memory.page_list:
       bins = range(0, int(max(page.oracle_counts_ep)), 20)
       idxs = np.digitize(page.oracle_counts_ep, bins)
-      print(f"bins: {list(bins)}")
-      print(f"page {page.id} per epoch {page.oracle_counts_ep}")
-      print(f"idx {idxs}")
-      if len(bins) > 4:
-        print(f"bin[3] {bins[3]}")
+      #print(f"bins: {list(bins)}")
+      #print(f"page {page.id} per epoch {page.oracle_counts_ep}")
+      #print(f"idx {idxs}")
+      #if len(bins) > 4:
+      #  print(f"bin[3] {bins[3]}")
       page.oracle_counts_binned_ep = [bins[idxs[i]-1] for i in range(len(page.oracle_counts_ep))]
-      print(f"binned {page.oracle_counts_binned_ep}")
+      #print(f"binned {page.oracle_counts_binned_ep}")
       
   def run(self):
     for req in self.traffic.req_seq:
