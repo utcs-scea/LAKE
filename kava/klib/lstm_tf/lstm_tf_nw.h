@@ -10,7 +10,9 @@
 
 enum lstm_tf_functions {
     CALL_LSTM_TF_LOAD_MODEL, RET_LSTM_TF_LOAD_MODEL, CALL_LSTM_TF_CLOSE_CTX, RET_LSTM_TF_CLOSE_CTX,
-        CALL_LSTM_TF_STANDARD_INFERENCE, RET_LSTM_TF_STANDARD_INFERENCE
+        CALL_LSTM_TF_STANDARD_INFERENCE, RET_LSTM_TF_STANDARD_INFERENCE,
+        CALL_LSTM_TF_KLEIO_LOAD_MODEL, RET_LSTM_TF_KLEIO_LOAD_MODEL,
+        CALL_LSTM_TF_KLEIO_INFERENCE, RET_LSTM_TF_KLEIO_INFERENCE,
 };
 
 #include "lstm_tf_nw_utility_types.h"
@@ -33,6 +35,25 @@ struct lstm_tf_load_model_ret {
 };
 
 struct lstm_tf_load_model_call_record {
+    char *file;
+    int ret;
+    char __handler_deallocate;
+    volatile char __call_complete;
+};
+
+struct lstm_tf_kleio_load_model_call {
+    struct kava_cmd_base base;
+    intptr_t __call_id;
+    char *file;
+};
+
+struct lstm_tf_kleio_load_model_ret {
+    struct kava_cmd_base base;
+    intptr_t __call_id;
+    int ret;
+};
+
+struct lstm_tf_kleio_load_model_call_record {
     char *file;
     int ret;
     char __handler_deallocate;
@@ -71,6 +92,30 @@ struct lstm_tf_standard_inference_ret {
 };
 
 struct lstm_tf_standard_inference_call_record {
+    unsigned int num_syscall;
+    unsigned int sliding_window;
+    void *syscalls;
+    int ret;
+    char __handler_deallocate;
+    volatile char __call_complete;
+};
+
+
+struct lstm_tf_kleio_inference_call {
+    struct kava_cmd_base base;
+    intptr_t __call_id;
+    unsigned int num_syscall;
+    unsigned int sliding_window;
+    void *syscalls;
+};
+
+struct lstm_tf_kleio_inference_ret {
+    struct kava_cmd_base base;
+    intptr_t __call_id;
+    int ret;
+};
+
+struct lstm_tf_kleio_inference_call_record {
     unsigned int num_syscall;
     unsigned int sliding_window;
     void *syscalls;

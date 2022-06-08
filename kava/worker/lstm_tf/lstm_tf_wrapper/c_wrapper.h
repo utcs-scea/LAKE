@@ -8,4 +8,7 @@ int load_model(const char *filepath);
 void close_ctx(void);
 int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
 
+int kleio_load_model(const char *filepath);
+int kleio_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
+
 #endif

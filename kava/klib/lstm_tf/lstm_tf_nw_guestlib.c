@@ -143,6 +143,34 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
         }
         break;
     }
+    case RET_LSTM_TF_KLEIO_LOAD_MODEL:{
+        struct lstm_tf_kleio_load_model_ret *__ret = (struct lstm_tf_kleio_load_model_ret *)__cmd;
+        BUG_ON(__ret->base.mode != KAVA_CMD_MODE_API);
+        BUG_ON(__ret->base.command_size != sizeof(struct lstm_tf_kleio_load_model_ret)
+            &&
+            "Command size does not match ID. (Can be caused by incorrectly computed buffer sizes, especially using `strlen(s)` instead of `strlen(s)+1`)");
+        struct lstm_tf_kleio_load_model_call_record *__local =
+            (struct lstm_tf_kleio_load_model_call_record *)kava_remove_call(&__kava_endpoint, __ret->__call_id);
+        {
+            char *file;
+            file = __local->file;
+
+            int ret;
+            ret = (int)__ret->ret;
+
+            /* Output: int ret */
+            {
+                __local->ret = __ret->ret;
+            }
+
+        }
+
+        __local->__call_complete = 1;
+        if (__local->__handler_deallocate) {
+            vfree(__local);
+        }
+        break;
+    }
     case RET_LSTM_TF_CLOSE_CTX:{
         struct lstm_tf_close_ctx_ret *__ret = (struct lstm_tf_close_ctx_ret *)__cmd;
         BUG_ON(__ret->base.mode != KAVA_CMD_MODE_API);
@@ -170,6 +198,42 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
             "Command size does not match ID. (Can be caused by incorrectly computed buffer sizes, especially using `strlen(s)` instead of `strlen(s)+1`)");
         struct lstm_tf_standard_inference_call_record *__local =
             (struct lstm_tf_standard_inference_call_record *)kava_remove_call(&__kava_endpoint, __ret->__call_id);
+
+        {
+
+            unsigned int num_syscall;
+            num_syscall = __local->num_syscall;
+
+            unsigned int sliding_window;
+            sliding_window = __local->sliding_window;
+
+            void *syscalls;
+            syscalls = __local->syscalls;
+
+            int ret;
+            ret = (int)__ret->ret;
+
+            /* Output: int ret */
+            {
+                __local->ret = __ret->ret;
+            }
+
+        }
+
+        __local->__call_complete = 1;
+        if (__local->__handler_deallocate) {
+            vfree(__local);
+        }
+        break;
+    }
+    case RET_LSTM_TF_KLEIO_INFERENCE:{
+        struct lstm_tf_kleio_inference_ret *__ret = (struct lstm_tf_kleio_inference_ret *)__cmd;
+        BUG_ON(__ret->base.mode != KAVA_CMD_MODE_API);
+        BUG_ON(__ret->base.command_size != sizeof(struct lstm_tf_kleio_inference_ret)
+            &&
+            "Command size does not match ID. (Can be caused by incorrectly computed buffer sizes, especially using `strlen(s)` instead of `strlen(s)+1`)");
+        struct lstm_tf_kleio_inference_call_record *__local =
+            (struct lstm_tf_kleio_inference_call_record *)kava_remove_call(&__kava_endpoint, __ret->__call_id);
 
         {
 
@@ -302,6 +366,67 @@ load_model(const char *file)
 
 EXPORT_SYMBOL(load_model);
 
+EXPORTED int
+kleio_load_model(const char *file)
+{
+    intptr_t __call_id = kava_get_call_id(&__kava_endpoint);
+    int64_t __thread_id;
+
+    struct kava_buffer_list *__kava_alloc_list_kleio_load_model = kava_endpoint_buffer_list_new();
+
+    size_t __total_buffer_size = 0;
+    {
+        /* Size: const char * file */
+        if ((file) != (NULL) && (strlen(file) + 1) > (0)) {
+            __total_buffer_size += chan->chan_buffer_size(chan, ((size_t) (strlen(file) + 1)) * sizeof(const char));
+        }
+    }
+    struct lstm_tf_kleio_load_model_call *__cmd =
+        (struct lstm_tf_kleio_load_model_call *)chan->cmd_new(chan, sizeof(struct lstm_tf_kleio_load_model_call),
+        __total_buffer_size);
+    __cmd->base.mode = KAVA_CMD_MODE_API;
+    __cmd->base.command_id = CALL_LSTM_TF_KLEIO_LOAD_MODEL;
+    __cmd->base.thread_id = __thread_id = kava_shadow_thread_id(kava_shadow_thread_pool);
+
+    __cmd->__call_id = __call_id;
+
+    {
+
+        /* Input: const char * file */
+        {
+            if ((file) != (NULL) && (strlen(file) + 1) > (0)) {
+                __cmd->file =
+                    (char *)chan->chan_attach_buffer(chan, (struct kava_cmd_base *)__cmd, file,
+                    ((size_t) (strlen(file) + 1)) * sizeof(const char));
+            } else {
+                __cmd->file = NULL;
+            }
+        }
+    }
+
+    struct lstm_tf_kleio_load_model_call_record *__call_record =
+        (struct lstm_tf_kleio_load_model_call_record *)vmalloc(sizeof(struct lstm_tf_kleio_load_model_call_record));
+
+    __call_record->file = file;
+
+    __call_record->__call_complete = 0;
+    __call_record->__handler_deallocate = 0;
+    kava_add_call(&__kava_endpoint, __call_id, __call_record);
+
+    chan->cmd_send(chan, (struct kava_cmd_base *)__cmd);
+
+    kava_endpoint_buffer_list_free(__kava_alloc_list_kleio_load_model);
+
+    shadow_thread_handle_command_until(kava_shadow_thread_pool, __thread_id, __call_record->__call_complete);
+    int ret;
+    ret = __call_record->ret;
+    vfree(__call_record);
+    return ret;
+}
+
+EXPORT_SYMBOL(kleio_load_model);
+
+
 EXPORTED void
 close_ctx()
 {
@@ -428,6 +553,94 @@ standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int 
 }
 
 EXPORT_SYMBOL(standard_inference);
+
+
+
+EXPORTED int
+kleio_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window)
+{
+    intptr_t __call_id = kava_get_call_id(&__kava_endpoint);
+    int64_t __thread_id;
+
+    struct kava_buffer_list *__kava_alloc_list_kleio_inference = kava_endpoint_buffer_list_new();
+
+    size_t __total_buffer_size = 0;
+    {
+        /* Size: const void * syscalls */
+        if ((syscalls) != (NULL) && (num_syscall) > (0)) {
+            // if (kava_shm_offset(syscalls) >= 0) {
+            // } else {
+            //     __total_buffer_size += chan->chan_buffer_size(chan, ((size_t) (num_syscall)) * sizeof(const void));
+            // }
+             __total_buffer_size += chan->chan_buffer_size(chan, ((size_t) (num_syscall)) * sizeof(int));
+        }
+    }
+    struct lstm_tf_kleio_inference_call *__cmd =
+        (struct lstm_tf_kleio_inference_call *)chan->cmd_new(chan, sizeof(struct lstm_tf_kleio_inference_call),
+        __total_buffer_size);
+    __cmd->base.mode = KAVA_CMD_MODE_API;
+    __cmd->base.command_id = CALL_LSTM_TF_KLEIO_INFERENCE;
+    __cmd->base.thread_id = __thread_id = kava_shadow_thread_id(kava_shadow_thread_pool);
+
+    __cmd->__call_id = __call_id;
+
+    {
+        /* Input: const void * syscalls */
+        {
+            if ((syscalls) != (NULL) && (num_syscall) > (0)) {
+            //     if (kava_shm_offset(syscalls) >= 0) {
+            //         __cmd->syscalls = (void *)kava_shm_offset(syscalls);
+            //         __cmd->syscalls = 1;
+            //     } else {
+            //         __cmd->syscalls = 0;
+
+            //         __cmd->syscalls =
+            //             (void *)chan->chan_attach_buffer(chan, (struct kava_cmd_base *)__cmd, syscalls,
+            //             ((size_t) (num_syscall)) * sizeof(const void));
+            //     }
+            // } else {
+                __cmd->syscalls =
+                    (void *)chan->chan_attach_buffer(chan, (struct kava_cmd_base *)__cmd, syscalls,
+                    ((size_t) (num_syscall)) * sizeof(int));
+            } else {
+                __cmd->syscalls = NULL;
+            }
+        }
+        /* Input: unsigned int num_syscall */
+        {
+            __cmd->num_syscall = num_syscall;
+        }
+        /* Input: unsigned int sliding_window */
+        {
+            __cmd->sliding_window = sliding_window;
+        }
+    }
+
+    struct lstm_tf_kleio_inference_call_record *__call_record =
+        (struct lstm_tf_kleio_inference_call_record *)vmalloc(sizeof(struct lstm_tf_kleio_inference_call_record));
+
+    __call_record->num_syscall = num_syscall;
+
+    __call_record->sliding_window = sliding_window;
+
+    __call_record->syscalls = syscalls;
+
+    __call_record->__call_complete = 0;
+    __call_record->__handler_deallocate = 0;
+    kava_add_call(&__kava_endpoint, __call_id, __call_record);
+
+    chan->cmd_send(chan, (struct kava_cmd_base *)__cmd);
+
+    kava_endpoint_buffer_list_free(__kava_alloc_list_kleio_inference);
+
+    shadow_thread_handle_command_until(kava_shadow_thread_pool, __thread_id, __call_record->__call_complete);
+    int ret;
+    ret = __call_record->ret;
+    vfree(__call_record);
+    return ret;
+}
+
+EXPORT_SYMBOL(kleio_inference);
 
 /// Kernel initialization
 

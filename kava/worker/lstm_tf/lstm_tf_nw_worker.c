@@ -94,6 +94,18 @@ __wrapper_load_model(const char *file)
     }
 }
 
+static int
+__wrapper_kleio_load_model(const char *file)
+{
+    {
+        int ret;
+        ret = kleio_load_model(file);
+
+        return ret;
+    }
+}
+
+
 static void
 __wrapper_close_ctx()
 {
@@ -115,6 +127,18 @@ __wrapper_standard_inference(unsigned int num_syscall, unsigned int sliding_wind
         return ret;
     }
 }
+
+static int
+__wrapper_kleio_inference(unsigned int num_syscall, unsigned int sliding_window, const void *syscalls)
+{
+    {
+        int ret;
+        ret = kleio_inference(syscalls, num_syscall, sliding_window);
+
+        return ret;
+    }
+}
+
 
 void
 __handle_command_lstm_tf_init(void)
@@ -191,6 +215,65 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
         /* Send reply message */
         __chan->cmd_send(__chan, (struct kava_cmd_base *)__ret);
         g_ptr_array_unref(__kava_alloc_list_load_model);        /* Deallocate all memory in the alloc list */
+
+        break;
+    }
+    case CALL_LSTM_TF_KLEIO_LOAD_MODEL:{
+        GPtrArray *__kava_alloc_list_kleio_load_model =
+            g_ptr_array_new_full(0, (GDestroyNotify) kava_buffer_with_deallocator_free);
+        struct lstm_tf_kleio_load_model_call *__call = (struct lstm_tf_kleio_load_model_call *)__cmd;
+        assert(__call->base.mode == KAVA_CMD_MODE_API);
+        assert(__call->base.command_size == sizeof(struct lstm_tf_kleio_load_model_call)
+            &&
+            "Command size does not match ID. (Can be caused by incorrectly computed buffer sizes, especially using `strlen(s)` instead of `strlen(s)+1`)");
+
+        /* Unpack and translate arguments */
+
+        /* Input: const char * file */
+        char *file; {
+            file =
+                ((__call->file) != (NULL)) ? ((const char *)__chan->chan_get_buffer(__chan, __cmd,
+                    __call->file)) : ((const char *)__call->file);
+            if ((__call->file) != (NULL)) {
+                char *__src_file_0;
+                __src_file_0 = file;
+                volatile size_t __buffer_size = 0;
+                __buffer_size = ((size_t) (strlen(file) + 1));
+                file = (const char *)__chan->chan_get_buffer(__chan, __cmd, __call->file);
+
+                if ((file) != (__src_file_0)) {
+                    memcpy(file, __src_file_0, __buffer_size * sizeof(const char));
+                }
+            } else {
+                file =
+                    ((__call->file) != (NULL)) ? ((const char *)__chan->chan_get_buffer(__chan, __cmd,
+                        __call->file)) : ((const char *)__call->file);
+        }}
+
+        /* Perform Call */
+
+        int ret;
+        ret = __wrapper_kleio_load_model(file);
+
+        size_t __total_buffer_size = 0;
+        {
+        }
+        struct lstm_tf_kleio_load_model_ret *__ret =
+            (struct lstm_tf_kleio_load_model_ret *)__chan->cmd_new(__chan, sizeof(struct lstm_tf_kleio_load_model_ret),
+            __total_buffer_size);
+        __ret->base.mode = KAVA_CMD_MODE_API;
+        __ret->base.command_id = RET_LSTM_TF_KLEIO_LOAD_MODEL;
+        __ret->base.thread_id = __call->base.thread_id;
+        __ret->__call_id = __call->__call_id;
+
+        /* Output: int ret */
+        {
+            __ret->ret = ret;
+        }
+
+        /* Send reply message */
+        __chan->cmd_send(__chan, (struct kava_cmd_base *)__ret);
+        g_ptr_array_unref(__kava_alloc_list_kleio_load_model);        /* Deallocate all memory in the alloc list */
 
         break;
     }
@@ -318,6 +401,100 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
 
         break;
     }
+
+    case CALL_LSTM_TF_KLEIO_INFERENCE:{
+        GPtrArray *__kava_alloc_list_kleio_inference =
+            g_ptr_array_new_full(0, (GDestroyNotify) kava_buffer_with_deallocator_free);
+        struct lstm_tf_kleio_inference_call *__call = (struct lstm_tf_kleio_inference_call *)__cmd;
+        assert(__call->base.mode == KAVA_CMD_MODE_API);
+        assert(__call->base.command_size == sizeof(struct lstm_tf_kleio_inference_call)
+            &&
+            "Command size does not match ID. (Can be caused by incorrectly computed buffer sizes, especially using `strlen(s)` instead of `strlen(s)+1`)");
+
+        /* Unpack and translate arguments */
+
+        /* Input: unsigned int num_syscall */
+        unsigned int num_syscall; {
+            num_syscall = (unsigned int)__call->num_syscall;
+            //num_syscall = __call->num_syscall;
+        }
+
+        /* Input: unsigned int sliding_window */
+        unsigned int sliding_window; {
+            sliding_window = (unsigned int)__call->sliding_window;
+            //sliding_window = __call->sliding_window;
+        }
+
+        /* Input: const void * syscalls */
+        void *syscalls; {
+            syscalls =
+                ((__call->syscalls) != (NULL)) ? ((const void *)__chan->chan_get_buffer(__chan, __cmd,
+                    __call->syscalls)) : ((const void *)__call->syscalls);
+            if ((__call->syscalls) != (NULL)) {
+            //     if (__call->syscalls) {
+            //         syscalls = kava_shm_address((long)__call->syscalls);
+            //     } else {
+            //         void *__src_syscalls_0;
+            //         __src_syscalls_0 = syscalls;
+            //         volatile size_t __buffer_size = 0;
+            //         __buffer_size = ((size_t) (num_syscall));
+            //         syscalls = (const void *)__chan->chan_get_buffer(__chan, __cmd, __call->syscalls);
+
+            //         if ((syscalls) != (__src_syscalls_0)) {
+            //             memcpy(syscalls, __src_syscalls_0, __buffer_size * sizeof(const void));
+            //         }
+            //     }
+            // } else {
+                void *__src_syscalls_0;
+                __src_syscalls_0 = syscalls;
+                volatile size_t __buffer_size = 0;
+                __buffer_size = ((size_t) (num_syscall * sizeof(int)));
+                syscalls = (const void *)__chan->chan_get_buffer(__chan, __cmd, __call->syscalls);
+
+                if ((syscalls) != (__src_syscalls_0)) {
+                    memcpy(syscalls, __src_syscalls_0, __buffer_size);
+                }
+            } else {
+                syscalls =
+                    ((__call->syscalls) != (NULL)) ? ((const void *)__chan->chan_get_buffer(__chan, __cmd,
+                        __call->syscalls)) : ((const void *)__call->syscalls);
+            }
+        }
+
+        /* Perform Call */
+
+        int ret;
+        ret = __wrapper_kleio_inference(num_syscall, sliding_window, syscalls);
+
+        size_t __total_buffer_size = 0;
+        {
+            // /* Size: const void * syscalls */
+            // if ((syscalls) != (NULL) && (num_syscall) > (0)) {
+            //     if (__call->syscalls) {
+            //     } else {
+            //     }
+            // }
+        }
+        struct lstm_tf_kleio_inference_ret *__ret =
+            (struct lstm_tf_kleio_inference_ret *)__chan->cmd_new(__chan,
+            sizeof(struct lstm_tf_kleio_inference_ret), __total_buffer_size);
+        __ret->base.mode = KAVA_CMD_MODE_API;
+        __ret->base.command_id = RET_LSTM_TF_KLEIO_INFERENCE;
+        __ret->base.thread_id = __call->base.thread_id;
+        __ret->__call_id = __call->__call_id;
+
+        /* Output: int ret */
+        {
+            __ret->ret = ret;
+        }
+
+        /* Send reply message */
+        __chan->cmd_send(__chan, (struct kava_cmd_base *)__ret);
+        g_ptr_array_unref(__kava_alloc_list_kleio_inference);        /* Deallocate all memory in the alloc list */
+
+        break;
+    }
+
     default:
         pr_err("Received unsupported command");
     }                                            // switch

@@ -23,6 +23,9 @@ int load_model(const char *file);
 void close_ctx(void);
 int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
 
+int kleio_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
+int kleio_load_model(const char *file);
+
 #ifdef __cplusplus
 }
 #endif

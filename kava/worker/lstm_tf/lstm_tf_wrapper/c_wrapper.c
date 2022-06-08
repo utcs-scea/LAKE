@@ -7,6 +7,7 @@
 #include <limits.h>
 
 PyObject *pDict = NULL;
+PyObject *kleio_pDict = NULL;
 
 PyObject *makearray(int *array, size_t size) {
     npy_intp dim = size;
@@ -97,4 +98,73 @@ void close_ctx(void) {
         printf("close_ctx failed\n");
     }
     fflush(stdout);
+}
+
+
+int kleio_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window) {
+    PyObject *standardInferenceFunc = PyDict_GetItem(kleio_pDict, PyUnicode_FromString("kleio_inference"));
+    
+    if (standardInferenceFunc != NULL) {
+        /* Marshall args */
+        PyObject *pArgs = PyTuple_New(3);
+
+        PyTuple_SetItem(pArgs, 0, makearray((int *)syscalls, num_syscall));
+        PyTuple_SetItem(pArgs, 1, PyLong_FromUnsignedLong((unsigned long)num_syscall));
+        PyTuple_SetItem(pArgs, 2, PyLong_FromUnsignedLong((unsigned long)sliding_window));
+        PyObject *pyResult = PyObject_CallObject(standardInferenceFunc, pArgs);
+        if (PyLong_Check(pyResult) != 1) {
+            printf("kleio_inference return error val");
+            return -1;
+        }
+        int ret = (int) PyLong_AsLong(pyResult);
+        return ret;
+    } else {
+        printf("load inference python func failed\n");
+        return -1;
+    }
+    return -1;
+}
+
+int kleio_load_model(const char *filepath) {
+    printf("%s\n", filepath);
+
+    wchar_t** _argv = PyMem_Malloc(sizeof(wchar_t*)*1);
+    wchar_t* arg = Py_DecodeLocale("test", NULL);
+    _argv[0] = arg;
+
+    Py_Initialize();
+    PySys_SetArgv(1, _argv);
+    import_array();
+
+    PyObject* sysPath = PySys_GetObject("path");
+
+    char *libpath = "/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper/coeus-sim-master";
+    PyList_Append(sysPath, PyUnicode_FromString(libpath));
+
+    PyObject *moduleString = PyUnicode_FromString("run_cluster_lstm");
+    PyObject *PyPredict = PyImport_Import(moduleString);
+    if (!PyPredict) {
+        PyErr_Print();
+        printf("ERROR in pModule\n");
+        return -1;
+    } else {
+        kleio_pDict = PyModule_GetDict(PyPredict);
+        PyObject *loadModelFunc = PyDict_GetItem(kleio_pDict, PyUnicode_FromString("kleio_load_model"));
+        
+        if (loadModelFunc != NULL) {
+            /* PyObject *pyResult = PyObject_CallObject(loadModelFunc, PyFileDir); */
+            PyObject *pyResult = PyObject_CallFunction(loadModelFunc, "s", filepath);
+            if (PyLong_Check(pyResult) != 1) {
+                printf("load_model return error val");
+            }
+            int ret = (int) PyLong_AsLong(pyResult);
+            return ret;
+        } else {
+            printf("load python func failed\n");
+            return -1;
+        }
+    }
+
+    //Py_Finalize();
+    return 0;
 }
