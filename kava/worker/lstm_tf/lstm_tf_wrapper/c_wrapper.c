@@ -30,21 +30,8 @@ int load_model(const char *filepath) {
 
     PyObject* sysPath = PySys_GetObject("path");
 
-    //char *libpath = "/home/edwardhu/kava/worker/lstm_tf/lstm_tf_wrapper/";
     char *libpath = "/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper";
-    printf("1.5\n");
     PyList_Append(sysPath, PyUnicode_FromString(libpath));
-
-    printf("2\n");
-
-    /* PyRun_SimpleString("import numpy as np"); */
-    /* PyRun_SimpleString("import os"); */
-    /* PyRun_SimpleString("import tensorflow as tf"); */
-    /* PyRun_SimpleString("from tensorflow import keras"); */
-
-    //PyObject *PyFileDir = PyString_FromString((char *)filepath);
-    /* PyObject *PyFileDir = PyUnicode_FromString((char *)filepath); */
-    /* PyObject *PyFileDir = Py_BuildValue("s", filepath); */
 
     PyObject *moduleString = PyUnicode_FromString("predict");
     PyObject *PyPredict = PyImport_Import(moduleString);
@@ -71,7 +58,6 @@ int load_model(const char *filepath) {
         }
     }
 
-    
     //Py_Finalize();
     return 0;
 }
@@ -101,7 +87,14 @@ int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned 
 
 void close_ctx(void) {
     // gc
-    PyObject *closeCtxFunc = PyDict_GetItem(pDict, PyUnicode_FromString("close_ctx"));
-    PyObject_CallFunction(closeCtxFunc, NULL);
-    Py_Finalize();
+    //PyObject *closeCtxFunc = PyDict_GetItem(pDict, PyUnicode_FromString("close_ctx"));
+    //PyObject_CallFunction(closeCtxFunc, NULL);
+    //Py_Finalize();
+    printf("calling close_ctx\n");
+    PyObject *func = PyDict_GetItem(pDict, PyUnicode_FromString("print_stats"));
+    PyObject *pyResult = PyObject_CallObject(func, 0);
+    if (!pyResult) {
+        printf("close_ctx failed\n");
+    }
+    fflush(stdout);
 }

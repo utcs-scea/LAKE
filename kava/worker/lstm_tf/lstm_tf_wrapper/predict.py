@@ -1,27 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-
 import gc
-
 import numpy as np
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 # os.environ["CUDA_VISIBLE_DEVICES"] = ""
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-
 import preprocess
+from timeit import default_timer as timer
 
-
-counter = 0
 
 sequence_length = 20
 epochs = 10
 batch_size = 32
 feature_dimension = 341
+
+st_times = {}
+for i in range(20, 380, 40):
+    st_times[i] = []
 
 def convertToOneHot(vector, num_classes=341):
     """
@@ -72,7 +72,6 @@ def summarize_results(prediction):
     else:
         return 0
 
-
 def sequence_n_gram_parsing(alist,n_gram=20,num_class=341,sliding_window=1):
     if len(alist) < n_gram:
         print("number of syscalls are less then 20, can't perform inference")
@@ -94,8 +93,6 @@ def sequence_n_gram_parsing(alist,n_gram=20,num_class=341,sliding_window=1):
 
 
 def load_model(filepath="/home"):
-    print("loading model at ", filepath)
-
     global model
     try:
         print("Loading Keras module...")
@@ -111,15 +108,17 @@ def load_model(filepath="/home"):
     # print("Model successfully loaded.")
     return 0
  
-def standard_inference(syscalls, num_syscall, sliding_window=1):
-    # print(syscalls.shape)
-    # print(num_syscall)
-    # print(sliding_window)
-    global counter
-    counter += 1
+def print_stats():
+    from statistics import mean
+    for k, v in st_times.items():
+        m = mean(v) if len(v) > 0 else 0
+        print(f"{k}, {m}")
 
-    print(f"num_syscall {num_syscall}")
-    print(f"syscalls {syscalls}")
+def standard_inference(syscalls, num_syscall, sliding_window=1):
+    #print(f"num_syscall {num_syscall}")
+    #print(f"syscalls {syscalls}")
+
+    start = timer()
 
     if (len(syscalls) != num_syscall):
         print("standard_inference failed because number of syscalls sent is different to num_syscall\n")
@@ -130,7 +129,7 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
         print("sequence_n_gram_parsing failed n standard_inference...")
         return -1
 
-    # print(n_gram_data.shape)
+    print(f"shape: {n_gram_data.shape}")
 
     try:
         prediction = model.predict(n_gram_data)
@@ -144,9 +143,9 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
 
     result = summarize_results(prediction)
 
-    # if counter % 30*15 == 0:
-    # if counter == 38*15 or counter == 15*138 or counter == 15 * 180:
-    #     gc.collect()
+    end = timer()
+    # we store time in  ms
+    st_times[num_syscall].append((end-start)*1000)
 
     return result
 

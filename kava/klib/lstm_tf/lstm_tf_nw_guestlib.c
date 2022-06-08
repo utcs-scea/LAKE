@@ -111,7 +111,7 @@ __handle_command_lstm_tf_destroy(void)
 void
 __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *__cmd)
 {
-    __chan->cmd_print(__chan, __cmd);
+    //__chan->cmd_print(__chan, __cmd);
     switch (__cmd->command_id) {
     case RET_LSTM_TF_LOAD_MODEL:{
         struct lstm_tf_load_model_ret *__ret = (struct lstm_tf_load_model_ret *)__cmd;
