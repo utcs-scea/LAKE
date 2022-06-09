@@ -20,19 +20,10 @@ int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned 
 #define V_DEBUG 3
 #define VERBOSITY V_INFO
 #define PRINT(verbosity, ...) do { if (verbosity <= VERBOSITY) printk(KERN_INFO __VA_ARGS__); } while (0)
-
-#define ELAPSED_TIME_MICRO_SEC(start, stop) ((stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_nsec - start.tv_nsec) / 1000)
 #endif
 
 #define BUF_LEN 200
-
-//#define SYSCALL_MAX 360
-#define SYSCALL_MAX 21
 #define MAX_SYSCALL_IDX 340
-#define ITERATION 15
-
-#define MEASURE_INFERENCE_TIME
-
 #define MODEL_LOAD_FAILURE -1
 
 static char model_name[BUF_LEN] __initdata;
@@ -46,8 +37,8 @@ MODULE_DESCRIPTION(description_string);
 MODULE_VERSION("0.01");
 MODULE_LICENSE("GPL");
 
-#define N_WARM 1
-#define N_RUNS 2
+#define N_WARM 5
+#define N_RUNS 5
 
 static int __init lstm_init(void) {
     int *syscalls;
@@ -70,16 +61,12 @@ static int __init lstm_init(void) {
         return model_id;
     }
     /* printk(KERN_INFO "Return code from load_model is %d\n", model_id); */
-    sliding_window = 1;
-
-    /* syscalls = (int *)kava_alloc((size_t)(sizeof(int) * 20)); */
-    /* kava_free(syscalls); */
+    sliding_window = 20;
 
     total_run_times = (u64*) kmalloc(N_RUNS*sizeof(u64), GFP_KERNEL);
 
     for (i = 20; i <= 360; i += 40) {
     //for (i = 20; i <= 40; i += 40) {
-        // 2. perform inference
         num_syscall = i;
         /* syscalls = (int *)kava_alloc((size_t)(sizeof(int) * num_syscall)); */
         syscalls = (int *)vmalloc((size_t)(sizeof(int) * num_syscall));
@@ -93,7 +80,7 @@ static int __init lstm_init(void) {
 
         // warmup
         for (k = 0; k < N_WARM; k++) {
-            standard_inference((void *)syscalls, num_syscall, sliding_window);
+            standard_inference((void *)syscalls, num_syscall, 21);
             usleep_range(250, 1000);
         }
 
@@ -104,6 +91,7 @@ static int __init lstm_init(void) {
                 //make sure we are positive
                 syscalls[j] = (rand_num >= 0 ? rand_num : -rand_num)% MAX_SYSCALL_IDX;
             }
+            usleep_range(250, 1000);
 
             t_start = ktime_get_ns();
             standard_inference((void *)syscalls, num_syscall, sliding_window);
@@ -119,11 +107,9 @@ static int __init lstm_init(void) {
         }
         avg_total = avg_total / (1000*N_RUNS);
         PRINT(V_INFO, "%d, %lld\n", i, avg_total);
+        vfree(syscalls);
     }
 
-    vfree(syscalls);
-    /* kava_free(syscalls); */
-    
     close_ctx();
     return 0;
 }

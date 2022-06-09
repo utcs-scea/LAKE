@@ -13,7 +13,6 @@ from tensorflow.keras import layers
 import preprocess
 from timeit import default_timer as timer
 
-
 sequence_length = 20
 epochs = 10
 batch_size = 32
@@ -109,14 +108,24 @@ def load_model(filepath="/home"):
     return 0
  
 def print_stats():
+    global st_times
     from statistics import mean
     for k, v in st_times.items():
         m = mean(v) if len(v) > 0 else 0
         print(f"{k}, {m}")
 
+    st_times = {}
+    for i in range(20, 380, 40):
+        st_times[i] = []
+
 def standard_inference(syscalls, num_syscall, sliding_window=1):
     #print(f"num_syscall {num_syscall}")
     #print(f"syscalls {syscalls}")
+    do_timer = True
+    if sliding_window == 21:
+        do_timer = False
+        sliding_window = 20
+        gc.collect()
 
     start = timer()
 
@@ -128,8 +137,6 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
     if (len(n_gram_data) <= 0):
         print("sequence_n_gram_parsing failed n standard_inference...")
         return -1
-
-    print(f"shape: {n_gram_data.shape}")
 
     try:
         prediction = model.predict(n_gram_data)
@@ -145,7 +152,8 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
 
     end = timer()
     # we store time in  ms
-    st_times[num_syscall].append((end-start)*1000)
+    if do_timer:
+        st_times[num_syscall].append((end-start)*1000)
 
     return result
 
