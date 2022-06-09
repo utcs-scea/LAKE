@@ -190,6 +190,26 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
         }
         break;
     }
+    case RET_LSTM_TF_KLEIO_CLOSE_CTX:{
+        struct lstm_tf_kleio_close_ctx_ret *__ret = (struct lstm_tf_kleio_close_ctx_ret *)__cmd;
+        BUG_ON(__ret->base.mode != KAVA_CMD_MODE_API);
+        BUG_ON(__ret->base.command_size != sizeof(struct lstm_tf_kleio_close_ctx_ret)
+            &&
+            "Command size does not match ID. (Can be caused by incorrectly computed buffer sizes, especially using `strlen(s)` instead of `strlen(s)+1`)");
+        struct lstm_tf_kleio_close_ctx_call_record *__local =
+            (struct lstm_tf_kleio_close_ctx_call_record *)kava_remove_call(&__kava_endpoint, __ret->__call_id);
+
+        {
+
+        }
+
+        __local->__call_complete = 1;
+        if (__local->__handler_deallocate) {
+            vfree(__local);
+        }
+        break;
+    }
+
     case RET_LSTM_TF_STANDARD_INFERENCE:{
         struct lstm_tf_standard_inference_ret *__ret = (struct lstm_tf_standard_inference_ret *)__cmd;
         BUG_ON(__ret->base.mode != KAVA_CMD_MODE_API);
@@ -467,6 +487,49 @@ close_ctx()
 }
 
 EXPORT_SYMBOL(close_ctx);
+
+
+
+EXPORTED void
+kleio_close_ctx()
+{
+
+    intptr_t __call_id = kava_get_call_id(&__kava_endpoint);
+    int64_t __thread_id;
+
+    struct kava_buffer_list *__kava_alloc_list_kleio_close_ctx = kava_endpoint_buffer_list_new();
+
+    size_t __total_buffer_size = 0;
+    {
+    }
+    struct lstm_tf_kleio_close_ctx_call *__cmd =
+        (struct lstm_tf_kleio_close_ctx_call *)chan->cmd_new(chan, sizeof(struct lstm_tf_kleio_close_ctx_call),
+        __total_buffer_size);
+    __cmd->base.mode = KAVA_CMD_MODE_API;
+    __cmd->base.command_id = CALL_LSTM_TF_KLEIO_CLOSE_CTX;
+    __cmd->base.thread_id = __thread_id = kava_shadow_thread_id(kava_shadow_thread_pool);
+
+    __cmd->__call_id = __call_id;
+
+    {
+
+    }
+
+    struct lstm_tf_kleio_close_ctx_call_record *__call_record =
+        (struct lstm_tf_kleio_close_ctx_call_record *)vmalloc(sizeof(struct lstm_tf_kleio_close_ctx_call_record));
+
+    __call_record->__call_complete = 0;
+    __call_record->__handler_deallocate = 1;
+    kava_add_call(&__kava_endpoint, __call_id, __call_record);
+
+    chan->cmd_send(chan, (struct kava_cmd_base *)__cmd);
+
+    kava_endpoint_buffer_list_free(__kava_alloc_list_kleio_close_ctx);
+
+    return;
+}
+
+EXPORT_SYMBOL(kleio_close_ctx);
 
 EXPORTED int
 standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window)

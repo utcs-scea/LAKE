@@ -117,6 +117,17 @@ __wrapper_close_ctx()
     }
 }
 
+static void
+__wrapper_kleio_close_ctx()
+{
+    {
+
+        kleio_close_ctx();
+
+        return;
+    }
+}
+
 static int
 __wrapper_standard_inference(unsigned int num_syscall, unsigned int sliding_window, const void *syscalls)
 {
@@ -309,6 +320,40 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
 
         break;
     }
+
+    case CALL_LSTM_TF_KLEIO_CLOSE_CTX:{
+        GPtrArray *__kava_alloc_list_kleio_close_ctx =
+            g_ptr_array_new_full(0, (GDestroyNotify) kava_buffer_with_deallocator_free);
+        struct lstm_tf_kleio_close_ctx_call *__call = (struct lstm_tf_kleio_close_ctx_call *)__cmd;
+        assert(__call->base.mode == KAVA_CMD_MODE_API);
+        assert(__call->base.command_size == sizeof(struct lstm_tf_kleio_close_ctx_call)
+            &&
+            "Command size does not match ID. (Can be caused by incorrectly computed buffer sizes, especially using `strlen(s)` instead of `strlen(s)+1`)");
+
+        /* Unpack and translate arguments */
+
+        /* Perform Call */
+
+        __wrapper_kleio_close_ctx();
+
+        size_t __total_buffer_size = 0;
+        {
+        }
+        struct lstm_tf_kleio_close_ctx_ret *__ret =
+            (struct lstm_tf_kleio_close_ctx_ret *)__chan->cmd_new(__chan, sizeof(struct lstm_tf_kleio_close_ctx_ret),
+            __total_buffer_size);
+        __ret->base.mode = KAVA_CMD_MODE_API;
+        __ret->base.command_id = RET_LSTM_TF_KLEIO_CLOSE_CTX;
+        __ret->base.thread_id = __call->base.thread_id;
+        __ret->__call_id = __call->__call_id;
+
+        /* Send reply message */
+        __chan->cmd_send(__chan, (struct kava_cmd_base *)__ret);
+        g_ptr_array_unref(__kava_alloc_list_kleio_close_ctx); /* Deallocate all memory in the alloc list */
+
+        break;
+    }
+
     case CALL_LSTM_TF_STANDARD_INFERENCE:{
         GPtrArray *__kava_alloc_list_standard_inference =
             g_ptr_array_new_full(0, (GDestroyNotify) kava_buffer_with_deallocator_free);

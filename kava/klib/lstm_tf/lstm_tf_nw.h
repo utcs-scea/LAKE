@@ -13,6 +13,7 @@ enum lstm_tf_functions {
         CALL_LSTM_TF_STANDARD_INFERENCE, RET_LSTM_TF_STANDARD_INFERENCE,
         CALL_LSTM_TF_KLEIO_LOAD_MODEL, RET_LSTM_TF_KLEIO_LOAD_MODEL,
         CALL_LSTM_TF_KLEIO_INFERENCE, RET_LSTM_TF_KLEIO_INFERENCE,
+        CALL_LSTM_TF_KLEIO_CLOSE_CTX, RET_LSTM_TF_KLEIO_CLOSE_CTX
 };
 
 #include "lstm_tf_nw_utility_types.h"
@@ -76,6 +77,25 @@ struct lstm_tf_close_ctx_call_record {
     char __handler_deallocate;
     volatile char __call_complete;
 };
+
+
+struct lstm_tf_kleio_close_ctx_call {
+    struct kava_cmd_base base;
+    intptr_t __call_id;
+
+};
+
+struct lstm_tf_kleio_close_ctx_ret {
+    struct kava_cmd_base base;
+    intptr_t __call_id;
+
+};
+
+struct lstm_tf_kleio_close_ctx_call_record {
+    char __handler_deallocate;
+    volatile char __call_complete;
+};
+
 
 struct lstm_tf_standard_inference_call {
     struct kava_cmd_base base;

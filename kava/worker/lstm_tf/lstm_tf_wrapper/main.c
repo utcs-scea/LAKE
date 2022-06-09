@@ -52,5 +52,5 @@ int main() {
     /* int result = standard_inference(syscalls, 40, 1); */
     /* printf("inference result is: %d\n", result); */
 
-    close_ctx();
+    kleio_close_ctx();
 }

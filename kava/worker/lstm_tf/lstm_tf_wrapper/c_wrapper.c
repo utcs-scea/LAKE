@@ -100,14 +100,21 @@ void close_ctx(void) {
     fflush(stdout);
 }
 
+void kleio_close_ctx(void) {
+    PyObject *func = PyDict_GetItem(kleio_pDict, PyUnicode_FromString("print_stats"));
+    PyObject *pyResult = PyObject_CallObject(func, 0);
+    if (!pyResult) {
+        printf("close_ctx failed\n");
+    }
+    fflush(stdout);
+}
 
 int kleio_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window) {
     PyObject *standardInferenceFunc = PyDict_GetItem(kleio_pDict, PyUnicode_FromString("kleio_inference"));
-    
+
     if (standardInferenceFunc != NULL) {
         /* Marshall args */
         PyObject *pArgs = PyTuple_New(3);
-
         PyTuple_SetItem(pArgs, 0, makearray((int *)syscalls, num_syscall));
         PyTuple_SetItem(pArgs, 1, PyLong_FromUnsignedLong((unsigned long)num_syscall));
         PyTuple_SetItem(pArgs, 2, PyLong_FromUnsignedLong((unsigned long)sliding_window));
@@ -126,7 +133,7 @@ int kleio_inference(const void *syscalls, unsigned int num_syscall, unsigned int
 }
 
 int kleio_load_model(const char *filepath) {
-    printf("%s\n", filepath);
+    printf("loading kleio at %s\n", filepath);
 
     wchar_t** _argv = PyMem_Malloc(sizeof(wchar_t*)*1);
     wchar_t* arg = Py_DecodeLocale("test", NULL);
@@ -155,7 +162,8 @@ int kleio_load_model(const char *filepath) {
             /* PyObject *pyResult = PyObject_CallObject(loadModelFunc, PyFileDir); */
             PyObject *pyResult = PyObject_CallFunction(loadModelFunc, "s", filepath);
             if (PyLong_Check(pyResult) != 1) {
-                printf("load_model return error val");
+                PyErr_Print();
+                printf("load_model return error val\n");
             }
             int ret = (int) PyLong_AsLong(pyResult);
             return ret;
@@ -164,7 +172,6 @@ int kleio_load_model(const char *filepath) {
             return -1;
         }
     }
-
     //Py_Finalize();
     return 0;
 }
