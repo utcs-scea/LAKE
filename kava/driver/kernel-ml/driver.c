@@ -3,8 +3,6 @@
 #include <linux/ktime.h>
 #include "helpers.h"
 //#include <asm/fpu/api.h>
-#define BLOCK_SIZE 16
-
 
 static char *cubin_path = "kml.cubin";
 module_param(cubin_path, charp, 0444);
@@ -30,8 +28,9 @@ double fast_sqrt_d(double x) {
 int matrix_argmax(double *src, int rows, int cols) { 
     int max = INT_MIN;
     int max_row = 0, max_col = 0;
-    for(int i = 0; i < rows; i++) {
-        for (int j = 0; j < cols; j++) {
+    int i, j;
+    for(i = 0; i < rows; i++) {
+        for (j = 0; j < cols; j++) {
             if(max < src[i*rows + j]) {
                 max = src[i*rows + j];
                 max_row =i;
@@ -138,24 +137,24 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* matrix_repmat
     //wx = matrix_mult(x, wt);
     unsigned int grid_rows = (x_rows + BLOCK_SIZE - 1) / BLOCK_SIZE;
     unsigned int grid_cols = (linear_w_rows + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    dim3 dimGrid(grid_cols, grid_rows);
-    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+    // dim3 dimGrid(grid_cols, grid_rows);
+    // dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
 
-    void *args[] = {
+    void *args1[] = {
 		&x, &wt, &wx, x_rows, linear_w_columns,linear_w_rows
 	};
 
     check_error(cuLaunchKernel(*matrix_transpose, 
-				dimGrid, 1, 1,          //blocks
-				dimBlock, 1, 1,   //threads per block
+				grid_cols, grid_rows, 1,          //blocks
+				BLOCK_SIZE, BLOCK_SIZE, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args1, NULL),
 			"cuLaunchKernel", __LINE__);
 
    // matrix_mult<<<dimGrid, dimBlock>>>( x, wt, wx, x_rows, linear_w_columns,linear_w_rows);
 
     int rep_val = 1;
-    void *args[] = {
+    void *args2[] = {
 		&bias_vector, x_rows, rep_val, bias_vector_rows, bias_vector_cols, &bias
 	};
 
@@ -163,12 +162,12 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* matrix_repmat
 				bias_vector_rows, 1, 1,          //blocks
 				bias_vector_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args2, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_repmat<<<bias_vector_rows, bias_vector_cols>>>(bias_vector, x_rows, 1, bias_vector_rows, bias_vector_cols, bias);
     //bias = matrix_repmat(linear->bias_vector, wx->rows, 1);
 
-    void *args[] = {
+    void *args3[] = {
 		&wx, &bias, &out
 	};
 
@@ -176,7 +175,7 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* matrix_repmat
 				x_rows, 1, 1,          //blocks
 				linear_w_rows, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args3, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_add<<<x_rows, linear_w_rows>>>(wx, bias, out);
 
@@ -208,15 +207,15 @@ double *autodiff_forward(CUdeviceptr d_readahead_norm_online_data, CUfunction* m
     // layer 0
     check_error(cuMemAlloc((CUdeviceptr*) &d_out0, sizeof(double) *w0_rows * input_rows), "cuMemAlloc ", __LINE__);
     linear_layer_forward(d_readahead_norm_online_data, d_w0, w0_rows, input_rows, w0_cols, d_b0, b0_rows, b0_cols, 0, d_out0,
-    &matrix_transpose, &matrix_mult, &matrix_repmat, &matrix_add);
+    matrix_transpose, matrix_mult, matrix_repmat, matrix_add);
     //layer 1
     check_error(cuMemAlloc((CUdeviceptr*) &d_out1, sizeof(double) *w1_rows * out0_rows), "cuMemAlloc ", __LINE__);
     linear_layer_forward(d_out0, d_w1, w1_rows, out0_rows, w1_cols, d_b1, b1_rows, b1_cols, 1, d_out1,
-    &matrix_transpose, &matrix_mult, &matrix_repmat, &matrix_add);
+    matrix_transpose, matrix_mult, matrix_repmat, matrix_add);
     //layer 2
     check_error(cuMemAlloc((CUdeviceptr*) &d_out2, sizeof(double) *w2_rows * out1_rows), "cuMemAlloc ", __LINE__);
     linear_layer_forward(d_out1, d_w2, w2_rows, out1_rows, w2_cols, d_b2, b2_rows, b2_cols, 2, d_out2,
-    &matrix_transpose, &matrix_mult, &matrix_repmat, &matrix_add);
+    matrix_transpose, matrix_mult, matrix_repmat, matrix_add);
 
     double *out2 = (double*) kava_alloc(sizeof(double)*out2_cols *out2_rows);
     check_error(cuMemcpyDtoH(out2, d_out2, sizeof(double) * out2_cols *out2_rows), "cuMemcpyDtoH", __LINE__);
@@ -234,7 +233,7 @@ double *readahead_class_net_inference(CUdeviceptr d_readahead_norm_online_data, 
 
 void readahead_normalized_online_data(int readahead_online_data_cols, int readahead_std_dev_rows, int readahead_std_dev_cols, 
     int readahead_avg_rows, int readahead_avg_cols, int readahead_variance_rows, int readahead_variance_cols,
-                                      int readahead_val , double *readahead_norm_online_data,
+                                      CUdeviceptr readahead_norm_online_data,
                                       CUfunction* matrix_mult_constant, CUfunction* matrix_add, CUfunction* matrix_div_constant,
                                       CUfunction* set_matrix_with_matrix,CUfunction* matrix_sub,
                                       CUfunction* matrix_elementwise_mult, CUfunction* matrix_map,
@@ -274,7 +273,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 			"cuLaunchKernel", __LINE__);
 
     //matrix_mult_constant<<<1, readahead_online_data_cols>>>(local_average, n_seconds, diff);
-    void *args[] = {
+    void *args1[] = {
 		&d_input, &diff, &diff
 	};
 
@@ -282,11 +281,11 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args1, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_add<<<1, readahead_online_data_cols>>>(readahead_online_data, diff, diff);
 
-    void *args[] = {
+    void *args2[] = {
 		&diff, &n_seconds, &diff
 	};
 
@@ -294,11 +293,11 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args2, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_div_constant<<<1, readahead_online_data_cols>>>(diff, n_seconds, diff);
 
-    void *args[] = {
+    void *args3[] = {
 		&diff, &local_average
 	};
 
@@ -306,13 +305,13 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args3, NULL),
 			"cuLaunchKernel", __LINE__);
     //set_matrix_with_matrix<<<1, readahead_online_data_cols>>>(diff, local_average);
     // print_matrix(readahead->norm_data_stat.average);
 
 
-    void *args[] = {
+    void *args4[] = {
 		&d_input, &readahead_norm_online_data_last_values, &diff
 	};
 
@@ -320,11 +319,11 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args4, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_sub<<<1, readahead_online_data_cols>>>(readahead_online_data, readahead_norm_online_data_last_values, diff);
 
-    void *args[] = {
+    void *args5[] = {
 		&diff, &diff, &diff
 	};
 
@@ -332,11 +331,11 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args5, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_elementwise_mult<<<1, readahead_online_data_cols>>>(diff, diff, diff);
 
-    void *args[] = {
+    void *args6[] = {
 		&local_variance, &n_seconds, &local_variance
 	};
 
@@ -344,11 +343,11 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				readahead_variance_rows, 1, 1,          //blocks
 				readahead_variance_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args6, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_mult_constant<<<readahead_variance_rows, readahead_variance_cols>>>(local_variance, n_seconds, local_variance);
 
-    void *args[] = {
+    void *args7[] = {
 		&local_variance, &diff, &local_variance
 	};
 
@@ -356,11 +355,11 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args7, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_add<<<1, readahead_online_data_cols>>>(local_variance, diff, local_variance);
 
-    void *args[] = {
+    void *args8[] = {
 		&local_variance, &n_seconds, &local_variance
 	};
 
@@ -368,12 +367,12 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				readahead_variance_rows, 1, 1,          //blocks
 				readahead_variance_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args8, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_div_constant<<<readahead_variance_rows, readahead_variance_cols>>>(local_variance, n_seconds, local_variance);
 
 
-    void *args[] = {
+    void *args9[] = {
 		&local_variance, &fast_sqrt_d, &local_std_dev
 	};
 
@@ -381,12 +380,12 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				readahead_variance_rows, 1, 1,          //blocks
 				readahead_variance_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args9, NULL),
 			"cuLaunchKernel", __LINE__);
 
     //matrix_map<<<readahead_variance_rows, readahead_variance_cols>>>(local_variance, fast_sqrt_d, local_std_dev);
     // print_matrix(readahead->norm_data_stat.std_dev);
-    void *args[] = {
+    void *args10[] = {
 		&d_input, &local_average, &readahead_norm_online_data
 	};
 
@@ -394,12 +393,12 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args10, NULL),
 			"cuLaunchKernel", __LINE__);
 
     //matrix_sub<<<1, readahead_online_data_cols>>>(readahead_online_data, local_average, readahead_norm_online_data);
 
-    void *args[] = {
+    void *args11[] = {
 		&d_input, &local_std_dev, &readahead_norm_online_data
 	};
 
@@ -407,11 +406,11 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args11, NULL),
 			"cuLaunchKernel", __LINE__);
     //matrix_elementwise_div<<<1, readahead_online_data_cols>>>(readahead_norm_online_data, local_std_dev, readahead_norm_online_data);
 
-    void *args[] = {
+    void *args12[] = {
 		&d_input, &readahead_norm_online_data_last_values
 	};
 
@@ -419,7 +418,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args12, NULL),
 			"cuLaunchKernel", __LINE__);
     //set_matrix_with_matrix<<<1, readahead_online_data_cols>>>(readahead_online_data, readahead_norm_online_data_last_values);
 
