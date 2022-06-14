@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sys, os
 import glob
 
@@ -22,4 +24,9 @@ for name in glob.glob( os.path.join(sys.argv[1], "*")):
 
     with open(name, "r") as fin:
         for line in fin:
-            fout.write(line[:-2]+"\n" )
+            if line[:-1] == "|":
+                fout.write(line[:-1]+"\n" )
+            elif line[:-2] == "|":
+                fout.write(line[:-2]+"\n" )
+            else:
+                fout.write(line)

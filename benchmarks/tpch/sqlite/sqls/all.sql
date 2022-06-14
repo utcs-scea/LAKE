@@ -8,4 +8,4 @@
 .import tbls/part.tbl PART
 .import tbls/region.tbl REGION
 .import tbls/supplier.tbl SUPPLIER
-
+.read sqls/indexes.sql

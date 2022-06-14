@@ -1,5 +1,4 @@
--- using 1433771997 as a seed to the RNG
-
+PRAGMA cache_size = 0;
 
 select
 	sum(l_extendedprice* (1 - l_discount)) as revenue
