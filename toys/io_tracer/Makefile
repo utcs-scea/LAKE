@@ -25,4 +25,4 @@ disable_readahead:
 	@echo "echo 0 | sudo tee /sys/block/vda/queue/read_ahead_kb"
 
 shim.so:
-	g++ -Wall -O2 -fpic -shared shim/shim.cpp -ldl -lpthread -o shim.so
+	g++ -Wall -fpic -shared shim/*.cpp -ldl -lpthread -o shim.so -Wl,--version-script=shim/VERSION.txt

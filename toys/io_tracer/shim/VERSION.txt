@@ -1,0 +1,9 @@
+GLIBC_2.2.5 {
+        global:
+                read*;
+                pread*;
+                pread64*;
+                pread_225;
+        local:
+                *;
+};

@@ -1,123 +1,20 @@
-#define _GNU_SOURCE
+#include "common.h"
+#include "mmap.h"
 
-#include <linux/userfaultfd.h>
-#include <sys/syscall.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <stdio.h>
-#include <errno.h>
-#include <dlfcn.h>
-#include <stdlib.h>
-#include <sys/mman.h>
-#include <stdint.h>
-#include <string.h>
-#include <assert.h>
-#include <unistd.h>
-#include <pthread.h>
-#include <poll.h>
-#include <fcntl.h>
-#include <mutex>
-#include <list>
-
-#define PAGE_SZ 4096
-
-/*
- *   SHIM CODE
- */
-typedef void *(*mmap_ptr)(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-static mmap_ptr real_mmap = 0;
-
-typedef ssize_t (*pread_ptr)(int fildes, void *buf, size_t nbyte, off_t offset);
-typedef ssize_t (*read_ptr)(int fildes, void *buf, size_t nbyte);
-
-static pread_ptr real_pread = 0;
-static read_ptr real_read = 0;
+#include "reads.h"
 
 std::mutex init_mtx;
 uint8_t uff_initd(0);
 
-void __attribute__((constructor)) initialize(void) {
+static mmap_ptr real_mmap = 0;
+
+void mmap_contructor() {
     real_mmap = (mmap_ptr) dlsym(RTLD_NEXT, "mmap");
     if (real_mmap == NULL) {
         printf("Failed getting original mmap\n");
         exit(1);
     }
-
-    real_pread = (pread_ptr) dlsym(RTLD_NEXT, "pread");
-    if (real_pread == NULL) {
-        printf("Failed getting original real_pread\n");
-        exit(1);
-    }
-
-    real_read = (read_ptr) dlsym(RTLD_NEXT, "read");
-    if (real_read == NULL) {
-        printf("Failed getting original real_read\n");
-        exit(1);
-    }
 }
-
-/*
- *  General helpers
- */
-
-int inode_from_fd(int fd) {
-    struct stat file_stat;  
-    int ret;  
-    ret = fstat (fd, &file_stat);  
-    if (ret < 0) {  
-    } 
-    return file_stat.st_ino;
-}
-
-/*
- *  Shim read so we can print offsets
- */
-
-ssize_t pread(int fd, void *buf, size_t nbyte, off_t offset) {
-    ssize_t ret;
-    uint64_t position = lseek(fd, 0, SEEK_CUR);
-    position += offset;
-
-    ret = real_pread(fd, buf, nbyte, offset);
-
-    uint32_t first, last;
-    first = position/PAGE_SZ;
-    last = (position+ret-1)/PAGE_SZ;
-    int inode = inode_from_fd(fd);
-
-    for (int i = first ; i <= last; i++) {
-        fprintf(stderr, ":pread, %d, %u\n", inode, i);
-    }
-    return ret;
-}
-
-ssize_t read(int fd, void *buf, size_t nbyte) {
-    ssize_t ret;
-    uint64_t position = lseek(fd, 0, SEEK_CUR);
-    ret = real_read(fd, buf, nbyte);
-
-    uint32_t first, last;
-    first = position/PAGE_SZ;
-    last = (position+ret-1)/PAGE_SZ;
-    int inode = inode_from_fd(fd);
-
-    for (int i = first ; i <= last; i++) {
-        fprintf(stderr, ":read, %d, %u\n", inode, i);
-    }
-    return ret;
-}
-
-
-/*
- *  meta data about current mappings
- */
-struct file_mapping {
-    uint64_t start;
-    uint64_t end;
-    int fd;
-};
 
 std::mutex list_mtx;
 //performance doesnt matter, so use a simple list
@@ -143,7 +40,7 @@ void handle_fault(uint64_t address, char* buf) {
         if (belongs_to_mapping(m, address)) {
             // we found the mapping this address is from, read from file
 
-            int inode = inode_from_fd(m.fd);
+            //int inode = inode_from_fd(m.fd);
 
             // sprintf(proc_path, "/proc/self/fd/%d", m.fd);
             // uint64_t n = readlink(proc_path, file_path, 511);
@@ -152,12 +49,13 @@ void handle_fault(uint64_t address, char* buf) {
 
             uint64_t foffset = address - m.start;
             uint32_t page_offset = foffset / PAGE_SZ;
-            fprintf(stderr, ":mmap, %d, %u\n", inode, page_offset);
+            //fprintf(stderr, ":m,%d,%u\n", inode, page_offset);
+            fprintf(stderr, ":m,%d,%u\n", m.fd, page_offset);
 
             // go to page aligned position of file, read, reset
             uint32_t old_pos = lseek(m.fd, 0, SEEK_CUR);
             lseek(m.fd, page_offset*PAGE_SZ, SEEK_SET);
-            uint64_t nread = read(m.fd, buf, 4096);
+            uint64_t nread = real_read_225(m.fd, buf, 4096);
             lseek(m.fd, old_pos, SEEK_SET);
         }
 	}
@@ -194,7 +92,7 @@ static void *handler(void *arg)
             exit(1);
         }
 
-        printf("received uff\n");
+        //printf("received uff\n");
 
         if (pollfd[0].revents & POLLERR) {
             fprintf(stderr, "pollerr\n");
@@ -281,8 +179,8 @@ void check_uff_initd(void) {
 
 uint64_t register_uff_area(int fd, size_t length, int prot, int flags) {
     // allocate a memory region to be managed by userfaultfd
-    //void* region = real_mmap(NULL, length, prot, flags|MAP_ANONYMOUS, -1, 0);
-    void* region = real_mmap(NULL, length, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    void* region = real_mmap(NULL, length, prot, flags|MAP_ANONYMOUS, -1, 0);
+    //void* region = real_mmap(NULL, length, PROT_READ | PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if (region == MAP_FAILED) {
         perror("real_mmap");
         return 0;
@@ -316,34 +214,34 @@ uint64_t register_uff_area(int fd, size_t length, int prot, int flags) {
 //serialize mmaps for now
 std::mutex mmap_mtx;
 
-void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
-    mmap_mtx.lock();
+// void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset) {
+//     mmap_mtx.lock();
 
-    printf("In mmap shim\n");
-    check_uff_initd();
+//     //printf("In mmap shim\n");
+//     check_uff_initd();
 
-    // ignore anon mappings
-    if (flags & MAP_ANONYMOUS) {
-        printf("Ignoring anon mapping\n");
-        void* ret = real_mmap(addr, length, prot, flags, fd, offset);
-        mmap_mtx.unlock();
-        return ret;
-    } 
+//     // ignore anon mappings
+//     if (flags & MAP_ANONYMOUS) {
+//         printf("Ignoring anon mapping\n");
+//         void* ret = real_mmap(addr, length, prot, flags, fd, offset);
+//         mmap_mtx.unlock();
+//         return ret;
+//     } 
 
-    //TODO: deal with offset
-    printf("Caught file-backed mapping\n");
+//     //TODO: deal with offset
+//     printf("Caught file-backed mapping\n");
     
-    printf("fd: %d  offset %lu\n", fd, offset);
-    //void* ret = real_mmap(addr, length, prot, flags, fd, offset);
-    //mmap_mtx.unlock();
-    //return ret;
+//     printf("fd: %d  offset %lu\n", fd, offset);
+//     //void* ret = real_mmap(addr, length, prot, flags, fd, offset);
+//     //mmap_mtx.unlock();
+//     //return ret;
 
-    uint64_t region = register_uff_area(fd, length, prot, flags);
-    if (region == 0) {
-        printf("Error mapping UFF area\n");
-        exit(1);
-    }
+//     uint64_t region = register_uff_area(fd, length, prot, flags);
+//     if (region == 0) {
+//         printf("Error mapping UFF area\n");
+//         exit(1);
+//     }
 
-    mmap_mtx.unlock();
-    return (void*) region;   
-}
+//     mmap_mtx.unlock();
+//     return (void*) region;   
+// }
