@@ -23,9 +23,13 @@ class LSTM_SSD (BaseModel):
         #transform top deltas
         top = hist.most_common(SSD_N_CLASSES)
         
+        print(f"Delta hist: {top}")
+
         i = 0
         for delta, _ in top:
             self.class_to_dist[i] = delta
+            print(f"class {i} is delta {delta}")
+            i += 1
 
         i = 0
         for d, count in top:

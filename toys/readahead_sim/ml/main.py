@@ -23,21 +23,22 @@ def denorm_dist(d):
     return d - MAX_DIST/2
 
 def main(args):
-
-
     l = LSTM_SSD()
     l.prepare_inputs(args.trace)
 
     if args.train:
+        print("Training model..")
         l.train()
         if args.train != '':
+            print(f"Saving model at {args.train}")
             l.save_model(args.train)
     elif args.model:
+        print(f"Loading model from {args.model}")
         l.load_model(args.model)
     else:
         print("Argument error, need either -train <path> or -model <path")
 
-    l.inference(100)
+    #l.inference(100)
 
     #l = LSTM_v1(norm_dist, denorm_dist)
     #l.prepare_inputs(args.trace)
