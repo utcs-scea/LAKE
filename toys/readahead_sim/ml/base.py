@@ -11,7 +11,7 @@ class BaseModel:
         
     def parse_input(self, fname):
         reads = []
-        with open(sys.argv[1], "r") as f:
+        with open(fname, "r") as f:
             for line in f:
                 offset = line.split(",")[-1].rstrip()
                 reads.append(int(offset))
@@ -105,3 +105,9 @@ class BaseModel:
         verif_v = np.array(verif_v)
         print(f"split shapes {train_x.shape}, {train_v.shape}  -  {verif_x.shape}, {verif_v.shape}")
         return (( train_x, train_v),(verif_x, verif_v))
+
+    def load_model(self, fpath):
+        self.model = load_model(fpath)
+
+    def save_model(self, fpath):
+        self.model.save(fpath)

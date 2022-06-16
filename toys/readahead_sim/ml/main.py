@@ -23,8 +23,21 @@ def denorm_dist(d):
     return d - MAX_DIST/2
 
 def main(args):
+
+
     l = LSTM_SSD()
     l.prepare_inputs(args.trace)
+
+    if args.train:
+        l.train()
+        if args.train != '':
+            l.save_model(args.train)
+    elif args.model:
+        l.load_model(args.model)
+    else:
+        print("Argument error, need either -train <path> or -model <path")
+
+    l.inference(100)
 
     #l = LSTM_v1(norm_dist, denorm_dist)
     #l.prepare_inputs(args.trace)
@@ -41,7 +54,8 @@ def main(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("trace", help="path to trace file", type=str)
-    parser.add_argument("--train", help="train the model")
+    parser.add_argument('-m', '--model', nargs='?', help='Path to model')
+    parser.add_argument('-t', '--train', nargs='?', const='', help='Where to save model')
     args = parser.parse_args()
 
     main(args)

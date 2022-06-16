@@ -16,20 +16,30 @@ from collections import Counter
 
 class LSTM_SSD (BaseModel):
     def __init__(self):
-        self.dist_class_map = {}
+        self.dist_categ_onehot_map = {}
+        self.class_to_dist = {}
 
     def set_distance_map(self, hist):
         #transform top deltas
         top = hist.most_common(SSD_N_CLASSES)
+        
+        i = 0
+        for delta, _ in top:
+            self.class_to_dist[i] = delta
+
         i = 0
         for d, count in top:
-            self.dist_class_map[d] = to_categorical(i, num_classes=SSD_N_CLASSES+1, dtype=int)
+            self.dist_categ_onehot_map[d] = to_categorical(i, num_classes=SSD_N_CLASSES+1, dtype=int)
             #print(f"dist {d} (count {count}) is categorical: {self.dist_class_map[d]}")
             i += 1
         self.default_dist = to_categorical(SSD_N_CLASSES, num_classes=SSD_N_CLASSES+1, dtype=int)
 
-    def get_class(self, d):
-        return self.dist_class_map.get(d, self.default_dist)
+    def get_onehot(self, d):
+        return self.dist_categ_onehot_map.get(d, self.default_dist)
+
+    def onehot_to_dist(self, onehot):
+        x = np.argmax(onehot)
+        return self.class_to_dist.get(x, None)
 
     def transform_input(self, reads):
         hist = Counter()
@@ -53,12 +63,11 @@ class LSTM_SSD (BaseModel):
             X    = np.empty((SSD_WINDOW_SZ, SSD_N_CLASSES+1), dtype=int)
             for j in range(SSD_WINDOW_SZ):
                 rX[j] = dists[i+j]
-                X[j] = self.get_class(dists[i+j])
-            Y = self.get_class(dists[i+SSD_WINDOW_SZ])
+                X[j] = self.get_onehot(dists[i+j])
+            Y = self.get_onehot(dists[i+SSD_WINDOW_SZ])
             self.rawX.append(rX)
             self.dataX.append(X)
             self.dataY.append(Y)
-
 
     def prepare_inputs(self, fname, train_pct=0.7):
         reads = self.parse_input(fname)
@@ -69,51 +78,68 @@ class LSTM_SSD (BaseModel):
             print(f"{self.rawX[i]}")
             print(f"  -> {self.dataY[i]}")
 
+        self.split_training(train_pct)
 
-    # def model_lstm(self, inp_shape):
-    #     layers = 500
-    #     dropout = 0
-    #     model = Sequential()
-    #     model.add(Input(shape=inp_shape) )
-    #     model.add(LSTM(layers, input_shape=(SLICE_LEN, MAX_DIST+1), return_sequences=True, recurrent_dropout=dropout))
-    #     model.add(LSTM(layers))
-    #     model.add(Dense(MAX_DIST+1, activation='softmax'))
-    #     print(f"LSTM output: {model.output_shape}")
+    def split_training(self, train_pct):
+        #do soemthing simple and reproducible
+        #take train_n out of each 10 for training
+        train_n = (train_pct*10)-1
 
-    #     model.summary()
-    #     model.compile(optimizer=SGD(lr=LEARN_RATE), 
-    #             loss='categorical_crossentropy', 
-    #             #loss=tf.keras.losses.SparseCategoricalCrossentropy(),
-    #             metrics=['categorical_accuracy'])
-    #     self.model = model
+        self.valX = []
+        self.valY = []
+        self.trainX = []
+        self.trainY = []
 
+        for i in range(len(self.dataX)):
+            j = i % 10
+            if j < train_n:
+                self.trainX.append(self.dataX[j])
+                self.trainY.append(self.dataY[j])
+            else:
+                self.valX.append(self.dataX[j])
+                self.valY.append(self.dataY[j])
 
-    # def train(self):
-    #     self.model_lstm(self.t[0].shape)
-    #     self.model.fit( train_xv[0], train_xv[1], epochs = LSTM_EPOCHS, 
-    #         validation_data=(verif_xv[0],verif_xv[1]) 
-    #     )
+        self.trainX = np.array(self.trainX)
+        self.trainY = np.array(self.trainY)
+        self.valX = np.array(self.valX)
+        self.valY = np.array(self.valY)
 
-    # def load_model(self, fpath):
-    #     self.model = load_model(fpath)
+        print(f"Split shapes {self.trainX.shape}, {self.trainY.shape}  -  {self.valX.shape}, {self.valY.shape}")
 
-    # def save_model(self, fpath):
-    #     self.model.save(fpath)
+    def create_model(self):
+        layers = 200
+        dropout = 0
+        
+        model = Sequential()
+        model.add(Input(shape=(SSD_WINDOW_SZ, SSD_N_CLASSES+1)))
+        model.add(LSTM(layers, input_shape=(SSD_WINDOW_SZ, SSD_N_CLASSES+1), return_sequences=True))  #,  recurrent_dropout=dropout))
+        model.add(LSTM(layers))
+        model.add(Dense(SSD_N_CLASSES+1, activation='softmax'))
+        print(f"LSTM output: {model.output_shape}")
 
-    # def inference(self, n):
-    #     random.seed(0)
+        model.summary()
+        model.compile(optimizer='rmsprop',
+              loss="categorical_crossentropy",
+              metrics="categorical_accuracy")
+        self.model = model
 
-    #     for _ in range(min(n, len(self.t))):
-    #         idx = random.randrange(0,len(self.t))
-    #         inp = np.expand_dims(self.t[idx], axis=0)   
-    #         pred = self.model.predict(inp)
+    def train(self):
+        self.create_model()
+        self.model.fit( self.trainX, self.trainY, epochs = SSD_EPOCHS, 
+            validation_data=(self.valX, self.valY) 
+        )
 
-    #         #print(f"pred shape: {pred.shape}")
-    #         #pred = np.array([np.argmax(x) for x in pred])
+    def inference(self, n):
+        random.seed(0)
 
-    #         print("\n")
-    #         for x in self.t[idx]:
-    #             print(f"{self.dist_denorm(x)},", end="")
+        for _ in range(min(n, len(self.valX))):
+            idx = random.randrange(0,len(self.valX))
+            inp = np.expand_dims(self.valX[idx], axis=0)   
+            pred = self.model.predict(inp)
+        
+            print("\n")
+            for x in self.valX[idx]:
+                print(f"{self.onehot_to_dist(x)},", end="")
 
-    #         print(f"\npredicted {self.dist_denorm(pred)}")
+            print(f"\npredicted {self.onehot_to_dist(pred)}")
 
