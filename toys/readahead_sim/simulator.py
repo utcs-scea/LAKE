@@ -69,7 +69,7 @@ algs = {
         "NoPrefetch": NoPrefetch,
         "Oracle": Oracle,
         "Linux": Linux,
-        #"SSD_LSTM": LSTM_SSD,
+        "SSD_LSTM": LSTM_SSD,
     }
 
 #
@@ -110,9 +110,9 @@ def main(args):
             for ra in ras:
                 lru.put(ra, 0)
 
-            #if i % ten_pct == 0:
-            #    print(f"  at {cur_pct}%")
-            #    cur_pct += 10
+            if i % ten_pct == 0:
+                print(f"  at {cur_pct}%")
+                cur_pct += 10
 
         print(f"{name}, {majfault}")
     print("******************************")

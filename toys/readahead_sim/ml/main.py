@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os, sys
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0' 
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 import argparse
 from math import floor
