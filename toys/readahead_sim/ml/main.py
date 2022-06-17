@@ -1,30 +1,23 @@
 #!/usr/bin/env python3
-#!/usr/bin/env python3
 import os, sys
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
+os.environ['CUDA_VISIBLE_DEVICES'] = '0' 
+
 import argparse
 from math import floor
 import numpy as np
 
-from dense1 import Dense_v1
-from lstm import LSTM_v1
+#from dense1 import Dense_v1
+#from lstm import LSTM_v1
 from ssdlstm import LSTM_SSD
 from config import *
 
-
-def norm_dist(a, b):
-    d = floor((b-a)/BLOCK_SZ)
-    # cap distances
-    dn = max(d,  -(MAX_DIST/2) )
-    dn = min(dn,  (MAX_DIST/2) )
-    dn = dn+MAX_DIST/2
-    return (d, dn)
-
-def denorm_dist(d):
-    return d - MAX_DIST/2
-
 def main(args):
-    l = LSTM_SSD()
-    l.prepare_inputs(args.trace)
+    fname = args.trace
+    trace = fname.split("/")[-1]
+    trace = trace.split(".")[-2]
+
+    l = LSTM_SSD(reads=args.trace, trace=trace)
 
     if args.train:
         print("Training model..")
@@ -38,21 +31,10 @@ def main(args):
     else:
         print("Argument error, need either -train <path> or -model <path")
 
-    #l.inference(100)
-
-    #l = LSTM_v1(norm_dist, denorm_dist)
-    #l.prepare_inputs(args.trace)
-    #l.train()
-    #l.save_model("lstm_v1_model_10epoch_16")
-    #l.load_model("lstm_v1_model_10epoch")
-    #l.inference(100)
-
-    #d = Dense_v1(norm_dist)
-    #d.train(args.trace)
-    #d.inference(20)
+    l.test_inference(100)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and not __package__:
     parser = argparse.ArgumentParser()
     parser.add_argument("trace", help="path to trace file", type=str)
     parser.add_argument('-m', '--model', nargs='?', help='Path to model')

@@ -4,110 +4,48 @@ from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, LSTM, Input
 from tensorflow.keras.optimizers import Adam, SGD
-import sys
+import sys, os
 from config import *
+import string, random
+
+LIMIT_SIZE = None
+
+def norm_dist(a, b):
+    d = floor((b-a)/BLOCK_SZ)
+    # cap distances
+    dn = max(d,  -(MAX_DIST/2) )
+    dn = min(dn,  (MAX_DIST/2) )
+    dn = dn+MAX_DIST/2
+    return (d, dn)
+
+def denorm_dist(d):
+    return d - MAX_DIST/2
 
 class BaseModel:
-        
     def parse_input(self, fname):
         reads = []
+        count = 0
         with open(fname, "r") as f:
             for line in f:
                 offset = line.split(",")[-1].rstrip()
                 reads.append(int(offset))
+                count += 1
+                if LIMIT_SIZE is not None and count == LIMIT_SIZE: break 
         print(f"Parsed {len(reads)} inputs")
         return reads
-
-    def transform_input_categorical(self, reads):
-        dists = np.empty(len(reads)-1, dtype=int)
-        rawdists = np.empty(len(reads)-1, dtype=int)
-        for i in range(len(reads)-1):
-            this_r = reads[i]
-            next_r = reads[i+1]
-            d, dn = self.dist_fn(this_r, next_r)
-            rawdists[i] = d
-            dists[i] = dn
-
-        cat = to_categorical(dists, num_classes=MAX_DIST+1, dtype=int)
-        #for i in range(len(dists)):
-        #    print(f"{rawdists[i]} -> {dists[i]} : {cat[i]}")
-        return cat
-
-    def transform_input_regular(self, reads):
-        dists = np.empty(len(reads)-1, dtype=int)
-        rawdists = np.empty(len(reads)-1, dtype=int)
-        for i in range(len(reads)-1):
-            this_r = reads[i]
-            next_r = reads[i+1]
-            d, dn = self.dist_fn(this_r, next_r)
-            rawdists[i] = d
-            dists[i] = dn
-
-        cat = to_categorical(dists, num_classes=MAX_DIST+1, dtype=int)
-        #for i in range(len(dists)):
-        #    print(f"{rawdists[i]} -> {dists[i]} : {cat[i]}")
-        return dists
-
-    def slice_regular(self, dists):
-        n = len(dists) - SLICE_LEN
-        trains = []
-        labels = []
-        for i in range(n):
-            train_row = np.empty( SLICE_LEN, dtype=int)
-            out_row   = np.empty( 1,  dtype=int)
-            for j in range(SLICE_LEN):
-                train_row[j] = dists[i+j]
-            out_row[0] = dists[i+SLICE_LEN]
-            trains.append(train_row)
-            labels.append(out_row)
-
-        print(f"after slice regular, shapes: {trains[0].shape} {labels[0].shape}")
-        return (trains, labels)
-
-    def slice_categorical(self, cat):
-        n = len(cat) - SLICE_LEN
-        trains = []
-        labels = []
-        for i in range(n):
-            train_row = np.empty( (SLICE_LEN, cat[0].shape[0]), dtype=int)
-            out_row   = np.empty(             cat[0].shape[0],  dtype=int)
-            for j in range(SLICE_LEN):
-                train_row[j] = cat[i+j]
-            out_row = cat[i+SLICE_LEN]
-
-            trains.append(train_row)
-            labels.append(out_row)
-
-        print(f"after slice, shapes: {trains[0].shape} {labels[0].shape}")
-        return (trains, labels)
-
-    def split_training(self, train_data, label_data, train_pct):
-        #do soemthing simple and reproducible
-        #take train_n out of each 10 for training
-        train_n = (train_pct*10)-1
-        train_x = []
-        train_v = []
-        verif_x = []
-        verif_v = []
-
-        for i in range(len(train_data)):
-            j = i % 10
-            if j < train_n:
-                train_x.append(train_data[j])
-                train_v.append(label_data[j])
-            else:
-                verif_x.append(train_data[j])
-                verif_v.append(label_data[j])
-
-        train_x = np.array(train_x)
-        train_v = np.array(train_v)
-        verif_x = np.array(verif_x)
-        verif_v = np.array(verif_v)
-        print(f"split shapes {train_x.shape}, {train_v.shape}  -  {verif_x.shape}, {verif_v.shape}")
-        return (( train_x, train_v),(verif_x, verif_v))
 
     def load_model(self, fpath):
         self.model = load_model(fpath)
 
+    def id_generator(size=6, chars=string.ascii_uppercase + string.digits):
+        return ''.join(random.choice(chars) for _ in range(size))
+
     def save_model(self, fpath):
-        self.model.save(fpath)
+        if hasattr(self, "base_model_name") and hasattr(self, "trace_name"):
+            final_path = os.path.join(fpath, self.base_model_name+self.trace_name)
+        else:
+            print("Class does not have base_model_name or trace_name, using random name")
+            final_path = os.path.join(fpath, id_generator())
+
+        print(f"Saving model to {final_path}")
+        self.model.save(final_path)
