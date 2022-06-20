@@ -21,6 +21,10 @@
         return 0;                      \
     }
 
+static char *cubin_path = "mllb.cubin";
+module_param(cubin_path, charp, 0444);
+MODULE_PARM_DESC(cubin_path, "The path to .cubin");
+
 // XXX I think it's larger actually? Should change for perf...
 #define BLOCK_DIM 16
 
@@ -187,8 +191,7 @@ int gb_init_cuda( void )
   }
   pr_info( "Created cuda stream\n" );
 
-  if ( ( ret = cuModuleLoad( &ctx.mod,
-    "/data/ariel/akatha-malware-detection/akatha-knn/code/knncuda.cubin" ) ) ) {
+  if ( ( ret = cuModuleLoad( &ctx.mod, cubin_path) ) ) {
     REPORT_ERROR( cuModuleLoad );
     goto out;
   }

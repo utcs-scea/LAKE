@@ -1,8 +1,0 @@
-Modified by Hangchen Yu 02/2017 for GDEV and CUDA 4.2
-
-To compile the program:
-
-nvcc -cuda dynproc.cu
-nvcc -o dynproc dynproc.cu.cpp 
-
-Usage: dynproc row_len col_len pyramid_height
