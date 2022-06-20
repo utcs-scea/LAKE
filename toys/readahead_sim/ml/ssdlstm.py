@@ -139,7 +139,7 @@ class LSTM_SSD (BaseModel):
         #cleanup
         del self.dataX
         del self.dataY
-        print(f"Split shapes {self.trainX.shape}, {self.trainY.shape}  -  {self.valX.shape}, {self.valY.shape}")
+        #print(f"Split shapes {self.trainX.shape}, {self.trainY.shape}  -  {self.valX.shape}, {self.valY.shape}")
 
     def create_model(self):
         layers = 200
@@ -221,7 +221,7 @@ class LSTM_SSD (BaseModel):
             ras = []
             # if we dont have enough data yet
             if idx < SSD_WINDOW_SZ+1:
-                return [x for x in range(cur_page+1, cur_page+self.readahead_size+1)]
+                return [x for x in range(cur_page, cur_page+self.readahead_size)]
             # we do have enough, inference
             else:
                 window = self.reads[idx:idx+SSD_WINDOW_SZ+1] 
@@ -231,8 +231,10 @@ class LSTM_SSD (BaseModel):
                 if ra_offset == 0 and predicted_dist < 0:
                     ra_offset = -1              
                 start = cur_page + ra_offset * self.readahead_size
-                #fetch readahead_size after predicted
-                for page in range(start, start+self.readahead_size):
+                #read the page that majfaulted
+                ras.append(cur_page)
+                #fetch readahead_size-1 after predicted
+                for page in range(start, start+self.readahead_size-1):
                     if page == len(self.reads): break
                     ras.append(page)
             return ras

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.join(this_dir, "ml"))
 from ml.ssdlstm import LSTM_SSD
 
 READAHEAD_SIZE = 32
-LRU_CACHE_SIZE = 1024
+LRU_CACHE_SIZE = 1024*2
 
 class Input:
     def __init__(self):
@@ -29,10 +29,12 @@ class Input:
 #
 class NoPrefetch:
     def __init__(self, **kwargs):
-        pass
+        if "reads" not in kwargs.keys():
+            print("Error on Linux")
+        self.reads = kwargs["reads"]
 
     def readahead(self, idx, is_majfault):
-        return []
+        return [self.reads[idx]] if is_majfault else []
 
 # by default linux uses 128kb, which is 32 pages
 class Linux:
@@ -40,11 +42,12 @@ class Linux:
         if "reads" not in kwargs.keys():
             print("Error on Linux")
         self.reads = kwargs["reads"]
+        self.readahead_size = kwargs["readahead_size"]
 
     def readahead(self, idx, is_majfault):
         if is_majfault:
             cur_page = self.reads[idx]
-            return [x for x in range(cur_page+1,cur_page+READAHEAD_SIZE+1)]
+            return [x for x in range(cur_page,cur_page+self.readahead_size)]
         return []
 
 class Oracle:
@@ -52,11 +55,12 @@ class Oracle:
         if "reads" not in kwargs.keys():
             print("Error on Linux")
         self.reads = kwargs["reads"]
+        self.readahead_size = kwargs["readahead_size"]
 
     def readahead(self, idx, is_majfault):
         if is_majfault:
             ras = []
-            for j in range(1,READAHEAD_SIZE+1):
+            for j in range(0,self.readahead_size):
                 if idx+j == len(self.reads): break
                 ras.append(self.reads[idx+j])
             return ras
@@ -85,36 +89,61 @@ def main(args):
     # create inputs from trace file
     inputs = Input()
     inputs.parse(sys.argv[1])
-    # create LRU page cache
-    lru = LRUCache(LRU_CACHE_SIZE)
-
+    
     ten_pct = len(inputs.reads)/10
     
+    ra_sizes = []
+    for i in range(1, 16):
+        ra_sizes.append(READAHEAD_SIZE*i)
+
     print("\n\n")
     print("******************************")
+    print(f"policy, major_faults, cache_hits, io_reads, unaccessed_cache, useful_io")
     for name, alg_class in algs.items():
         # create alg object
-        alg = alg_class(reads=inputs.reads, readahead_size=READAHEAD_SIZE, trace=trace, simulator=True, 
-            models_path=os.path.join(this_dir, "ml", "models"))
-        majfault = 0
-        cur_pct = 0
-        for i,r in enumerate(inputs.reads):
-            is_majfault = False
-            if lru.get(r) == -1:
-                is_majfault = True
-                majfault += 1
-            
-            ras = alg.readahead(i, is_majfault)
-            assert len(ras) <= READAHEAD_SIZE, f"Dont you dare cheat on me {len(ras)} != {READAHEAD_SIZE}"
+        for rasize in ra_sizes:
+            # create LRU page cache
+            lru = LRUCache(LRU_CACHE_SIZE)
 
-            for ra in ras:
-                lru.put(ra, 0)
+            alg = alg_class(reads=inputs.reads, readahead_size=rasize, trace=trace, simulator=True, 
+                models_path=os.path.join(this_dir, "ml", "models"))
+            majfault = 0
+            io_reads = 0
+            cur_pct = 0
+            cache_hits = 0
+            # Loop for every read in the trace
+            for i in range(len(inputs.reads)):
+                cur_read = inputs.reads[i]
+                is_majfault = False
+                if lru.get(cur_read) is None:
+                    is_majfault = True
+                    majfault += 1
+                else:
+                    cache_hits += 1
 
-            if i % ten_pct == 0:
-                print(f"  at {cur_pct}%")
-                cur_pct += 10
+                ras = alg.readahead(i, is_majfault)
+                assert len(ras) <= rasize, f"Dont you dare cheat on me {len(ras)} != {rasize}"
+                assert (len(ras) == 0 and not is_majfault) or is_majfault, "Cant readahead on non-major fault"
+                if is_majfault:
+                    assert cur_read in ras, f"faulted on page {cur_read}, but it's not on readahead list"
 
-        print(f"{name}, {majfault}")
+                # do readahead. ras will be empty if this is not a major fault
+                for ra in ras:
+                    io_reads += lru.put(ra)
+                # do a get so we increase the access count and put it on the front
+                lru.get(cur_read)
+
+                #if i % ten_pct == 0:
+                #    print(f"  at {cur_pct}%")
+                #    cur_pct += 10
+
+            bads = lru.get_never_access_count()
+
+            #m1 = (cache_hits - bads - io_reads) / len(inputs.reads)
+            m1 = (io_reads-cache_hits) / len(inputs.reads)
+            m2 = cache_hits/io_reads
+
+            print(f"{name}_{rasize}, {majfault}, {cache_hits}, {io_reads}, {bads}, {m1:.4f}, {m2:.4f}")
     print("******************************")
 
 if __name__ == "__main__":
