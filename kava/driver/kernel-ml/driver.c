@@ -141,21 +141,21 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* matrix_repmat
     // dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
 
     void *args1[] = {
-		&x, &wt, &wx, x_rows, linear_w_columns,linear_w_rows
+		&x, &wt, &wx, &x_rows, &linear_w_columns, &linear_w_rows
 	};
 
-    check_error(cuLaunchKernel(*matrix_transpose, 
+    /* check_error(cuLaunchKernel(*matrix_transpose, 
 				grid_cols, grid_rows, 1,          //blocks
 				BLOCK_SIZE, BLOCK_SIZE, 1,   //threads per block
 				0,   //shared mem
                 NULL, args1, NULL),
-			"cuLaunchKernel", __LINE__);
+		"cuLaunchKernel", __LINE__);*/
 
    // matrix_mult<<<dimGrid, dimBlock>>>( x, wt, wx, x_rows, linear_w_columns,linear_w_rows);
 
     int rep_val = 1;
     void *args2[] = {
-		&bias_vector, x_rows, rep_val, bias_vector_rows, bias_vector_cols, &bias
+		&bias_vector, &x_rows, &rep_val, &bias_vector_rows, &bias_vector_cols, &bias
 	};
 
     check_error(cuLaunchKernel(*matrix_repmat, 
@@ -372,7 +372,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
     //matrix_div_constant<<<readahead_variance_rows, readahead_variance_cols>>>(local_variance, n_seconds, local_variance);
 
 
-    void *args9[] = {
+    /*    void *args9[] = {
 		&local_variance, &local_std_dev
 	};
 
@@ -381,7 +381,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				readahead_variance_cols, 1, 1,   //threads per block
 				0,   //shared mem
                 NULL, args9, NULL),
-			"cuLaunchKernel", __LINE__);
+		"cuLaunchKernel", __LINE__);*/
 
     //matrix_map<<<readahead_variance_rows, readahead_variance_cols>>>(local_variance, fast_sqrt_d, local_std_dev);
     // print_matrix(readahead->norm_data_stat.std_dev);
@@ -502,8 +502,8 @@ static int run_gpu(void) {
 
     for (i = 0 ; i < n_batches ; i++) {
         batch_size = 1;//batch_sizes[i];
-        setup_gpu(batch_size);    
-        predict_readahead_class(&matrix_mult_constant, &matrix_add, &matrix_div_constant,
+	 setup_gpu(batch_size);    
+	 predict_readahead_class(&matrix_mult_constant, &matrix_add, &matrix_div_constant,
                                       &set_matrix_with_matrix, &matrix_sub,
                                       &matrix_elementwise_mult, &matrix_map,
                                       &matrix_elementwise_div, &matrix_transpose,
