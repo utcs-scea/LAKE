@@ -373,7 +373,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 
 
     void *args9[] = {
-		&local_variance, &fast_sqrt_d, &local_std_dev
+		&local_variance, &local_std_dev
 	};
 
     check_error(cuLaunchKernel(*matrix_map, 
@@ -389,7 +389,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 		&d_input, &local_average, &readahead_norm_online_data
 	};
 
-    check_error(cuLaunchKernel(*matrix_map, 
+    check_error(cuLaunchKernel(*matrix_sub, 
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
@@ -492,7 +492,7 @@ static int run_gpu(void) {
     gpu_get_cufunc(cubin_path, "_Z10matrix_subPfS_S_", &matrix_sub);
     gpu_get_cufunc(cubin_path, "_Z23matrix_elementwise_multPfS_S_", &matrix_elementwise_mult);
     gpu_get_cufunc(cubin_path, "_Z22matrix_elementwise_divPfS_S_", &matrix_elementwise_div);
-    gpu_get_cufunc(cubin_path, "_Z10matrix_mapPfPFffES_", &matrix_map);
+    gpu_get_cufunc(cubin_path, "_Z10matrix_mapPfS_", &matrix_map);
     gpu_get_cufunc(cubin_path, "_Z16matrix_transposePfS_", &matrix_transpose);
     gpu_get_cufunc(cubin_path, "_Z13matrix_repmatPfiiiiS_", &matrix_repmat);
     gpu_get_cufunc(cubin_path, "_Z11matrix_multPfS_S_iii", &matrix_mult);

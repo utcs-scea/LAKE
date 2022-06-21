@@ -52,11 +52,21 @@ __global__ void matrix_elementwise_div(float *m1, float *m2, float *dest) {
     dest[blockId*dim + threadId] = m1[blockId*dim + threadId] / m2[blockId*dim + threadId];
 }
 
-__global__ void matrix_map(float *src, float (*func_f)(float), float *dest) { 
+__global__ void matrix_map(float *src, float *dest) { 
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
-    dest[blockId*dim + threadId] = func_f(src[blockId*dim + threadId]);
+    float r;
+    float x = src[blockId*dim + threadId];
+    int64_t i = *(int64_t *)&x;
+    i = 0x5fe6eb50c7b537a9 - (i >> 1);
+    r = *(float *)&i;
+    r = r * (1.5f - 0.5f * x * r * r);
+    r = r * (1.5f - 0.5f * x * r * r);
+    r = r * (1.5f - 0.5f * x * r * r);
+    r = r * (1.5f - 0.5f * x * r * r);
+    r = r * (1.5f - 0.5f * x * r * r);
+    dest[blockId*dim + threadId] =  r * x;//func_f(src[blockId*dim + threadId]);
 }
 
 __global__ void matrix_transpose(float *m, float *ret) { 
