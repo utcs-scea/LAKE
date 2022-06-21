@@ -56,9 +56,9 @@ __global__ void matrix_map(float *src, float *dest) {
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
-    float r;
+    float r = 1;
     float x = src[blockId*dim + threadId];
-    int64_t i = *(int64_t *)&x;
+    long long i = *(long long *)&x;
     i = 0x5fe6eb50c7b537a9 - (i >> 1);
     r = *(float *)&i;
     r = r * (1.5f - 0.5f * x * r * r);
@@ -66,7 +66,7 @@ __global__ void matrix_map(float *src, float *dest) {
     r = r * (1.5f - 0.5f * x * r * r);
     r = r * (1.5f - 0.5f * x * r * r);
     r = r * (1.5f - 0.5f * x * r * r);
-    dest[blockId*dim + threadId] =  r * x;//func_f(src[blockId*dim + threadId]);
+    dest[blockId*dim + threadId] =  r * x; //func_f(src[blockId*dim + threadId]);
 }
 
 __global__ void matrix_transpose(float *m, float *ret) { 

@@ -135,8 +135,9 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* matrix_repmat
     check_error(cuMemAlloc((CUdeviceptr*) &wx, sizeof(float) * x_rows *linear_w_rows), "cuMemAlloc ", __LINE__);
 
     //wx = matrix_mult(x, wt);
-    unsigned int grid_rows = (x_rows + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    unsigned int grid_cols = (linear_w_rows + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    int block_size = 16;
+    int grid_rows = (x_rows + block_size - 1) / block_size;
+    int grid_cols = (linear_w_rows + block_size - 1) / block_size;
     // dim3 dimGrid(grid_cols, grid_rows);
     // dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
 
@@ -146,7 +147,7 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* matrix_repmat
 
     check_error(cuLaunchKernel(*matrix_mult, 
 				grid_cols, grid_rows, 1,          //blocks
-				BLOCK_SIZE, BLOCK_SIZE, 1,   //threads per block
+				block_size, block_size, 1,   //threads per block
 				0,   //shared mem
                 NULL, args1, NULL),
 		"cuLaunchKernel", __LINE__);
@@ -372,7 +373,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
     //matrix_div_constant<<<readahead_variance_rows, readahead_variance_cols>>>(local_variance, n_seconds, local_variance);
 
 
-    /*    void *args9[] = {
+        void *args9[] = {
 		&local_variance, &local_std_dev
 	};
 
@@ -381,7 +382,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				readahead_variance_cols, 1, 1,   //threads per block
 				0,   //shared mem
                 NULL, args9, NULL),
-		"cuLaunchKernel", __LINE__);*/
+		"cuLaunchKernel", __LINE__);
 
     //matrix_map<<<readahead_variance_rows, readahead_variance_cols>>>(local_variance, fast_sqrt_d, local_std_dev);
     // print_matrix(readahead->norm_data_stat.std_dev);
