@@ -3,70 +3,70 @@
 #include <string.h>
 #include "weights.h"
 
-__global__ void matrix_mult_constant(double *src, double constant, double *dest) {
+__global__ void matrix_mult_constant(float *src, float constant, float *dest) {
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     dest[blockId*dim + threadId] = src[blockId*dim + threadId] * constant;
 }
 
-__global__ void matrix_add(double *src, double *add, double *dest) {
+__global__ void matrix_add(float *src, float *add, float *dest) {
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     dest[blockId*dim + threadId] = src[blockId*dim + threadId] + add[blockId*dim + threadId];
 }
 
-__global__ void matrix_div_constant(double *src, double constant, double *dest) {
+__global__ void matrix_div_constant(float *src, float constant, float *dest) {
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     dest[blockId*dim + threadId] = src[blockId*dim + threadId] / constant;
 }
 
-__global__ void set_matrix_with_matrix(double *src, double *dest) { 
+__global__ void set_matrix_with_matrix(float *src, float *dest) { 
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     dest[blockId*dim + threadId] = src[blockId*dim + threadId];
 }
 
-__global__ void matrix_sub(double *src, double *sub, double *dest) { 
+__global__ void matrix_sub(float *src, float *sub, float *dest) { 
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     dest[blockId*dim + threadId] = src[blockId*dim + threadId] - sub[blockId*dim + threadId];
 }
 
-__global__ void matrix_elementwise_mult(double *m1, double *m2, double *dest) { 
+__global__ void matrix_elementwise_mult(float *m1, float *m2, float *dest) { 
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     dest[blockId*dim + threadId] = m1[blockId*dim + threadId] * m2[blockId*dim + threadId];
 }
 
-__global__ void matrix_elementwise_div(double *m1, double *m2, double *dest) { 
+__global__ void matrix_elementwise_div(float *m1, float *m2, float *dest) { 
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     dest[blockId*dim + threadId] = m1[blockId*dim + threadId] / m2[blockId*dim + threadId];
 }
 
-__global__ void matrix_map(double *src, double (*func_f)(double), double *dest) { 
+__global__ void matrix_map(float *src, float (*func_f)(float), float *dest) { 
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     dest[blockId*dim + threadId] = func_f(src[blockId*dim + threadId]);
 }
 
-__global__ void matrix_transpose(double *m, double *ret) { 
+__global__ void matrix_transpose(float *m, float *ret) { 
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
 	int dim = blockDim.x;
     ret[blockId*dim + threadId] = m[threadId * dim + blockId];
 }
 
-__global__ void matrix_repmat(double *m, int row_repeat, int col_repeat, int m_rows, int m_cols, double *ret) { 
+__global__ void matrix_repmat(float *m, int row_repeat, int col_repeat, int m_rows, int m_cols, float *ret) { 
     //int *ret = allocate(row_repeat*m_rows*col_repeat*m_cols);
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
@@ -85,7 +85,7 @@ __global__ void matrix_repmat(double *m, int row_repeat, int col_repeat, int m_r
     }
 }
 
-__global__ void matrix_mult(double *a,double *b, double *c, int m, int n, int k)
+__global__ void matrix_mult(float *a,float *b, float *c, int m, int n, int k)
 { 
     int row = blockIdx.y * blockDim.y + threadIdx.y; 
     int col = blockIdx.x * blockDim.x + threadIdx.x;
