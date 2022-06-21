@@ -112,7 +112,7 @@ void clean_batch(void) {
 
 
 
-void linear_layer_forward(float *x, float *linear_w, int linear_w_rows, int x_rows, int linear_w_columns, float *bias_vector, int bias_vector_rows, int bias_vector_cols, int layer_index, float *out,
+void linear_layer_forward(CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows, int x_rows, int linear_w_columns, CUdeviceptr bias_vector, int bias_vector_rows, int bias_vector_cols, int layer_index, CUdeviceptr out,
 CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* matrix_repmat, CUfunction* matrix_add ) {
     CUdeviceptr wx, bias;
     CUdeviceptr wt;
@@ -144,12 +144,12 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* matrix_repmat
 		&x, &wt, &wx, &x_rows, &linear_w_columns, &linear_w_rows
 	};
 
-    /* check_error(cuLaunchKernel(*matrix_transpose, 
+    check_error(cuLaunchKernel(*matrix_mult, 
 				grid_cols, grid_rows, 1,          //blocks
 				BLOCK_SIZE, BLOCK_SIZE, 1,   //threads per block
 				0,   //shared mem
                 NULL, args1, NULL),
-		"cuLaunchKernel", __LINE__);*/
+		"cuLaunchKernel", __LINE__);
 
    // matrix_mult<<<dimGrid, dimBlock>>>( x, wt, wx, x_rows, linear_w_columns,linear_w_rows);
 
