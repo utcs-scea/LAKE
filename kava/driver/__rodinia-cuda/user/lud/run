@@ -1,2 +1,0 @@
-#cuda/lud -i ../../data/lud/256.dat -c cuda/lud.cubin
-cd cuda; ./lud -s 2048 -c lud.cubin

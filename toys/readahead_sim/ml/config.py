@@ -7,15 +7,12 @@ MAX_DIST = 1024
 
 #how many distances are input to the model
 SLICE_LEN = 8
-
 EPOCHS = 10
 LEARN_RATE = 0.01
-
-
 LSTM_EPOCHS = 10
 
 
-#SSD LSTM
-
-SSD_N_CLASSES = 100
-SSD_WINDOW_SZ = 8
+#SSD LSTM options
+SSD_N_CLASSES = 500
+SSD_WINDOW_SZ = 32
+SSD_EPOCHS = 10
