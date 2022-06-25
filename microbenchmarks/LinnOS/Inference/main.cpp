@@ -29,9 +29,9 @@ int main(int argc, char** argv)
      *  CPU timing
      */
     int cpu_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
+    int RUNS = 10;
 
     for (int &N_INPUTS_BATCH : cpu_sizes) {
-        int RUNS = 10;
         uint32_t cpubatch_total(0);
         for (int i = 0 ; i < RUNS ; i++) {
             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -45,9 +45,9 @@ int main(int argc, char** argv)
         cpubatch_total += total_time;
         }
         
-        std::cout << "CPU time for " << N_INPUTS_BATCH << " inferences: " << cpubatch_total << "us. Average per inference:" << cpubatch_total/n << "us." << std::endl;
+        std::cout << "CPU time for " << N_INPUTS_BATCH << " inferences: " << cpubatch_total/RUNS << "us. Average per inference:" << cpubatch_total/n << "us." << std::endl;
 
-        csv << "cpu" <<N_INPUTS_BATCH<<", " << cpubatch_total << "," << cpubatch_total << std::endl;
+        csv << "cpu" <<N_INPUTS_BATCH<<", " << cpubatch_total/RUNS << "," << cpubatch_total/RUNS << std::endl;
     }
 
 
