@@ -8,6 +8,8 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 #include <asm/uaccess.h>
+#include <linux/delay.h>
+#include <linux/ktime.h>
 
 #include "cuda.h"
 #include "shared_memory.h"
@@ -27,6 +29,9 @@ MODULE_PARM_DESC(cubin_path, "The path to .cubin");
 
 // XXX I think it's larger actually? Should change for perf...
 #define BLOCK_DIM 16
+
+#define WARMS 2
+#define RUNS 5
 
 // XXX Need to handle FLOATs eventually
 typedef int FLOAT;
@@ -79,7 +84,7 @@ static struct  file_operations fops =
 // XXX should rename these to make them more descriptive
 static int ref_nb   = 16384;
 static int query_nb = 4096;
-static int dim      = 128;
+//static int dim      = 128;
 static int k        = 16;
 
 // ==================== Start Chardev ====================
@@ -171,58 +176,58 @@ int gb_init_cuda( void )
     REPORT_ERROR( cuInit );
     goto out;
   }
-  pr_info( "Initialized cuda\n" );
+  //pr_info( "Initialized cuda\n" );
 
   if ( ( ret = cuDeviceGet( &ctx.dev, 0 ) ) ) {
     REPORT_ERROR( cuDeviceGet );
     goto out;
   }
-  pr_info( "Got cuda device\n" );
+  //pr_info( "Got cuda device\n" );
 
   if ( ( ret = cuCtxCreate( &ctx.ctx, 0, ctx.dev ) ) ) {
     REPORT_ERROR( cuCtxCreate );
     goto out;
   }
-  pr_info( "Created cuda context\n" );
+  //pr_info( "Created cuda context\n" );
 
-  if ( ( ret = cuStreamCreate( &ctx.stream, 0 ) ) ) {
-    REPORT_ERROR( cuStreamCreate );
-    goto out;
-  }
-  pr_info( "Created cuda stream\n" );
+  // if ( ( ret = cuStreamCreate( &ctx.stream, 0 ) ) ) {
+  //   REPORT_ERROR( cuStreamCreate );
+  //   goto out;
+  // }
+  //pr_info( "Created cuda stream\n" );
 
   if ( ( ret = cuModuleLoad( &ctx.mod, cubin_path) ) ) {
     REPORT_ERROR( cuModuleLoad );
     goto out;
   }
-  pr_info( "Loaded cuda module\n" );
+  //pr_info( "Loaded cuda module\n" );
 
   if ( ( ret = cuModuleGetFunction( &ctx.compute_dist, ctx.mod,
                                     "_Z17compute_distancesPfiiS_iiiS_" ) ) ) {
     REPORT_ERROR( cuModuleGetFunction );
     goto out;
   }
-  pr_info( "Got compute_dist function\n" );
+  //pr_info( "Got compute_dist function\n" );
 
   if ( ( ret = cuModuleGetFunction( &ctx.modified_insertion_sort, ctx.mod,
                                   "_Z23modified_insertion_sortPfiPiiiii" ) ) ) {
     REPORT_ERROR( cuModuleGetFunction );
     goto out;
   }
-  pr_info( "Got modified_insertion_sort function\n" );
+  //pr_info( "Got modified_insertion_sort function\n" );
   
   if ( ( ret = cuModuleGetFunction( &ctx.compute_sqrt, ctx.mod,
                                    "_Z12compute_sqrtPfiii" ) ) ) {
     REPORT_ERROR(cuModuleGetFunction);
     goto out;
   }
-  pr_info( "Got compute_sqrt function\n" );
+  //pr_info( "Got compute_sqrt function\n" );
 
   if ( ( ret = cuCtxSetCurrent( ctx.ctx ) ) ) {
     REPORT_ERROR( cuCtxSetCurrent );
     goto out;
   }
-  pr_info( "Set cuda context\n" );
+  //pr_info( "Set cuda context\n" );
 
 out:
   return ret;
@@ -253,6 +258,8 @@ void initialize_data( FLOAT *ref,
     query[ i ] = 10 * (FLOAT) ( rand ); // / (DOUBLE) RAND_MAX );
   }
 }
+
+static u64 ctime, ttime;
 
 int knn_cuda( const FLOAT *ref,
               int          ref_nb,
@@ -292,6 +299,11 @@ int knn_cuda( const FLOAT *ref,
   // Params for pitch (4, 8, or 16)
   size_t element_size_bytes = 16;
 
+  u64 t_start, t_end;
+  u64 c_start, c_end;
+  
+  cuStreamCreate( &ctx.stream, 0 );
+
   // Allocate global memory
 
   ret |= cuMemAllocPitch( &ref_dev, &ref_pitch_in_bytes,
@@ -320,10 +332,13 @@ int knn_cuda( const FLOAT *ref,
     goto out;
   }
 
+  t_start = ktime_get_ns();
+
   // Copy reference and query data from the host to the device
-  ret |= cuMemcpyHtoDAsync( ref_dev, ref, ref_pitch_in_bytes, ctx.stream );
-  ret |= cuMemcpyHtoDAsync( query_dev, query,
-                            query_pitch_in_bytes, ctx.stream );
+   ret |= cuMemcpyHtoDAsync( ref_dev, ref, ref_pitch_in_bytes, ctx.stream );
+   ret |= cuMemcpyHtoDAsync( query_dev, query,
+                             query_pitch_in_bytes, ctx.stream );
+
 
   if ( ret ) {
     pr_err( "Unable to copy data from host to device\n" );
@@ -340,6 +355,8 @@ int knn_cuda( const FLOAT *ref,
     grid0.y += 1;
   }
 
+  c_start = ktime_get_ns();
+
   void *args0[] = { &ref_dev, &ref_nb, &ref_pitch,
                    &query_dev, &query_nb, &query_pitch,
                    &dim, &dist_dev };
@@ -347,11 +364,11 @@ int knn_cuda( const FLOAT *ref,
                   grid0.z, block0.x, block0.y,
                   block0.z, 0, ctx.stream,
                   args0, NULL);
-  if ( (ret = cuStreamSynchronize( ctx.stream ) ) ) {
-    pr_err( "Unable to execute compute_dist kernel\n" );
-    REPORT_ERROR( cuStreamSynchronize );
-    goto out;
-  }
+  // if ( (ret = cuStreamSynchronize( ctx.stream ) ) ) {
+  //   pr_err( "Unable to execute compute_dist kernel\n" );
+  //   REPORT_ERROR( cuStreamSynchronize );
+  //   goto out;
+  // }
 
   // Sort the distances with their respective indexes
   block1 = (dim3) { 256, 1, 1 };
@@ -366,11 +383,11 @@ int knn_cuda( const FLOAT *ref,
                   grid1.z, block1.x, block1.y,
                   block1.z, 0, ctx.stream,
                   args1, NULL);
-  if ( (ret = cuStreamSynchronize( ctx.stream ) ) ) {
-    pr_err( "Unable to execute modified_insertion_sort kernel\n" );
-    REPORT_ERROR( cuStreamSynchronize );
-    goto out;
-  }
+  // if ( (ret = cuStreamSynchronize( ctx.stream ) ) ) {
+  //   pr_err( "Unable to execute modified_insertion_sort kernel\n" );
+  //   REPORT_ERROR( cuStreamSynchronize );
+  //   goto out;
+  // }
 
   // Compute the square root of the k smallest distances
   block2 = (dim3) { 16, 16, 1 };
@@ -386,11 +403,15 @@ int knn_cuda( const FLOAT *ref,
                   grid2.z, block2.x, block2.y,
                   block2.z, 0, ctx.stream,
                   args2, NULL);
-  if ( (ret = cuStreamSynchronize( ctx.stream ) ) ) {
-    pr_err( "Unable to execute modified_insertion_sort kernel\n" );
-    REPORT_ERROR( cuStreamSynchronize );
-    goto out;
-  }
+  // if ( (ret = cuStreamSynchronize( ctx.stream ) ) ) {
+  //   pr_err( "Unable to execute modified_insertion_sort kernel\n" );
+  //   REPORT_ERROR( cuStreamSynchronize );
+  //   goto out;
+  // }
+
+  //lets measure only total time, so no sync here
+
+  c_end = ktime_get_ns();
 
   // Copy k smallest distances / indexes from the device to the host
   ret |= cuMemcpyDtoHAsync( knn_dist, dist_dev,
@@ -398,13 +419,25 @@ int knn_cuda( const FLOAT *ref,
   ret |= cuMemcpyDtoHAsync( knn_index, index_dev,
                             index_pitch_in_bytes, ctx.stream );
 
+  if ( (ret = cuStreamSynchronize( ctx.stream ) ) ) {
+    pr_err( "stuff broke\n" );
+    REPORT_ERROR( cuStreamSynchronize );
+    goto out;
+  }
+
+  t_end = ktime_get_ns();
+
   if ( ret ) {
     pr_err( "Unable to copy data from device to host\n" );
     goto out;
   }
 
+  ctime = c_end - c_start;
+  ttime = t_end - t_start;
+
 out:
 
+  cuStreamDestroy(ctx.stream);
   // Memory clean-up
   cuMemFree( ref_dev );
   cuMemFree( query_dev );
@@ -432,6 +465,9 @@ int test( const FLOAT *ref,
   int   nb_correct_precisions;
   int   nb_correct_indexes;
 
+  u64 ctimes;
+  u64 ttimes;
+
   // XXX Deal with floats
   // Parameters
   const FLOAT precision    = 0.001f; // distance error max
@@ -439,11 +475,10 @@ int test( const FLOAT *ref,
   FLOAT       precision_accuracy;
   FLOAT       index_accuracy;
 
-
   // Allocate memory for computed k-NN neighbors
-  pr_info( "Allocating CPU memory for KNN results\n" );
-  test_knn_dist = (FLOAT *) kmalloc( query_nb * k * sizeof( FLOAT ), GFP_USER );
-  test_knn_index = (int *) kmalloc( query_nb * k * sizeof( int ), GFP_USER );
+  //pr_info( "Allocating CPU memory for KNN results\n" );
+  test_knn_dist = (FLOAT *) vmalloc( query_nb * k * sizeof( FLOAT ) );
+  test_knn_index = (int *) vmalloc( query_nb * k * sizeof( int ) );
 
   // Allocation check
   if ( !test_knn_dist || !test_knn_index ) {
@@ -451,51 +486,72 @@ int test( const FLOAT *ref,
     ret = -ENOMEM;
     goto out;
   }
-  pr_info( "Successfully allocated CPU memory for KNN results\n" );
+  //pr_info( "Successfully allocated CPU memory for KNN results\n" );
 
-  // Compute k-NN several times
-  pr_info( "Computing knn %d times\n", nb_iterations );
-  for ( i = 0; i < nb_iterations; ++i ) {
+  // warm
+  //pr_info( "Computing knn %d times\n", nb_iterations );
+  for ( i = 0; i < WARMS; ++i ) {
     if ( ( ret = knn_cuda( ref, ref_nb, query, query_nb, dim,
                            k, test_knn_dist, test_knn_index ) ) ) {
       pr_err( "Computation failed on round %d\n", i );
       goto out;
     }
   }
-  pr_info( "KNN computation succeeded\n" );
 
-  // Verify both precisions and indexes of the k-NN values
-  nb_correct_precisions = 0;
-  nb_correct_indexes = 0;
-  for ( i = 0; i < query_nb * k; ++i ) {
-    // XXX deal with floats
-    nb_correct_precisions++;
-    nb_correct_indexes++;
-//    if ( fabs( test_knn_dist[ i ] - gt_knn_dist[ i ] ) <= precision ) {
-//      nb_correct_precisions++;
-//    }
-//    if ( test_knn_index[ i ] == gt_knn_index[ i ] ) {
-//      nb_correct_indexes++;
-//    }
-  }
+  usleep_range(20, 200);
 
-  // XXX Deal with floats
-  // Compute accuracy
-  precision_accuracy = nb_correct_precisions / ( (FLOAT) query_nb * k );
-  index_accuracy = nb_correct_indexes / ( (FLOAT) query_nb * k );
+  ctimes = 0;
+  ttimes = 0;
+  // Compute k-NN several times
+  //pr_info( "Computing knn %d times\n", nb_iterations );
+  for ( i = 0; i < nb_iterations; ++i ) {
+    if ( ( ret = knn_cuda( ref, ref_nb, query, query_nb, dim,
+                           k, test_knn_dist, test_knn_index ) ) ) {
+      pr_err( "Computation failed on round %d\n", i );
+      goto out;
+    }
 
-  // Display report
-  if (precision_accuracy >= min_accuracy && index_accuracy >= min_accuracy ) {
-    pr_info( "KNN test PASSED in %3d iterations\n", nb_iterations );
+    ctimes += ctime;
+    ttimes += ttime;
+    usleep_range(20, 200);
   }
-  else {
-    pr_info( "KNN test FAILED\n" );
-    ret = -ENOENT;
-  }
+  //pr_info( "KNN computation succeeded\n" );
+
+  pr_info("gpu_%d, %lld, %lld\n", dim, ctimes/(nb_iterations*1000), ttimes/(nb_iterations*1000) );
+
+//   // Verify both precisions and indexes of the k-NN values
+//   nb_correct_precisions = 0;
+//   nb_correct_indexes = 0;
+//   for ( i = 0; i < query_nb * k; ++i ) {
+//     // XXX deal with floats
+//     nb_correct_precisions++;
+//     nb_correct_indexes++;
+// //    if ( fabs( test_knn_dist[ i ] - gt_knn_dist[ i ] ) <= precision ) {
+// //      nb_correct_precisions++;
+// //    }
+// //    if ( test_knn_index[ i ] == gt_knn_index[ i ] ) {
+// //      nb_correct_indexes++;
+// //    }
+//   }
+
+//   // XXX Deal with floats
+//   // Compute accuracy
+//   precision_accuracy = nb_correct_precisions / ( (FLOAT) query_nb * k );
+//   index_accuracy = nb_correct_indexes / ( (FLOAT) query_nb * k );
+
+//   // Display report
+//   if (precision_accuracy >= min_accuracy && index_accuracy >= min_accuracy ) {
+//     pr_info( "KNN test PASSED in %3d iterations\n", nb_iterations );
+//   }
+//   else {
+//     pr_info( "KNN test FAILED\n" );
+//     ret = -ENOENT;
+//   }
 
 out:
-  kfree( test_knn_dist );
-  kfree( test_knn_index );
+  vfree( test_knn_dist );
+  vfree( test_knn_index );
+  
   return ret;
 }
 
@@ -509,43 +565,55 @@ int run_knn( void )
   FLOAT *query;
   FLOAT *knn_dist;
   int knn_index_sz = query_nb * k * sizeof( int );
-  int ref_sz = ref_nb * dim * sizeof( FLOAT );
-  int query_sz = query_nb * dim * sizeof( FLOAT );
+  int ref_sz;
+  int query_sz;
   int knn_dist_sz = query_nb * k * sizeof( FLOAT );
+  int i, dim;
+  int dims[] = {8, 16, 32, 64, 128};
+  int ndims = 5;
 
-  pr_info( "Allocate KNN CPU resources\n" );
   knn_index = (int *) vmalloc( knn_index_sz );
-  ref = (FLOAT *) vmalloc( ref_sz );
-  query = (FLOAT *) vmalloc( query_sz );
   knn_dist = vmalloc( knn_dist_sz );
+  for (i = 0 ; i < ndims ; i++) {
+    dim = dims[i];
+    
+    ref_sz = ref_nb * dim * sizeof( FLOAT );
+    query_sz = query_nb * dim * sizeof( FLOAT );
 
-  // Allocation checks
-  if ( !ref || !query || !knn_dist || !knn_index ) {
-    pr_err( "Error allocating KNN CPU resources\n" ); 
-    ret = -ENOMEM;
-    goto out;
+    //pr_info( "Allocate KNN CPU resources\n" );
+    ref = (FLOAT *) vmalloc( ref_sz );
+    query = (FLOAT *) vmalloc( query_sz );
+
+    // Allocation checks
+    if ( !ref || !query || !knn_dist || !knn_index ) {
+      pr_err( "Error allocating KNN CPU resources\n" ); 
+      ret = -ENOMEM;
+      goto out;
+    }
+    //pr_info( "Successfully allocated KNN CPU resources\n" );
+    
+    // Initialize reference and query points with random values
+    initialize_data(ref, ref_nb, query, query_nb, dim);
+    //pr_info( "Test KNN execution\n" );
+    if ( ( ret = test( ref, ref_nb, query, query_nb, dim,
+                      k, knn_dist, knn_index, RUNS ) ) ) {
+      pr_err( "KNN execution test failed\n" );
+      // XXX Should probably use a more idiomatically correct error code
+      ret = -ENOENT;
+      goto out;
+    }
+    //pr_info( "KNN execution test succeeded\n" );
+    
+    // XXX probably not worth computing ground truth in the kernel
+  out: 
+    vfree(ref);
+    vfree(query);
   }
-  pr_info( "Successfully allocated KNN CPU resources\n" );
-  
-  // Initialize reference and query points with random values
-  initialize_data(ref, ref_nb, query, query_nb, dim);
-  pr_info( "Test KNN execution\n" );
-  if ( ( ret = test( ref, ref_nb, query, query_nb, dim,
-                     k, knn_dist, knn_index, 100 ) ) ) {
-    pr_err( "KNN execution test failed\n" );
-    // XXX Should probably use a more idiomatically correct error code
-    ret = -ENOENT;
-    goto out;
-  }
-  pr_info( "KNN execution test succeeded\n" );
-  
-  // XXX probably not worth computing ground truth in the kernel
-out: 
-  vfree(ref);
-  vfree(query);
+
   vfree(knn_dist);
   vfree(knn_index);
-  return ret;
+
+  return 0;
 }
 // ==================== End KNN ====================
 

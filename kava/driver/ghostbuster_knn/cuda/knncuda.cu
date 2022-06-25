@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <cuda.h>
 #include <cublas.h>
+#include <sys/time.h>
+#include <time.h>
 
 #define BLOCK_DIM 16
 
@@ -268,7 +270,7 @@ __global__ void add_query_points_norm_and_sqrt(float * array, int width, int pit
 }
 
 
-bool knn_cuda_global(const float * ref,
+double knn_cuda_global(const float * ref,
                      int           ref_nb,
                      const float * query,
                      int           query_nb,
@@ -281,6 +283,9 @@ bool knn_cuda_global(const float * ref,
     const unsigned int size_of_float = sizeof(float);
     const unsigned int size_of_int   = sizeof(int);
 
+    cudaStream_t str;
+    cudaStreamCreate(&str);
+
     // Return variables
     cudaError_t err0, err1, err2, err3;
 
@@ -289,14 +294,14 @@ bool knn_cuda_global(const float * ref,
     err0 = cudaGetDeviceCount(&nb_devices);
     if (err0 != cudaSuccess || nb_devices == 0) {
         printf("ERROR: No CUDA device found\n");
-        return false;
+        return 0;
     }
 
     // Select the first CUDA device as default
     err0 = cudaSetDevice(0);
     if (err0 != cudaSuccess) {
         printf("ERROR: Cannot set the chosen CUDA device\n");
-        return false;
+        return 0;
     }
 
     // Allocate global memory
@@ -318,7 +323,7 @@ bool knn_cuda_global(const float * ref,
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false;
+        return 0;
     }
 
     // Deduce pitch values
@@ -334,19 +339,22 @@ bool knn_cuda_global(const float * ref,
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false; 
+        return 0; 
     }
 
+    struct timeval tic;
+    gettimeofday(&tic, NULL);
+
     // Copy reference and query data from the host to the device
-    err0 = cudaMemcpy2D(ref_dev,   ref_pitch_in_bytes,   ref,   ref_nb * size_of_float,   ref_nb * size_of_float,   dim, cudaMemcpyHostToDevice);
-    err1 = cudaMemcpy2D(query_dev, query_pitch_in_bytes, query, query_nb * size_of_float, query_nb * size_of_float, dim, cudaMemcpyHostToDevice);
+    err0 = cudaMemcpy2DAsync(ref_dev,   ref_pitch_in_bytes,   ref,   ref_nb * size_of_float,   ref_nb * size_of_float,   dim, cudaMemcpyHostToDevice, str);
+    err1 = cudaMemcpy2DAsync(query_dev, query_pitch_in_bytes, query, query_nb * size_of_float, query_nb * size_of_float, dim, cudaMemcpyHostToDevice, str);
     if (err0 != cudaSuccess || err1 != cudaSuccess) {
         printf("ERROR: Unable to copy data from host to device\n");
         cudaFree(ref_dev);
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false; 
+        return 0; 
     }
 
     // Compute the squared Euclidean distances
@@ -354,28 +362,28 @@ bool knn_cuda_global(const float * ref,
     dim3 grid0(query_nb / BLOCK_DIM, ref_nb / BLOCK_DIM, 1);
     if (query_nb % BLOCK_DIM != 0) grid0.x += 1;
     if (ref_nb   % BLOCK_DIM != 0) grid0.y += 1;
-    compute_distances<<<grid0, block0>>>(ref_dev, ref_nb, ref_pitch, query_dev, query_nb, query_pitch, dim, dist_dev);
+    compute_distances<<<grid0, block0, 0, str>>>(ref_dev, ref_nb, ref_pitch, query_dev, query_nb, query_pitch, dim, dist_dev);
     if (cudaGetLastError() != cudaSuccess) {
         printf("ERROR: Unable to execute kernel\n");
         cudaFree(ref_dev);
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false;
+        return 0;
     }
 
     // Sort the distances with their respective indexes
     dim3 block1(256, 1, 1);
     dim3 grid1(query_nb / 256, 1, 1);
     if (query_nb % 256 != 0) grid1.x += 1;
-    modified_insertion_sort<<<grid1, block1>>>(dist_dev, dist_pitch, index_dev, index_pitch, query_nb, ref_nb, k);
+    modified_insertion_sort<<<grid1, block1, 0, str>>>(dist_dev, dist_pitch, index_dev, index_pitch, query_nb, ref_nb, k);
     if (cudaGetLastError() != cudaSuccess) {
         printf("ERROR: Unable to execute kernel\n");
         cudaFree(ref_dev);
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false;
+        return 0;
     }
 
     // Compute the square root of the k smallest distances
@@ -383,27 +391,42 @@ bool knn_cuda_global(const float * ref,
     dim3 grid2(query_nb / 16, k / 16, 1);
     if (query_nb % 16 != 0) grid2.x += 1;
     if (k % 16 != 0)        grid2.y += 1;
-    compute_sqrt<<<grid2, block2>>>(dist_dev, query_nb, query_pitch, k);	
+    compute_sqrt<<<grid2, block2, 0, str>>>(dist_dev, query_nb, query_pitch, k);	
     if (cudaGetLastError() != cudaSuccess) {
         printf("ERROR: Unable to execute kernel\n");
         cudaFree(ref_dev);
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false;
+        return 0;
     }
 
     // Copy k smallest distances / indexes from the device to the host
-    err0 = cudaMemcpy2D(knn_dist,  query_nb * size_of_float, dist_dev,  dist_pitch_in_bytes,  query_nb * size_of_float, k, cudaMemcpyDeviceToHost);
-    err1 = cudaMemcpy2D(knn_index, query_nb * size_of_int,   index_dev, index_pitch_in_bytes, query_nb * size_of_int,   k, cudaMemcpyDeviceToHost);
+    err0 = cudaMemcpy2DAsync(knn_dist,  query_nb * size_of_float, dist_dev,  dist_pitch_in_bytes,  query_nb * size_of_float, k, cudaMemcpyDeviceToHost, str);
+    err1 = cudaMemcpy2DAsync(knn_index, query_nb * size_of_int,   index_dev, index_pitch_in_bytes, query_nb * size_of_int,   k, cudaMemcpyDeviceToHost, str);
     if (err0 != cudaSuccess || err1 != cudaSuccess) {
         printf("ERROR: Unable to copy data from device to host\n");
         cudaFree(ref_dev);
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false; 
+        return 0; 
     }
+
+    //cudaDeviceSynchronize();
+    cuStreamSynchronize( str );
+
+    struct timeval toc;
+    gettimeofday(&toc, NULL);
+
+    // Elapsed time in ms
+    double elapsed_time = toc.tv_sec - tic.tv_sec;
+    elapsed_time += (toc.tv_usec - tic.tv_usec) / 1000000.;
+
+    // to ms
+    elapsed_time = elapsed_time * 1000;
+
+    cudaStreamDestroy(str);
 
     // Memory clean-up
     cudaFree(ref_dev);
@@ -411,11 +434,11 @@ bool knn_cuda_global(const float * ref,
     cudaFree(dist_dev);
     cudaFree(index_dev); 
 
-    return true;
+    return elapsed_time;
 }
 
 
-bool knn_cuda_texture(const float * ref,
+double knn_cuda_texture(const float * ref,
                       int           ref_nb,
                       const float * query,
                       int           query_nb,
@@ -431,20 +454,23 @@ bool knn_cuda_texture(const float * ref,
     // Return variables
     cudaError_t err0, err1, err2;
 
-    // Check that we have at least one CUDA device 
-    int nb_devices;
-    err0 = cudaGetDeviceCount(&nb_devices);
-    if (err0 != cudaSuccess || nb_devices == 0) {
-        printf("ERROR: No CUDA device found\n");
-        return false;
-    }
+    cudaStream_t str;
+    cudaStreamCreate(&str);
 
-    // Select the first CUDA device as default
-    err0 = cudaSetDevice(0);
-    if (err0 != cudaSuccess) {
-        printf("ERROR: Cannot set the chosen CUDA device\n");
-        return false;
-    }
+    // // Check that we have at least one CUDA device 
+    // int nb_devices;
+    // err0 = cudaGetDeviceCount(&nb_devices);
+    // if (err0 != cudaSuccess || nb_devices == 0) {
+    //     printf("ERROR: No CUDA device found\n");
+    //     return 0;
+    // }
+
+    // // Select the first CUDA device as default
+    // err0 = cudaSetDevice(0);
+    // if (err0 != cudaSuccess) {
+    //     printf("ERROR: Cannot set the chosen CUDA device\n");
+    //     return 0;
+    // }
 
     // Allocate global memory
     float * query_dev = NULL;
@@ -461,7 +487,7 @@ bool knn_cuda_texture(const float * ref,
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false;
+        return 0;
     }
 
     // Deduce pitch values
@@ -475,20 +501,10 @@ bool knn_cuda_texture(const float * ref,
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev); 
-        return false; 
+        return 0; 
     }
 
-    // Copy query data from the host to the device
-    err0 = cudaMemcpy2D(query_dev, query_pitch_in_bytes, query, query_nb * size_of_float, query_nb * size_of_float, dim, cudaMemcpyHostToDevice);
-    if (err0 != cudaSuccess) {
-        printf("ERROR: Unable to copy data from host to device\n");
-        cudaFree(query_dev);
-        cudaFree(dist_dev);
-        cudaFree(index_dev);        
-        return false; 
-    }
-
-    // Allocate CUDA array for reference points
+   // Allocate CUDA array for reference points
     cudaArray* ref_array_dev = NULL;
     cudaChannelFormatDesc channel_desc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindFloat);
     err0 = cudaMallocArray(&ref_array_dev, &channel_desc, ref_nb, dim);
@@ -497,18 +513,7 @@ bool knn_cuda_texture(const float * ref,
         cudaFree(query_dev);
         cudaFree(dist_dev);
         cudaFree(index_dev);
-        return false; 
-    }
-
-    // Copy reference points from host to device
-    err0 = cudaMemcpyToArray(ref_array_dev, 0, 0, ref, ref_nb * size_of_float * dim, cudaMemcpyHostToDevice);
-    if (err0 != cudaSuccess) {
-        printf("ERROR: Unable to copy data from host to device\n");
-        cudaFree(query_dev);
-        cudaFree(dist_dev);
-        cudaFree(index_dev);
-        cudaFreeArray(ref_array_dev);
-        return false; 
+        return 0; 
     }
 
     // Resource descriptor
@@ -535,7 +540,33 @@ bool knn_cuda_texture(const float * ref,
         cudaFree(dist_dev);
         cudaFree(index_dev);
         cudaFreeArray(ref_array_dev);
-        return false; 
+        return 0; 
+    }
+
+    cudaDeviceSynchronize();
+
+    struct timeval tic;
+    gettimeofday(&tic, NULL);
+
+    // Copy query data from the host to the device
+    err0 = cudaMemcpy2DAsync(query_dev, query_pitch_in_bytes, query, query_nb * size_of_float, query_nb * size_of_float, dim, cudaMemcpyHostToDevice, str);
+    if (err0 != cudaSuccess) {
+        printf("ERROR: Unable to copy data from host to device\n");
+        cudaFree(query_dev);
+        cudaFree(dist_dev);
+        cudaFree(index_dev);        
+        return 0; 
+    }
+
+    // Copy reference points from host to device
+    err0 = cudaMemcpyToArrayAsync(ref_array_dev, 0, 0, ref, ref_nb * size_of_float * dim, cudaMemcpyHostToDevice, str);
+    if (err0 != cudaSuccess) {
+        printf("ERROR: Unable to copy data from host to device\n");
+        cudaFree(query_dev);
+        cudaFree(dist_dev);
+        cudaFree(index_dev);
+        cudaFreeArray(ref_array_dev);
+        return 0; 
     }
 
     // Compute the squared Euclidean distances
@@ -543,60 +574,76 @@ bool knn_cuda_texture(const float * ref,
     dim3 grid0(query_nb / 16, ref_nb / 16, 1);
     if (query_nb % 16 != 0) grid0.x += 1;
     if (ref_nb   % 16 != 0) grid0.y += 1;
-    compute_distance_texture<<<grid0, block0>>>(ref_tex_dev, ref_nb, query_dev, query_nb, query_pitch, dim, dist_dev);
-    if (cudaGetLastError() != cudaSuccess) {
-        printf("ERROR: Unable to execute kernel\n");
-        cudaFree(query_dev);
-        cudaFree(dist_dev);
-        cudaFree(index_dev);
-        cudaFreeArray(ref_array_dev);
-        cudaDestroyTextureObject(ref_tex_dev);
-        return false;
-    }
+    compute_distance_texture<<<grid0, block0, 0, str>>>(ref_tex_dev, ref_nb, query_dev, query_nb, query_pitch, dim, dist_dev);
+    // if (cudaGetLastError() != cudaSuccess) {
+    //     printf("ERROR: Unable to execute kernel\n");
+    //     cudaFree(query_dev);
+    //     cudaFree(dist_dev);
+    //     cudaFree(index_dev);
+    //     cudaFreeArray(ref_array_dev);
+    //     cudaDestroyTextureObject(ref_tex_dev);
+    //     return 0;
+    // }
 
     // Sort the distances with their respective indexes
     dim3 block1(256, 1, 1);
     dim3 grid1(query_nb / 256, 1, 1);
     if (query_nb % 256 != 0) grid1.x += 1;
-    modified_insertion_sort<<<grid1, block1>>>(dist_dev, dist_pitch, index_dev, index_pitch, query_nb, ref_nb, k);
-    if (cudaGetLastError() != cudaSuccess) {
-        printf("ERROR: Unable to execute kernel\n");
-        cudaFree(query_dev);
-        cudaFree(dist_dev);
-        cudaFree(index_dev);
-        cudaFreeArray(ref_array_dev);
-        cudaDestroyTextureObject(ref_tex_dev);
-        return false;
-    }
+    modified_insertion_sort<<<grid1, block1, 0, str>>>(dist_dev, dist_pitch, index_dev, index_pitch, query_nb, ref_nb, k);
+    // if (cudaGetLastError() != cudaSuccess) {
+    //     printf("ERROR: Unable to execute kernel\n");
+    //     cudaFree(query_dev);
+    //     cudaFree(dist_dev);
+    //     cudaFree(index_dev);
+    //     cudaFreeArray(ref_array_dev);
+    //     cudaDestroyTextureObject(ref_tex_dev);
+    //     return 0;
+    // }
 
     // Compute the square root of the k smallest distances
     dim3 block2(16, 16, 1);
     dim3 grid2(query_nb / 16, k / 16, 1);
     if (query_nb % 16 != 0) grid2.x += 1;
     if (k % 16 != 0)        grid2.y += 1;
-    compute_sqrt<<<grid2, block2>>>(dist_dev, query_nb, query_pitch, k);	
-    if (cudaGetLastError() != cudaSuccess) {
-        printf("ERROR: Unable to execute kernel\n");
-        cudaFree(query_dev);
-        cudaFree(dist_dev);
-        cudaFree(index_dev);
-        cudaFreeArray(ref_array_dev);
-        cudaDestroyTextureObject(ref_tex_dev);
-        return false;
-    }
+    compute_sqrt<<<grid2, block2, 0, str>>>(dist_dev, query_nb, query_pitch, k);	
+    // if (cudaGetLastError() != cudaSuccess) {
+    //     printf("ERROR: Unable to execute kernel\n");
+    //     cudaFree(query_dev);
+    //     cudaFree(dist_dev);
+    //     cudaFree(index_dev);
+    //     cudaFreeArray(ref_array_dev);
+    //     cudaDestroyTextureObject(ref_tex_dev);
+    //     return 0;
+    // }
 
     // Copy k smallest distances / indexes from the device to the host
-    err0 = cudaMemcpy2D(knn_dist,  query_nb * size_of_float, dist_dev,  dist_pitch_in_bytes,  query_nb * size_of_float, k, cudaMemcpyDeviceToHost);
-    err1 = cudaMemcpy2D(knn_index, query_nb * size_of_int,   index_dev, index_pitch_in_bytes, query_nb * size_of_int,   k, cudaMemcpyDeviceToHost);
-    if (err0 != cudaSuccess || err1 != cudaSuccess) {
-        printf("ERROR: Unable to copy data from device to host\n");
-        cudaFree(query_dev);
-        cudaFree(dist_dev);
-        cudaFree(index_dev);
-        cudaFreeArray(ref_array_dev);
-        cudaDestroyTextureObject(ref_tex_dev);
-        return false; 
+    err0 = cudaMemcpy2DAsync(knn_dist,  query_nb * size_of_float, dist_dev,  dist_pitch_in_bytes,  query_nb * size_of_float, k, cudaMemcpyDeviceToHost, str);
+    err1 = cudaMemcpy2DAsync(knn_index, query_nb * size_of_int,   index_dev, index_pitch_in_bytes, query_nb * size_of_int,   k, cudaMemcpyDeviceToHost, str);
+    // if (err0 != cudaSuccess || err1 != cudaSuccess) {
+    //     printf("ERROR: Unable to copy data from device to host\n");
+    //     cudaFree(query_dev);
+    //     cudaFree(dist_dev);
+    //     cudaFree(index_dev);
+    //     cudaFreeArray(ref_array_dev);
+    //     cudaDestroyTextureObject(ref_tex_dev);
+    //     return 0; 
+    // }
+
+    err0 = cudaStreamSynchronize(str);
+    if (err0 != cudaSuccess || cudaGetLastError() != cudaSuccess) {
+        printf("ERROR: sync broke\n");
     }
+
+    struct timeval toc;
+    gettimeofday(&toc, NULL);
+
+    // Elapsed time in ms
+    double elapsed_time = toc.tv_sec - tic.tv_sec;
+    elapsed_time += (toc.tv_usec - tic.tv_usec) / 1000000.;
+    // to ms
+    elapsed_time = elapsed_time * 1000;
+
+    cudaStreamDestroy(str);
 
     // Memory clean-up
     cudaFree(query_dev);
@@ -605,7 +652,7 @@ bool knn_cuda_texture(const float * ref,
     cudaFreeArray(ref_array_dev);
     cudaDestroyTextureObject(ref_tex_dev);
 
-    return true;
+    return elapsed_time;
 }
 
 

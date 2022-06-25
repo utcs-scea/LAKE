@@ -11,7 +11,7 @@
  * @param knn_dist   output array containing the query_nb x k distances
  * @param knn_index  output array containing the query_nb x k indexes
  */
-bool knn_cuda_global(const float * ref,
+double knn_cuda_global(const float * ref,
                      int           ref_nb,
                      const float * query,
                      int           query_nb,
@@ -34,7 +34,7 @@ bool knn_cuda_global(const float * ref,
  * @param knn_dist   output array containing the query_nb x k distances
  * @param knn_index  output array containing the query_nb x k indexes
  */
-bool knn_cuda_texture(const float * ref,
+double knn_cuda_texture(const float * ref,
                       int           ref_nb,
                       const float * query,
                       int           query_nb,
