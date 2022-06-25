@@ -5,8 +5,12 @@
 #include <string.h>
 #include <sys/time.h>
 #include <time.h>
+#include <unistd.h>
 
 #include "knncuda.h"
+
+#define WARMS 2
+#define RUNS 5
 
 
 /**
@@ -126,7 +130,7 @@ void  modified_insertion_sort(float *dist, int *index, int length, int k){
  * @param knn_dist   output array containing the query_nb x k distances
  * @param knn_index  output array containing the query_nb x k indexes
  */
-bool knn_c(const float * ref,
+double knn_c(const float * ref,
            int           ref_nb,
            const float * query,
            int           query_nb,
@@ -144,8 +148,11 @@ bool knn_c(const float * ref,
         printf("Memory allocation error\n");
         free(dist);
         free(index);
-        return false;
+        return 0;
     }
+
+    struct timeval tic;
+    gettimeofday(&tic, NULL);
 
     // Process one query point at the time
     for (int i=0; i<query_nb; ++i) {
@@ -166,12 +173,16 @@ bool knn_c(const float * ref,
         }
     }
 
+    struct timeval toc;
+    gettimeofday(&toc, NULL);
+    double elapsed_time = toc.tv_sec - tic.tv_sec;
+    elapsed_time += (toc.tv_usec - tic.tv_usec) / 1000000.;
+    
     // Memory clean-up
     free(dist);
     free(index);
 
-    return true;
-
+    return elapsed_time;
 }
 
 
@@ -208,7 +219,7 @@ bool test(const float * ref,
           int           k,
           float *       gt_knn_dist,
           int *         gt_knn_index,
-          bool (*knn)(const float *, int, const float *, int, int, int, float *, int *),
+          double (*knn)(const float *, int, const float *, int, int, int, float *, int *),
           const char *  name,
           int           nb_iterations) {
 
@@ -228,38 +239,33 @@ bool test(const float * ref,
         printf("ALLOCATION ERROR\n");
         free(test_knn_dist);
         free(test_knn_index);
-        return false;
+        return 0;
     }
 
     // warmup
-    for (int i=0; i<2; ++i) {
+    for (int i=0; i<WARMS; ++i) {
         if (!knn(ref, ref_nb, query, query_nb, dim, k, test_knn_dist, test_knn_index)) {
             free(test_knn_dist);
             free(test_knn_index);
-            return false;
+            return 0;
         }
     }
 
-    // Start timer
-    struct timeval tic;
-    gettimeofday(&tic, NULL);
+    sleep(1);
 
+
+    double sum = 0;
     // Compute k-NN several times
     for (int i=0; i<nb_iterations; ++i) {
-        if (!knn(ref, ref_nb, query, query_nb, dim, k, test_knn_dist, test_knn_index)) {
+        double elaps = knn(ref, ref_nb, query, query_nb, dim, k, test_knn_dist, test_knn_index);
+        if (elaps == 0) {
             free(test_knn_dist);
             free(test_knn_index);
-            return false;
+            return 0;
         }
+        sum += elaps;
+        sleep(0.1);
     }
-
-    // Stop timer
-    struct timeval toc;
-    gettimeofday(&toc, NULL);
-
-    // Elapsed time in ms
-    double elapsed_time = toc.tv_sec - tic.tv_sec;
-    elapsed_time += (toc.tv_usec - tic.tv_usec) / 1000000.;
 
     // Verify both precisions and indexes of the k-NN values
     int nb_correct_precisions = 0;
@@ -280,7 +286,7 @@ bool test(const float * ref,
     // Display report
     if (precision_accuracy >= min_accuracy && index_accuracy >= min_accuracy ) {
         //printf("PASSED in %8.5f seconds (averaged over %3d iterations)\n", elapsed_time / nb_iterations, nb_iterations);
-        printf("cpu_%d, %8.5f\n", dim, elapsed_time / nb_iterations);
+        printf("%s_%d, %8.5f\n", name, dim, sum / nb_iterations);
     }
     else {
         printf("FAILED\n");
@@ -314,8 +320,8 @@ int main(int argc, char** argv) {
     // printf("- Dimension of points     : %d\n",   dim);
     // printf("- Number of neighbors     : %d\n\n", k);
 
-    int dims[] = {8, 16, 32, 64, 128, 256, 512};
-    //int dims[] = {8};
+    int dims[] = {8, 16, 32, 64, 128};
+    //int dims[] = {16};
 
     for (int &dim : dims) {
 
@@ -345,7 +351,7 @@ int main(int argc, char** argv) {
         initialize_data(ref, ref_nb, query, query_nb, dim);
 
         // Compute the ground truth k-NN distances and indexes for each query point
-        printf("Ground truth computation in progress...\n\n");
+        //printf("Ground truth computation in progress...\n\n");
         if (!knn_c(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index)) {
             free(ref);
             free(query);
@@ -355,18 +361,17 @@ int main(int argc, char** argv) {
         }
 
         // Test all k-NN functions
-        printf("TESTS\n");
-        test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_c, "knn_c", 3);
-        //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cuda_global,  "knn_cuda_global",  100); 
-        //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cuda_texture, "knn_cuda_texture", 100); 
-        //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cublas,       "knn_cublas",       100); 
+        //printf("TESTS\n");
+        //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_c, "knn_c", RUNS);
+        test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cuda_global,  "knn_cuda_global",  RUNS); 
+        //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cuda_texture, "knn_cuda_texture", RUNS); 
+        //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cublas,       "knn_cublas",       RUNS); 
 
         // Deallocate memory 
         free(ref);
         free(query);
         free(knn_dist);
         free(knn_index);
-
     }
 
     return EXIT_SUCCESS;
