@@ -69,11 +69,10 @@ __global__ void matrix_map(float *src, float *dest) {
     dest[blockId*dim + threadId] =  r * x; //func_f(src[blockId*dim + threadId]);
 }
 
-__global__ void matrix_transpose(float *m, float *ret) { 
-    int blockId = blockIdx.x;
-	int threadId = threadIdx.x;
-	int dim = blockDim.x;
-    ret[blockId*dim + threadId] = m[threadId * dim + blockId];
+__global__ void matrix_transpose(float *m, float *ret, int rows_ret, int cols_ret) { 
+    int blockId = blockIdx.x; // row-id of ret
+	int threadId = threadIdx.x; // col-id of ret
+    ret[blockId*cols_ret + threadId] = m[threadId * rows_ret + blockId];
 }
 
 __global__ void matrix_repmat(float *m, int row_repeat, int col_repeat, int m_rows, int m_cols, float *ret) { 
@@ -95,7 +94,7 @@ __global__ void matrix_repmat(float *m, int row_repeat, int col_repeat, int m_ro
     }
 }
 
-__global__ void matrix_mult(float *a,float *b, float *c, int m, int n, int k)
+__global__ void matrix_mult(float *a, float *b, float *c, int m, int n, int k)
 { 
     int row = blockIdx.y * blockDim.y + threadIdx.y; 
     int col = blockIdx.x * blockDim.x + threadIdx.x;
@@ -108,4 +107,59 @@ __global__ void matrix_mult(float *a,float *b, float *c, int m, int n, int k)
         }
         c[row * k + col] = sum;
     }
+}
+
+__global__ void get_average(float *avg_init, float k1, float k2, float batch_size, float *inp, float * avg_final) {
+    int blockId = blockIdx.x;
+	int threadId = threadIdx.x;
+    int dim = blockDim.x;
+    float sum = 0;
+    for(int j = 0; j < batch_size; j++) {
+        sum += inp[j*5 + blockId * dim + threadId];
+    }
+    avg_final[blockId * dim + threadId] = avg_init[blockId * dim + threadId] * k1 /(k2  + batch_size)
+        + sum / (k2 + batch_size);
+}
+
+__global__ void get_variance(float *var_init, float k1, float k2, 
+        float batch_size ,float *inp, float *data_last_values, float * var_final) {
+    int blockId = blockIdx.x;
+	int threadId = threadIdx.x;
+    int dim = blockDim.x;
+    float sum_diff = 0;
+    for(int j = 0; j < batch_size; j++) {
+        sum_diff += (data_last_values[blockId * dim + threadId] -  inp[ j*5 + blockId * dim + threadId])
+        *(data_last_values[blockId * dim + threadId] -  inp[j*5 + blockId * dim + threadId]) ;
+    }
+    var_final[blockId * dim + threadId] = var_init[blockId * dim + threadId] * k1 /(k2 + batch_size) 
+        + sum_diff/ (k2 + batch_size);
+}
+
+__global__ void normalize_data(float *inp, float *avg, float *std_dev, float *out) {
+    int blockId = blockIdx.x;
+	int threadId = threadIdx.x;
+    int dim = blockDim.x;
+    out[blockId * dim + threadId] = (inp[blockId * dim + threadId] - avg[threadId])
+        / std_dev[threadId];
+}
+
+__global__ void add_bias(float *wx, float *bias, float *out) {
+    int blockId = blockIdx.x;
+	int threadId = threadIdx.x;
+    int dim = blockDim.x;
+    out[blockId * dim + threadId] = wx[blockId * dim + threadId] + bias[threadId];
+}
+
+__global__ void matrix_argmax(float *src, int cols, float *max_col_array) {
+    int threadId = threadIdx.x; // row_index
+    int max_col = 0;
+    int max = INT_MIN;
+    for(int i = 0; i < cols; i++) {
+        if(max < src[threadId * cols + i]) {
+            max = src[threadId * cols + i];
+            max_col = i;
+        }
+    }
+    max_col_array[threadId] = max_col;
+
 }
