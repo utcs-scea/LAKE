@@ -53,11 +53,9 @@ __global__ void matrix_elementwise_div(float *m1, float *m2, float *dest) {
 }
 
 __global__ void matrix_map(float *src, float *dest) { 
-    int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
-	int dim = blockDim.x;
     float r = 1;
-    float x = src[blockId*dim + threadId];
+    float x = src[threadId];
     long long i = *(long long *)&x;
     i = 0x5fe6eb50c7b537a9 - (i >> 1);
     r = *(float *)&i;
@@ -66,7 +64,7 @@ __global__ void matrix_map(float *src, float *dest) {
     r = r * (1.5f - 0.5f * x * r * r);
     r = r * (1.5f - 0.5f * x * r * r);
     r = r * (1.5f - 0.5f * x * r * r);
-    dest[blockId*dim + threadId] =  r * x; //func_f(src[blockId*dim + threadId]);
+    dest[threadId] =  r * x; //func_f(src[blockId*dim + threadId]);
 }
 
 __global__ void matrix_transpose(float *m, float *ret, int rows_ret, int cols_ret) { 
@@ -109,7 +107,7 @@ __global__ void matrix_mult(float *a, float *b, float *c, int m, int n, int k)
     }
 }
 
-__global__ void get_average(float *avg_init, float k1, float k2, int batch_size, float *inp, float * avg_final) {
+__global__ void get_average(float *avg_init, int k1, int k2, int batch_size, float *inp, float * avg_final) {
 	int threadId = threadIdx.x;
     float sum = 0;
     for(int j = 0; j < batch_size; j++) {

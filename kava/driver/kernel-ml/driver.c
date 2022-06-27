@@ -235,18 +235,18 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 
     
     check_error(cuMemAlloc((CUdeviceptr*) &diff, sizeof(float) * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &local_average, sizeof(float) * readahead_online_data_rows * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &local_std_dev, sizeof(float) * readahead_online_data_rows * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &local_variance, sizeof(float) * readahead_online_data_rows * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &local_average, sizeof(float)  * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &local_std_dev, sizeof(float)  * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &local_variance, sizeof(float) * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
 
     check_error(cuMemAlloc((CUdeviceptr*) &readahead_norm_online_data_last_values, 
     sizeof(float) * readahead_online_data_cols * batch_size), "cuMemAlloc ", __LINE__);
  
-    float n_seconds = 10;
-    float n_1_seconds = 9;
+    int n_seconds = 10;
+    int n_1_seconds = 9;
 
     void *args[] = {
-		&diff, &n_seconds, &n_1_seconds,&batch_size, &d_input, &local_average
+		&diff, &n_seconds, &n_1_seconds, &batch_size, &d_input, &local_average
 	};
 
     check_error(cuLaunchKernel(*get_average, 
@@ -266,7 +266,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 				1, 1, 1,          //blocks
 				readahead_online_data_cols, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                NULL, args1, NULL),
 			"cuLaunchKernel", __LINE__);
     
 
@@ -341,7 +341,7 @@ static int run_gpu(void) {
     matrix_mult, add_bias, matrix_argmax;
     int n_batches = 1;
 
-    gpu_get_cufunc(cubin_path, "_Z11get_averagePfffiS_S_", &get_average);
+    gpu_get_cufunc(cubin_path, "_Z11get_averagePfiiiS_S_", &get_average);
     gpu_get_cufunc(cubin_path, "_Z12get_variancePfffiS_S_S_", &get_variance);
     gpu_get_cufunc(cubin_path, "_Z10matrix_mapPfS_", &matrix_map);
     gpu_get_cufunc(cubin_path, "_Z14normalize_dataPfS_S_S_", &normalize_data);
