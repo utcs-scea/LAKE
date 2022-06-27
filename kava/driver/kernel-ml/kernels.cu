@@ -110,28 +110,24 @@ __global__ void matrix_mult(float *a, float *b, float *c, int m, int n, int k)
 }
 
 __global__ void get_average(float *avg_init, float k1, float k2, int batch_size, float *inp, float * avg_final) {
-    int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
-    int dim = blockDim.x;
     float sum = 0;
     for(int j = 0; j < batch_size; j++) {
-        sum += inp[j*5 + blockId * dim + threadId];
+        sum += inp[j*5 + threadId];
     }
-    avg_final[blockId * dim + threadId] = avg_init[blockId * dim + threadId] * k1 /(k2  + batch_size)
+    avg_final[threadId] = avg_init[threadId] * k1 /(k2  + batch_size)
         + sum / (k2 + batch_size);
 }
 
 __global__ void get_variance(float *var_init, float k1, float k2, 
         int batch_size ,float *inp, float *data_last_values, float * var_final) {
-    int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
-    int dim = blockDim.x;
     float sum_diff = 0;
     for(int j = 0; j < batch_size; j++) {
-        sum_diff += (data_last_values[blockId * dim + threadId] -  inp[ j*5 + blockId * dim + threadId])
-        *(data_last_values[blockId * dim + threadId] -  inp[j*5 + blockId * dim + threadId]) ;
+        sum_diff += (data_last_values[threadId] -  inp[ j*5 + threadId])
+        *(data_last_values[threadId] -  inp[j*5 + threadId]) ;
     }
-    var_final[blockId * dim + threadId] = var_init[blockId * dim + threadId] * k1 /(k2 + batch_size) 
+    var_final[threadId] = var_init[threadId] * k1 /(k2 + batch_size) 
         + sum_diff/ (k2 + batch_size);
 }
 
