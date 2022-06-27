@@ -339,10 +339,10 @@ static int run_gpu(void) {
 
     CUfunction get_average, get_variance, matrix_map, normalize_data, matrix_transpose,
     matrix_mult, add_bias, matrix_argmax;
-    int n_batches = 2;
+    int n_batches = 1;
 
-    gpu_get_cufunc(cubin_path, "_Z11get_averagePffffS_S_", &get_average);
-    gpu_get_cufunc(cubin_path, "_Z12get_variancePffffS_S_S_", &get_variance);
+    gpu_get_cufunc(cubin_path, "_Z11get_averagePfffiS_S_", &get_average);
+    gpu_get_cufunc(cubin_path, "_Z12get_variancePfffiS_S_S_", &get_variance);
     gpu_get_cufunc(cubin_path, "_Z10matrix_mapPfS_", &matrix_map);
     gpu_get_cufunc(cubin_path, "_Z14normalize_dataPfS_S_S_", &normalize_data);
     gpu_get_cufunc(cubin_path, "_Z16matrix_transposePfS_ii", &matrix_transpose);
@@ -362,19 +362,19 @@ static int run_gpu(void) {
         usleep_range(1000, 2000);
         cuCtxSynchronize();
     
-        for (j = 0 ; j < RUNS ; j++) {
-            //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
-            t_start = ktime_get_ns();
-            //copy_batch_inputs(batch_size);
-            c_start = ktime_get_ns();
-            result = predict_readahead_class(&get_average, &get_variance, &matrix_map, &normalize_data,
-                &matrix_transpose, &matrix_mult, &add_bias, &matrix_argmax, batch_size);
-            c_stop = ktime_get_ns();
-            //get_result_batch(batch_size);
-            t_stop = ktime_get_ns();
-            comp_run_times[j] = (c_stop - c_start);
-            total_run_times[j] = (t_stop - t_start);
-	    }
+        // for (j = 0 ; j < RUNS ; j++) {
+        //     //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
+        //     t_start = ktime_get_ns();
+        //     //copy_batch_inputs(batch_size);
+        //     c_start = ktime_get_ns();
+        //     result = predict_readahead_class(&get_average, &get_variance, &matrix_map, &normalize_data,
+        //         &matrix_transpose, &matrix_mult, &add_bias, &matrix_argmax, batch_size);
+        //     c_stop = ktime_get_ns();
+        //     //get_result_batch(batch_size);
+        //     t_stop = ktime_get_ns();
+        //     comp_run_times[j] = (c_stop - c_start);
+        //     total_run_times[j] = (t_stop - t_start);
+	    // }
 
 	    // avg = 0; avg_total = 0;
         // best = 0; best_total = 0;

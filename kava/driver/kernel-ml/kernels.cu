@@ -109,7 +109,7 @@ __global__ void matrix_mult(float *a, float *b, float *c, int m, int n, int k)
     }
 }
 
-__global__ void get_average(float *avg_init, float k1, float k2, float batch_size, float *inp, float * avg_final) {
+__global__ void get_average(float *avg_init, float k1, float k2, int batch_size, float *inp, float * avg_final) {
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
     int dim = blockDim.x;
@@ -122,7 +122,7 @@ __global__ void get_average(float *avg_init, float k1, float k2, float batch_siz
 }
 
 __global__ void get_variance(float *var_init, float k1, float k2, 
-        float batch_size ,float *inp, float *data_last_values, float * var_final) {
+        int batch_size ,float *inp, float *data_last_values, float * var_final) {
     int blockId = blockIdx.x;
 	int threadId = threadIdx.x;
     int dim = blockDim.x;
