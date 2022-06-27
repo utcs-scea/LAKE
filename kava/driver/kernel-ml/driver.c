@@ -125,7 +125,7 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias, int
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    cudaErrCheck(cudaDeviceSynchronize());
+    check_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize", __LINE__);
     //dimensions of wt linear_w_columns * linear_w_rows
 
     //check_error(cuMemAlloc((CUdeviceptr*) &bias, sizeof(float) *bias_vector_rows *x_rows * bias_vector_cols), "cuMemAlloc ", __LINE__);
@@ -150,7 +150,7 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias, int
                 NULL, args1, NULL),
 		"cuLaunchKernel", __LINE__);
 
-    cudaErrCheck(cudaDeviceSynchronize());
+    check_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
     void *args3[] = {
 		&wx, &bias_vector, &out
@@ -163,7 +163,7 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias, int
                 NULL, args3, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    cudaErrCheck(cudaDeviceSynchronize());
+    check_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
     // set input & output
     //linear->input = x;
@@ -216,7 +216,7 @@ float *autodiff_forward(CUdeviceptr d_readahead_norm_online_data,
                 NULL, args3, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    cudaErrCheck(cudaDeviceSynchronize());
+    check_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize", __LINE__);
     
     float *result_cols = (float*) kava_alloc(sizeof(float)* batch_size);
     check_error(cuMemcpyDtoH(result_cols, d_result_cols, sizeof(float) * batch_size), "cuMemcpyDtoH", __LINE__);
@@ -264,7 +264,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    cudaErrCheck(cudaDeviceSynchronize());
+    check_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
     
     void *args1[] = {
@@ -284,7 +284,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 		&local_variance, &local_std_dev
 	};
 
-    cudaErrCheck(cudaDeviceSynchronize());
+    check_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
     check_error(cuLaunchKernel(*matrix_map, 
 				1, 1, 1,          //blocks
@@ -293,7 +293,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
                 NULL, args2, NULL),
 		"cuLaunchKernel", __LINE__);
 
-    cudaErrCheck(cudaDeviceSynchronize());
+    check_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
     void *args3[] = {
 		&d_input, &local_average, &local_std_dev, &readahead_norm_online_data
@@ -306,7 +306,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
                 NULL, args3, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    cudaErrCheck(cudaDeviceSynchronize());
+    check_error(cudaDeviceSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
     cuMemFree(diff);
     cuMemFree(local_average);
