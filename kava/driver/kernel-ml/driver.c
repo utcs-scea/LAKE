@@ -353,7 +353,7 @@ static int run_gpu(void) {
     gpu_get_cufunc(cubin_path, "_Z11matrix_multPfS_S_iii", &matrix_mult);
     gpu_get_cufunc(cubin_path, "_Z8add_biasPfS_S_", &add_bias);
     gpu_get_cufunc(cubin_path, "_Z13matrix_argmaxPfiPi", &matrix_argmax);
-    RUNS = 1;
+    RUNS = 10;
     comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
 

@@ -7,5 +7,6 @@ extern double w1_arr[5][15];
 extern double b1_arr[5][1];
 extern double w2_arr[4][5];
 extern double b2_arr[4][1];
+extern float intial_stats[5];
 
 #endif
