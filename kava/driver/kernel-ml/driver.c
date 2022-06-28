@@ -12,22 +12,6 @@ static int run_cpu(void) {
     return 0;
 }
 
-// int matrix_argmax(float *src, int rows, int cols) { 
-//     int max = INT_MIN;
-//     int max_row = 0, max_col = 0;
-//     int i, j;
-//     for(i = 0; i < rows; i++) {
-//         for (j = 0; j < cols; j++) {
-//             if(max < src[i*rows + j]) {
-//                 max = src[i*rows + j];
-//                 max_row =i;
-//                 max_col = j;
-//             }
-//         }
-//     }
-//     return max_col;
-// }
-
 static int w0_rows, w0_cols, b0_rows, b0_cols, w1_rows, w1_cols, b1_rows, b1_cols, w2_rows, w2_cols, b2_rows, b2_cols, input_cols;
 static int out0_rows, out0_cols, out1_rows, out1_cols, out2_rows, out2_cols;
 
@@ -104,16 +88,16 @@ void clean_batch(void) {
 	cuMemFree(d_input);
 }
 
-
-
 void linear_layer_forward(CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows, 
             int linear_w_columns, CUdeviceptr bias_vector, int layer_index, CUdeviceptr out,
-CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias, int batch_size) {
+            CUfunction* matrix_transpose, CUfunction* matrix_mult, 
+            CUfunction* add_bias, int batch_size) {
 
 
     CUdeviceptr wx, bias;
     CUdeviceptr wt;
-    check_error(cuMemAlloc((CUdeviceptr*) &wt, sizeof(float) * linear_w_columns * linear_w_rows), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &wt, 
+    sizeof(float) * linear_w_columns * linear_w_rows), "cuMemAlloc ", __LINE__);
 
     void *args[] = {
 		&linear_w, &wt, &linear_w_columns, &linear_w_rows
@@ -125,19 +109,15 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias, int
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
     //dimensions of wt linear_w_columns * linear_w_rows
-
-    //check_error(cuMemAlloc((CUdeviceptr*) &bias, sizeof(float) *bias_vector_rows *x_rows * bias_vector_cols), "cuMemAlloc ", __LINE__);
     // wx+b
-    check_error(cuMemAlloc((CUdeviceptr*) &wx, sizeof(float) * batch_size *linear_w_rows), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &wx, 
+    sizeof(float) * batch_size *linear_w_rows), "cuMemAlloc ", __LINE__);
 
     //wx = matrix_mult(x, wt);
     int block_size = 16;
     int grid_rows = (batch_size + block_size - 1) / block_size;
     int grid_cols = (linear_w_rows + block_size - 1) / block_size;
-    // dim3 dimGrid(grid_cols, grid_rows);
-    // dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
 
     void *args1[] = {
 		&x, &wt, &wx, &batch_size, &linear_w_columns, &linear_w_rows
@@ -150,7 +130,6 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias, int
                 NULL, args1, NULL),
 		"cuLaunchKernel", __LINE__);
 
-    check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
     void *args3[] = {
 		&wx, &bias_vector, &out
@@ -163,10 +142,7 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias, int
                 NULL, args3, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
-    // set input & output
-    //linear->input = x;
     if (layer_index == 0) {
         out0_rows = batch_size;
         out0_cols = linear_w_rows;
@@ -183,7 +159,6 @@ CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias, int
     cuMemFree(wx);
     cuMemFree(bias);
     cuMemFree(wt);
-
 }
 
 
@@ -203,12 +178,11 @@ int *autodiff_forward(CUdeviceptr d_readahead_norm_online_data,
     linear_layer_forward(d_out1, d_w2, w2_rows, w2_cols, d_b2, 2, d_out2,
     matrix_transpose, matrix_mult, add_bias, batch_size);
     CUdeviceptr d_result_cols;
-     check_error(cuMemAlloc((CUdeviceptr*) &d_result_cols, sizeof(int) * batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_result_cols, sizeof(int) * out2_rows), "cuMemAlloc ", __LINE__);
 
     void *args3[] = {
 		&d_out2, &input_cols, &d_result_cols
 	};
-    //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
     check_error(cuLaunchKernel(*matrix_argmax, 
 				1, 1, 1,          //blocks
@@ -217,16 +191,11 @@ int *autodiff_forward(CUdeviceptr d_readahead_norm_online_data,
                 NULL, args3, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
+    check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
     
     int *result_cols = (int*) kava_alloc(sizeof(int)* batch_size);
     check_error(cuMemcpyDtoH(result_cols, d_result_cols, sizeof(int) * batch_size), "cuMemcpyDtoH", __LINE__);
     return result_cols;
-
-    // float *out2 = (float*) kava_alloc(sizeof(float)*out2_cols *out2_rows* batch_size);
-    // check_error(cuMemcpyDtoH(out2, d_out2, sizeof(float) * out2_cols *out2_rows), "cuMemcpyDtoH", __LINE__);
-    // //cudaMemcpy(out2, d_out2, sizeof(int) * out2_cols *out2_rows, cudaMemcpyDeviceToHost);
-    // return out2;
 }
 
 int *readahead_class_net_inference(CUdeviceptr d_readahead_norm_online_data, 
@@ -241,12 +210,15 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
                                       CUfunction* matrix_map,CUfunction* normalize_data,
                                        int batch_size) {
     CUdeviceptr diff, local_average, local_std_dev, local_variance, readahead_norm_online_data_last_values;
-
     
-    check_error(cuMemAlloc((CUdeviceptr*) &diff, sizeof(float) * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &local_average, sizeof(float)  * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &local_std_dev, sizeof(float)  * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &local_variance, sizeof(float) * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &diff, 
+    sizeof(float) * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &local_average, 
+    sizeof(float)  * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &local_std_dev, 
+    sizeof(float)  * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &local_variance, 
+    sizeof(float) * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
 
     check_error(cuMemAlloc((CUdeviceptr*) &readahead_norm_online_data_last_values, 
     sizeof(float) * readahead_online_data_cols * batch_size), "cuMemAlloc ", __LINE__);
@@ -315,15 +287,15 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
     cuMemFree(local_variance);
 }
 
-void get_normalized_readahead_data(CUdeviceptr d_readahead_norm_online_data, CUfunction* get_average, CUfunction* get_variance, 
-                                      CUfunction* matrix_map,CUfunction* normalize_data,
-                                       int batch_size) {
+void get_normalized_readahead_data(CUdeviceptr d_readahead_norm_online_data, 
+            CUfunction* get_average, CUfunction* get_variance, 
+            CUfunction* matrix_map,CUfunction* normalize_data,
+            int batch_size) {
     int readahead_online_data_cols = 5, readahead_online_data_rows = 1;
     
-    // cudaMalloc((void**)&d_readahead_norm_online_data, sizeof(float) *readahead_online_data_cols);
-    
-    readahead_normalized_online_data(readahead_online_data_cols, readahead_online_data_rows, d_readahead_norm_online_data, 
-                                    get_average, get_variance, matrix_map, normalize_data, batch_size);
+    readahead_normalized_online_data(readahead_online_data_cols, readahead_online_data_rows, 
+    d_readahead_norm_online_data, get_average, get_variance, 
+    matrix_map, normalize_data, batch_size);
 }
 
 int* predict_readahead_class(CUfunction* get_average, CUfunction* get_variance, CUfunction* matrix_map,
@@ -333,8 +305,10 @@ int* predict_readahead_class(CUfunction* get_average, CUfunction* get_variance, 
     int readahead_online_data_cols = 5;
     check_error(cuMemAlloc((CUdeviceptr*) &d_readahead_norm_online_data, 
     sizeof(float) *readahead_online_data_cols * batch_size), "cuMemAlloc ", __LINE__);
-    get_normalized_readahead_data(d_readahead_norm_online_data, get_average, get_variance, matrix_map, normalize_data, batch_size);
-    int *result = readahead_class_net_inference(d_readahead_norm_online_data, batch_size, matrix_transpose, matrix_mult, add_bias, matrix_argmax);
+    get_normalized_readahead_data(d_readahead_norm_online_data, 
+        get_average, get_variance, matrix_map, normalize_data, batch_size);
+    int *result = readahead_class_net_inference(d_readahead_norm_online_data, 
+        batch_size, matrix_transpose, matrix_mult, add_bias, matrix_argmax);
     return result;
 }
 
@@ -407,7 +381,7 @@ static int run_gpu(void) {
         // clean_batch();
 	}
 
-    //cleanup();
+    cleanup();
     return 0;
 }
 
