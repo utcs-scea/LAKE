@@ -15,7 +15,7 @@ static int run_cpu(void) {
 static int w0_rows, w0_cols, b0_rows, b0_cols, w1_rows, w1_cols, b1_rows, b1_cols, w2_rows, w2_cols, b2_rows, b2_cols, input_cols;
 static int out0_rows, out0_cols, out1_rows, out1_cols, out2_rows, out2_cols;
 
-CUdeviceptr d_w0, d_b0, d_w1, d_b1, d_w2, d_b2, d_out0, d_out1, d_out2, d_input, d_result_cols;
+CUdeviceptr d_w0, d_b0, d_w1, d_b1, d_w2, d_b2, d_out0, d_out1, d_out2, d_input, d_result_cols, d_intital_stats;
 static float* batch_input;
 static int *result;
 
@@ -40,6 +40,7 @@ static void setup_gpu(int batch_size) {
     b1 = &b1_arr[0][0];
     w2 = &w2_arr[0][0];
     b2 = &b2_arr[0][0];
+    float *stats = &intial_stats[0];
 
     int input_features = 5;
     input_cols = input_features;
@@ -72,6 +73,10 @@ static void setup_gpu(int batch_size) {
 
     check_error(cuMemAlloc((CUdeviceptr*) &d_input, sizeof(float) *input_features * batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_result_cols, sizeof(int) * batch_size), "cuMemAlloc ", __LINE__);
+
+    check_error(cuMemAlloc((CUdeviceptr*) &d_intital_stats, sizeof(float) *input_cols), "cuMemAlloc ", __LINE__);
+    check_error(cuMemcpyHtoD(d_intital_stats, stats, sizeof(float) * input_cols), "cuMemcpyHtoD", __LINE__);
+    
 }
 
 static void copy_batch_inputs(int batch_size) {
@@ -94,6 +99,9 @@ void clean_batch(void) {
     cuMemFree(d_out1);
     cuMemFree(d_out2);
 	cuMemFree(d_input);
+
+    kava_free(batch_input);
+    kava_free(result);
 }
 
 void linear_layer_forward(CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows, 
@@ -187,7 +195,7 @@ void autodiff_forward(CUdeviceptr d_readahead_norm_online_data,
     matrix_transpose, matrix_mult, add_bias, batch_size);
     
     void *args3[] = {
-		&d_out2, &input_cols, &d_result_cols
+		&d_out2, &w2_rows, &d_result_cols
 	};
 
     check_error(cuLaunchKernel(*matrix_argmax, 
@@ -217,8 +225,8 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
                                        int batch_size) {
     CUdeviceptr diff, local_average, local_std_dev, local_variance, readahead_norm_online_data_last_values;
     
-    check_error(cuMemAlloc((CUdeviceptr*) &diff, 
-    sizeof(float) * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
+    // check_error(cuMemAlloc((CUdeviceptr*) &diff, 
+    // sizeof(float) * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &local_average, 
     sizeof(float)  * readahead_online_data_cols), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &local_std_dev, 
@@ -233,7 +241,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
     int n_1_seconds = 9;
 
     void *args[] = {
-		&diff, &n_seconds, &n_1_seconds, &batch_size, &d_input, &local_average
+		&d_intital_stats, &n_seconds, &n_1_seconds, &batch_size, &d_input, &local_average
 	};
 
     check_error(cuLaunchKernel(*get_average, 
@@ -247,7 +255,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 
     
     void *args1[] = {
-		&diff, &n_seconds, &n_1_seconds, &batch_size, &d_input, 
+		&d_intital_stats, &n_seconds, &n_1_seconds, &batch_size, &d_input, 
         &readahead_norm_online_data_last_values, &local_variance
 	};
 
@@ -287,7 +295,7 @@ void readahead_normalized_online_data(int readahead_online_data_cols, int readah
 
     check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
 
-    cuMemFree(diff);
+    //cuMemFree(diff);
     cuMemFree(local_average);
     cuMemFree(local_std_dev);
     cuMemFree(local_variance);
@@ -322,7 +330,7 @@ static int run_gpu(void) {
     int i, j;
     int RUNS;
     const int n = 1024;
-    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128};
+    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     int batch_size;
     u64 t_start, t_stop, c_start, c_stop;
     u64* comp_run_times;
@@ -335,7 +343,7 @@ static int run_gpu(void) {
 
     CUfunction get_average, get_variance, matrix_map, normalize_data, matrix_transpose,
     matrix_mult, add_bias, matrix_argmax;
-    int n_batches = 8;
+    int n_batches = 11;
 
     gpu_get_cufunc(cubin_path, "_Z11get_averagePfiiiS_S_", &get_average);
     gpu_get_cufunc(cubin_path, "_Z12get_variancePfffiS_S_S_", &get_variance);
