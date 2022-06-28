@@ -15,8 +15,9 @@ static int run_cpu(void) {
 static int w0_rows, w0_cols, b0_rows, b0_cols, w1_rows, w1_cols, b1_rows, b1_cols, w2_rows, w2_cols, b2_rows, b2_cols, input_cols;
 static int out0_rows, out0_cols, out1_rows, out1_cols, out2_rows, out2_cols;
 
-CUdeviceptr d_w0, d_b0, d_w1, d_b1, d_w2, d_b2, d_out0, d_out1, d_out2, d_input;
-
+CUdeviceptr d_w0, d_b0, d_w1, d_b1, d_w2, d_b2, d_out0, d_out1, d_out2, d_input, d_result_cols;
+static float* batch_input;
+static int *result;
 
 static void setup_gpu(int batch_size) {
     w0_rows = 15;
@@ -61,17 +62,24 @@ static void setup_gpu(int batch_size) {
     check_error(cuMemcpyHtoD(d_b2, b2, sizeof(float) * b2_rows * b2_cols), "cuMemcpyHtoD", __LINE__);
     
     float input[5] = { -0.586797, 5.456822, 5.456966, -0.297318, -1.184651};
-    float batch_input[batch_size][5];
+    //float batch_input[batch_size][5];
     int i ,j;
     for(i = 0; i < batch_size; i++) {
         for(j = 0 ; j < 5; j++) {
-            batch_input[i][j] = input[j];
+            batch_input[i*5 + j] = input[j];
         }
     }
 
     check_error(cuMemAlloc((CUdeviceptr*) &d_input, sizeof(float) *input_features * batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemcpyHtoD(d_input, batch_input, sizeof(float) * input_features * batch_size), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_result_cols, sizeof(int) * batch_size), "cuMemAlloc ", __LINE__);
+}
 
+static void copy_batch_inputs(int batch_size) {
+    check_error(cuMemcpyHtoD(d_input, batch_input, sizeof(float) * input_cols * batch_size), "cuMemcpyHtoD", __LINE__);
+}
+
+static void get_result_batch(int batch_size) {
+    check_error(cuMemcpyDtoH(result, d_result_cols, sizeof(int) * batch_size), "cuMemcpyDtoH", __LINE__);
 }
 
 void clean_batch(void) {
@@ -162,7 +170,7 @@ void linear_layer_forward(CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows
 }
 
 
-int *autodiff_forward(CUdeviceptr d_readahead_norm_online_data, 
+void autodiff_forward(CUdeviceptr d_readahead_norm_online_data, 
     int batch_size, CUfunction* matrix_transpose, CUfunction* matrix_mult, CUfunction* add_bias,
     CUfunction* matrix_argmax) { 
     // layer 0
@@ -177,9 +185,7 @@ int *autodiff_forward(CUdeviceptr d_readahead_norm_online_data,
     check_error(cuMemAlloc((CUdeviceptr*) &d_out2, sizeof(float) *w2_rows * out1_rows), "cuMemAlloc ", __LINE__);
     linear_layer_forward(d_out1, d_w2, w2_rows, w2_cols, d_b2, 2, d_out2,
     matrix_transpose, matrix_mult, add_bias, batch_size);
-    CUdeviceptr d_result_cols;
-    check_error(cuMemAlloc((CUdeviceptr*) &d_result_cols, sizeof(int) * out2_rows), "cuMemAlloc ", __LINE__);
-
+    
     void *args3[] = {
 		&d_out2, &input_cols, &d_result_cols
 	};
@@ -193,15 +199,15 @@ int *autodiff_forward(CUdeviceptr d_readahead_norm_online_data,
 
     check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
     
-    int *result_cols = (int*) kava_alloc(sizeof(int)* batch_size);
-    check_error(cuMemcpyDtoH(result_cols, d_result_cols, sizeof(int) * batch_size), "cuMemcpyDtoH", __LINE__);
-    return result_cols;
+    //int *result_cols = (int*) kava_alloc(sizeof(int)* batch_size);
+    //check_error(cuMemcpyDtoH(result_cols, d_result_cols, sizeof(int) * batch_size), "cuMemcpyDtoH", __LINE__);
+    //return result_cols;
 }
 
-int *readahead_class_net_inference(CUdeviceptr d_readahead_norm_online_data, 
+void readahead_class_net_inference(CUdeviceptr d_readahead_norm_online_data, 
     int batch_size, CUfunction* matrix_transpose, CUfunction* matrix_mult, 
     CUfunction* add_bias, CUfunction* matrix_argmax) {
-    return autodiff_forward(d_readahead_norm_online_data, batch_size, matrix_transpose, matrix_mult, add_bias, matrix_argmax);
+    autodiff_forward(d_readahead_norm_online_data, batch_size, matrix_transpose, matrix_mult, add_bias, matrix_argmax);
 }
 
 void readahead_normalized_online_data(int readahead_online_data_cols, int readahead_online_data_rows,
@@ -298,7 +304,7 @@ void get_normalized_readahead_data(CUdeviceptr d_readahead_norm_online_data,
     matrix_map, normalize_data, batch_size);
 }
 
-int* predict_readahead_class(CUfunction* get_average, CUfunction* get_variance, CUfunction* matrix_map,
+void predict_readahead_class(CUfunction* get_average, CUfunction* get_variance, CUfunction* matrix_map,
          CUfunction* normalize_data, CUfunction* matrix_transpose, CUfunction* matrix_mult,
          CUfunction* add_bias, CUfunction* matrix_argmax, int batch_size) {
     CUdeviceptr d_readahead_norm_online_data;
@@ -307,16 +313,16 @@ int* predict_readahead_class(CUfunction* get_average, CUfunction* get_variance, 
     sizeof(float) *readahead_online_data_cols * batch_size), "cuMemAlloc ", __LINE__);
     get_normalized_readahead_data(d_readahead_norm_online_data, 
         get_average, get_variance, matrix_map, normalize_data, batch_size);
-    int *result = readahead_class_net_inference(d_readahead_norm_online_data, 
+    readahead_class_net_inference(d_readahead_norm_online_data, 
         batch_size, matrix_transpose, matrix_mult, add_bias, matrix_argmax);
-    return result;
+    //return result;
 }
 
 static int run_gpu(void) {
     int i, j;
     int RUNS;
     const int n = 1024;
-    int batch_sizes[] = {1, 2};
+    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128};
     int batch_size;
     u64 t_start, t_stop, c_start, c_stop;
     u64* comp_run_times;
@@ -329,7 +335,7 @@ static int run_gpu(void) {
 
     CUfunction get_average, get_variance, matrix_map, normalize_data, matrix_transpose,
     matrix_mult, add_bias, matrix_argmax;
-    int n_batches = 1;
+    int n_batches = 8;
 
     gpu_get_cufunc(cubin_path, "_Z11get_averagePfiiiS_S_", &get_average);
     gpu_get_cufunc(cubin_path, "_Z12get_variancePfffiS_S_S_", &get_variance);
@@ -344,44 +350,46 @@ static int run_gpu(void) {
     total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
 
     for (i = 0 ; i < n_batches ; i++) {
-    batch_size = batch_sizes[i];
-	 setup_gpu(batch_size);   
-	 int *result = predict_readahead_class(&get_average, &get_variance, &matrix_map, &normalize_data,
-     &matrix_transpose, &matrix_mult, &add_bias, &matrix_argmax, batch_size);
+        batch_size = batch_sizes[i];
+
+        batch_input = (float*) kava_alloc(batch_size * 5 * sizeof(float));
+        result = (int*) kava_alloc(batch_size * sizeof(int));
+        setup_gpu(batch_size);
+        copy_batch_inputs(batch_size);
+        predict_readahead_class(&get_average, &get_variance, &matrix_map, &normalize_data,
+        &matrix_transpose, &matrix_mult, &add_bias, &matrix_argmax, batch_size);
 
         usleep_range(1000, 2000);
         cuCtxSynchronize();
     
-        // for (j = 0 ; j < RUNS ; j++) {
-        //     //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
-        //     t_start = ktime_get_ns();
-        //     //copy_batch_inputs(batch_size);
-        //     c_start = ktime_get_ns();
-        //     result = predict_readahead_class(&get_average, &get_variance, &matrix_map, &normalize_data,
-        //         &matrix_transpose, &matrix_mult, &add_bias, &matrix_argmax, batch_size);
-        //     c_stop = ktime_get_ns();
-        //     //get_result_batch(batch_size);
-        //     t_stop = ktime_get_ns();
-        //     comp_run_times[j] = (c_stop - c_start);
-        //     total_run_times[j] = (t_stop - t_start);
-	    // }
+        for (j = 0 ; j < RUNS ; j++) {
+            PRINT(V_INFO, "Runing for batch size %d\n", batch_size);
+            t_start = ktime_get_ns();
+            copy_batch_inputs(batch_size);
+            c_start = ktime_get_ns();
+            predict_readahead_class(&get_average, &get_variance, &matrix_map, &normalize_data,
+                &matrix_transpose, &matrix_mult, &add_bias, &matrix_argmax, batch_size);
+            c_stop = ktime_get_ns();
+            get_result_batch(batch_size);
+            t_stop = ktime_get_ns();
+            comp_run_times[j] = (c_stop - c_start);
+            total_run_times[j] = (t_stop - t_start);
+	    }
 
-	    // avg = 0; avg_total = 0;
-        // best = 0; best_total = 0;
-        // for (j = 0 ; j < RUNS ; j++) {
-        //     avg += comp_run_times[j];
-        //     avg_total += total_run_times[j];
-        //     if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
-        //     if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
-        // }
-        // avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
-        // best = best / 1000; best_total = best_total / 1000;
+	    avg = 0; avg_total = 0;
+        best = 0; best_total = 0;
+        for (j = 0 ; j < RUNS ; j++) {
+            avg += comp_run_times[j];
+            avg_total += total_run_times[j];
+            if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
+            if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
+        }
+        avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
+        best = best / 1000; best_total = best_total / 1000;
 
-        // PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-        // clean_batch();
+        PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        clean_batch();
 	}
-
-    cleanup();
     return 0;
 }
 
