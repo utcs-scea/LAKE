@@ -144,7 +144,7 @@ __global__ void add_bias(float *wx, float *bias, float *out) {
     out[blockId * dim + threadId] = wx[blockId * dim + threadId] + bias[threadId];
 }
 
-__global__ void matrix_argmax(float *src, int cols, float *max_col_array) {
+__global__ void matrix_argmax(float *src, int cols, int *max_col_array) {
     int threadId = threadIdx.x; // row_index
     int max_col = 0;
     int max = INT_MIN;
