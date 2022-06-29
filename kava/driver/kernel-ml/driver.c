@@ -371,7 +371,7 @@ static int run_gpu(void) {
         cuCtxSynchronize();
     
         for (j = 0 ; j < RUNS ; j++) {
-            PRINT(V_INFO, "Runing for batch size %d\n", batch_size);
+            //PRINT(V_INFO, "Runing for batch size %d\n", batch_size);
             t_start = ktime_get_ns();
             copy_batch_inputs(batch_size);
             c_start = ktime_get_ns();
