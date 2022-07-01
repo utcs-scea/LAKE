@@ -28,11 +28,18 @@ int main(int argc, char** argv)
     /*
      *  CPU timing
      */
-    int cpu_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
-    int RUNS = 10;
+    int cpu_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    int RUNS = 11;
 
     for (int &N_INPUTS_BATCH : cpu_sizes) {
         uint32_t cpubatch_total(0);
+	for(int i = 0 ; i < 2; i++) {
+	  for (int j = 0 ; j < N_INPUTS_BATCH ; j++) {
+                long input_copy[31];
+                memcpy (input_copy, input, sizeof(input));
+                bool res = prediction_cpu(&input_copy[0]);
+            }
+	}
         for (int i = 0 ; i < RUNS ; i++) {
             std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
             for (int j = 0 ; j < N_INPUTS_BATCH ; j++) {
@@ -43,6 +50,7 @@ int main(int argc, char** argv)
         std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
         auto total_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
         cpubatch_total += total_time;
+	std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
         
         std::cout << "CPU time for " << N_INPUTS_BATCH << " inferences: " << cpubatch_total/RUNS << "us. Average per inference:" << cpubatch_total/n << "us." << std::endl;
