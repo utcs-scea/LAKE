@@ -145,7 +145,7 @@ int kleio_load_model(const char *filepath) {
 
     PyObject* sysPath = PySys_GetObject("path");
 
-    char *libpath = "/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper/coeus-sim-master";
+    char *libpath = "/home/hfingler/HACK/kava/worker/lstm_tf/lstm_tf_wrapper/coeus-sim-master";
     PyList_Append(sysPath, PyUnicode_FromString(libpath));
 
     PyObject *moduleString = PyUnicode_FromString("run_cluster_lstm");

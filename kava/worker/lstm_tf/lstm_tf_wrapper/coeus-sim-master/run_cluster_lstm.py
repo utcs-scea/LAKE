@@ -4,6 +4,13 @@ os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 # switch between "" and "0" to use cpu or gpu
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
+import tensorflow as tf
+gpus = tf.config.experimental.list_physical_devices('GPU')
+print(gpus)
+for gpu in gpus:
+  print(f"setting grown on gpu")
+  tf.config.experimental.set_memory_growth(gpu, True)
+
 from multiprocessing import Process
 from sklearn import preprocessing
 from sklearn.cluster import KMeans
@@ -43,6 +50,9 @@ def kleio_inference(inputs, n, batch_size):
   print(f"num_classes {num_classes}")
   kinput.to_categor(num_classes)
 
+  #for _ in range(500):
+  #  kleio_lstm.infer(kinput, batch_size)
+
   kleio_lstm.infer(kinput, batch_size)
 
   end = timer()
@@ -65,9 +75,19 @@ def print_stats():
     st_times[i] = []
 
 if __name__ == "__main__":
-  kleio_load_model("/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper/coeus-sim-master/lstm_page_539")
+
+  import tensorflow as tf
+  gpus = tf.config.experimental.list_physical_devices('GPU')
+  print(gpus)
+  for gpu in gpus:
+    print(f"setting grown on gpu")
+    tf.config.experimental.set_memory_growth(gpu, True)
+
+  kleio_load_model("/home/hfingler/HACK/kava/driver/kleio/microbenchmark/lstm_page_539")
   t = [60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140] 
   for i in range(1, 86, 5):
     kleio_inference(t, 26, i)
+  #for i in range(1):
+  #  kleio_inference(t, 26, 8192)
   print_stats()
 

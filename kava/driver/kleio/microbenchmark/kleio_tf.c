@@ -30,8 +30,8 @@ module_param_string(model_name, model_name, BUF_LEN, S_IRUGO);
 MODULE_VERSION("0.01");
 MODULE_LICENSE("GPL");
 
-#define N_WARM 2
-#define N_RUNS 3
+#define N_WARM 0
+#define N_RUNS 500
 
 int def_inputs[26] = {60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140};
 
@@ -60,7 +60,8 @@ static int __init kleio_init(void) {
         inputs[i] = def_inputs[i];
     }
 
-    for (i = 1; i <= 81; i += 5) {
+    //for (i = 1; i <= 81; i += 5) {
+    for (i = 81; i <= 81; i += 5) {
         n_inputs = i;
 
         // warmup
@@ -75,7 +76,8 @@ static int __init kleio_init(void) {
             t_stop = ktime_get_ns();
 
             total_run_times[k] = (t_stop - t_start);
-            usleep_range(250, 1000);
+            //usleep_range(250, 1000);
+            //usleep_range(250, 250);
         }
 
         avg_total = 0;
