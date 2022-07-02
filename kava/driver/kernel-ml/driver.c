@@ -28,7 +28,7 @@ static char *cubin_path = "kml.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to kml.cubin, default ./kml.cubin");
 #else
-static char *cubin_path = "/home/hfingler/HACK/kava/driver/kernel-ml/kml.cubin";
+static char *cubin_path = "/disk/hfingler/HACK/kava/driver/kernel-ml/kml.cubin";
 #endif
 
 static int run_cpu(void) {
