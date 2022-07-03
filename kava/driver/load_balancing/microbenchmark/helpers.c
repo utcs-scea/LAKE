@@ -72,40 +72,33 @@ int gpu_inference_many(CUfunction* cufunc, int n_inputs,
     int blocks = total_threads / 128;
     if (blocks == 0) blocks = 1;
 
-    //PRINT(V_INFO, "Launching with %d blocks and %d threads\n", blocks, 128);
-
     void *args[] = {
 		&d_inputs, &d_w1, &d_b1, &d_w2, &b2, &d_results
 	};
 
-    struct timespec ts;
-    getnstimeofday(&ts);
-    pr_info("kernel>: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
+    // struct timespec ts;
+    // getnstimeofday(&ts);
+    // pr_info("kernel>: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
     check_error(cuLaunchKernel(*cufunc, 
-				blocks, 1, 1,          //blocks
-				128, 1, 1,   //threads per block
-				10*8*sizeof(float),   //shared mem
+				blocks, 1, 69,      //blocks
+				128, 1, 1,          //threads per block
+				10*8*sizeof(float), //shared mem
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
 
-    getnstimeofday(&ts);
-    pr_info("kernel<: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
+    //getnstimeofday(&ts);
+    //pr_info("kernel<: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
-    cuCtxSynchronize();
-
-    getnstimeofday(&ts);
-    pr_info("sync: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
+    //cuCtxSynchronize();
+    //getnstimeofday(&ts);
+    //pr_info("sync: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
     return 0;
 }
 
-int gpu_get_result(int n_inputs) {
-    cuCtxSynchronize();
+int gpu_get_result(int n_inputs, CUdeviceptr d_results, float* outs) {
+    float res[n_inputs];
+    cuMemcpyDtoH(outs, d_results, n_inputs*sizeof(float));
     return 0;
-    //TODO
-    
-    //float res[n_inputs];
-    //cudaMemcpy(&res, d_results, n_inputs*sizeof(float), cudaMemcpyDeviceToHost);
-    //return 0;
 }

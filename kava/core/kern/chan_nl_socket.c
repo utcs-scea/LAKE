@@ -214,9 +214,9 @@ static void netlink_recv_msg(struct sk_buff *skb)
     struct block_seeker *seeker = (struct block_seeker *)cmd->reserved_area;
     struct kava_cmd_base *cmd_new;
 
-    struct timespec ts;
-    getnstimeofday(&ts);
-    pr_info("krecv:  sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
+    //struct timespec ts;
+    //getnstimeofday(&ts);
+    //pr_info("krecv:  sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
     if (cmd->mode == KAVA_CMD_MODE_INTERNAL && cmd->command_id == KAVA_CMD_ID_CHANNEL_INIT) {
         if (__is_worker_connected) {
@@ -267,9 +267,9 @@ static struct kava_cmd_base *nl_socket_cmd_receive(struct kava_chan *chan)
         wait_event_interruptible(is_worker_connected, __is_worker_connected == 1);
     }
 
-    struct timespec ts;
-    getnstimeofday(&ts);
-    pr_info("k cb: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
+    //struct timespec ts;
+    //getnstimeofday(&ts);
+    //pr_info("k cb: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
     down(&recv_cmdr->count_sem);
 

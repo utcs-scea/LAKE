@@ -83,9 +83,9 @@ static struct kava_cmd_base *nl_socket_cmd_new(struct kava_chan *chan,
 static void nl_socket_cmd_send(struct kava_chan *chan, struct kava_cmd_base *cmd)
 {
     size_t ret;
-    struct timeval tv_recv;
-    gettimeofday(&tv_recv, NULL);
-    printf("sent: sec=%lu, usec=%lu\n", tv_recv.tv_sec, tv_recv.tv_usec);
+    //struct timeval tv_recv;
+    //gettimeofday(&tv_recv, NULL);
+    //printf("sent: sec=%lu, usec=%lu\n", tv_recv.tv_sec, tv_recv.tv_usec);
 
     ret = nl_sendto(nls, cmd, cmd->command_size + cmd->region_size);
     assert(ret == cmd->command_size + cmd->region_size);
