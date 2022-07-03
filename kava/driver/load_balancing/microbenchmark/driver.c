@@ -266,7 +266,7 @@ static int run(void) {
     //int batch_sizes[] = {1,2,4,8,16,32,64, 128, 256, 512,1024};
     //int n_batches = 11;
     const int max_batch = 1024;
-    int RUNS = 1;
+    int RUNS = 10;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
 
     //run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
