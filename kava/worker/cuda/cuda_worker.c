@@ -18,7 +18,7 @@
 #include "cuda_kava_utilities.h"
 
 
-#define TBREAKDOWN 0
+#define TBREAKDOWN 1
 
 
 static struct kava_endpoint __kava_endpoint;

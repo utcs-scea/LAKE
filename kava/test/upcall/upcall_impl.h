@@ -20,6 +20,7 @@ struct base_buffer {
  */
 #define NETLINK_USER 31
 #define NL_MSG_LEN_MAX (16 << 20)
+//#define NL_MSG_LEN_MAX 4096
 
 /**
  * IOCTL interface for all implementations or polling for chardev
@@ -72,6 +73,15 @@ static int upcall_dev_open(struct inode *inode, struct file *filp)
     return 0;
 }
 
+const static int TARGET_CPU = 4;
+static void cpufunc(void *info){
+    int cpu = get_cpu();
+    if(cpu == 7){
+        do_upcall(handle);
+    }
+    put_cpu();
+}
+
 static long upcall_dev_ioctl(struct file *filp,
                             unsigned int cmd,
                             unsigned long arg)
@@ -83,7 +93,9 @@ static long upcall_dev_ioctl(struct file *filp,
         case KAVA_TEST_START_UPCALL:
             pr_info("Upcall for %lu times\n", arg);
             for (i = 0; i < arg; i++) {
+
                 do_upcall(handle);
+                //on_each_cpu(cpufunc, NULL, 1);
 
                 /**
                  * Singal and shared memory need spin on acknowledge

@@ -8,15 +8,22 @@ void gpu_init(int dev, CUcontext *cuctx) {
     cuInit(0);
     res = cuDeviceGet(&cuDevice, dev);
     if (res != CUDA_SUCCESS){
+        #ifdef __KERNEL__
         PRINT(V_INFO, "cannot acquire device 0\n");
+        #else
+        printf("1cannot acquire device 0\n");
+        #endif
     }
 
     res = cuCtxCreate(cuctx, 0, cuDevice);
     if (res != CUDA_SUCCESS){
+        #ifdef __KERNEL__
         PRINT(V_INFO, "cannot create context\n");
+        #else
+        printf("2cannot acquire device 0\n");
+        #endif
     }
 }
-
 void gpu_get_cufunc(char* cubin, char* kname, CUfunction *func) {
     CUmodule cuModule;
     CUresult res;
@@ -71,6 +78,10 @@ int gpu_inference_many(CUfunction* cufunc, int n_inputs,
 		&d_inputs, &d_w1, &d_b1, &d_w2, &b2, &d_results
 	};
 
+    struct timespec ts;
+    getnstimeofday(&ts);
+    pr_info("kernel>: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
+
     check_error(cuLaunchKernel(*cufunc, 
 				blocks, 1, 1,          //blocks
 				128, 1, 1,   //threads per block
@@ -78,7 +89,13 @@ int gpu_inference_many(CUfunction* cufunc, int n_inputs,
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
 
+    getnstimeofday(&ts);
+    pr_info("kernel<: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
+
     cuCtxSynchronize();
+
+    getnstimeofday(&ts);
+    pr_info("sync: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
     return 0;
 }

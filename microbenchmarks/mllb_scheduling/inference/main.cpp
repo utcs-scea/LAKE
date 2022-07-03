@@ -17,7 +17,7 @@
 static inline void check_malloc(void *p, const char* error_str, int line)
 {
 	if (p == NULL) {
-		printk(KERN_ERR "ERROR: Failed to allocate %s (line %d)\n", error_str, line);
+		printf("ERROR: Failed to allocate %s (line %d)\n", error_str, line);
 	}
 }
 
@@ -141,37 +141,37 @@ int main(int argc, char** argv)
     }
 
     printf("Input read, inferencing..\n");
-    gpu_setup(1);
-    gpu_setup_inputs(inputs[0].values, 1);
-    float rgpu = gpu_inference();
-    float rcpu = forward_pass(inputs);
+    // gpu_setup(0);
+    // gpu_setup_inputs(inputs[0].values, 1);
+    // float rgpu = gpu_inference();
+    // float rcpu = forward_pass(inputs);
 
-    printf("Inferences on CPU and GPU: %.5f, %.5f\n", rcpu, rgpu);
+    // printf("Inferences on CPU and GPU: %.5f, %.5f\n", rcpu, rgpu);
 
-    //warmup
-    for (int j = 0 ; j < 1 ; j++) {
-        float output = forward_pass(inputs+j);
-    }
+    // //warmup
+    // for (int j = 0 ; j < 1 ; j++) {
+    //     //float output = forward_pass(inputs+j);
+    // }
 
     std::stringstream csv;
     csv << ", inference, inference+transfer\n";
 
-    /*
-     *  CPU timing
-     */
-    int cpu_sizes[] = {64, 128, 256, 512};
+    // /*
+    //  *  CPU timing
+    //  */
+    // int cpu_sizes[] = {64, 128, 256, 512};
 
-    for (int &N_INPUTS_BATCH : cpu_sizes) {
-        std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-        for (int j = 0 ; j < N_INPUTS_BATCH ; j++) {
-            float output = forward_pass(inputs+j);
-        }
-        std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-        auto total_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-        std::cout << "CPU time for " << N_INPUTS_BATCH << " inferences: " << total_time << "us. Average per inference:" << total_time/n << "us." << std::endl;
+    // for (int &N_INPUTS_BATCH : cpu_sizes) {
+    //     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    //     for (int j = 0 ; j < N_INPUTS_BATCH ; j++) {
+    //         float output = forward_pass(inputs+j);
+    //     }
+    //     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+    //     auto total_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+    //     std::cout << "CPU time for " << N_INPUTS_BATCH << " inferences: " << total_time << "us. Average per inference:" << total_time/n << "us." << std::endl;
 
-        csv << "cpu" <<N_INPUTS_BATCH<<", " << total_time << "," << total_time << std::endl;
-    }
+    //     csv << "cpu" <<N_INPUTS_BATCH<<", " << total_time << "," << total_time << std::endl;
+    // }
     
     /*
      *  GPU naive timing

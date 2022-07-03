@@ -21,6 +21,7 @@
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <netlink/netlink.h> // depends on libnl-3-dev
+#include <time.h>
 
 #include "api.h"
 #include "channel.h"
@@ -82,6 +83,10 @@ static struct kava_cmd_base *nl_socket_cmd_new(struct kava_chan *chan,
 static void nl_socket_cmd_send(struct kava_chan *chan, struct kava_cmd_base *cmd)
 {
     size_t ret;
+    struct timeval tv_recv;
+    gettimeofday(&tv_recv, NULL);
+    printf("sent: sec=%lu, usec=%lu\n", tv_recv.tv_sec, tv_recv.tv_usec);
+
     ret = nl_sendto(nls, cmd, cmd->command_size + cmd->region_size);
     assert(ret == cmd->command_size + cmd->region_size);
     free(cmd);
@@ -101,8 +106,16 @@ static struct kava_cmd_base *nl_socket_cmd_receive(struct kava_chan *chan)
     struct block_seeker *seeker;
     struct sockaddr_nl nla;
     ssize_t ret;
+    //struct timeval tv_recv;
 
-    ret = nl_recv(nls, &nla, (unsigned char **)&nlh, NULL);
+    while(1) {
+        ret = nl_recv(nls, &nla, (unsigned char **)&nlh, NULL);
+        if (ret > 0) break;
+    }
+
+    //gettimeofday(&tv_recv, NULL);
+    //printf("Upcall received: sec=%lu, usec=%lu\n", tv_recv.tv_sec, tv_recv.tv_usec);
+
     cmd = (struct kava_cmd_base *)NLMSG_DATA(nlh);
     assert(ret == NLMSG_SPACE(cmd->command_size + cmd->region_size));
     seeker = (struct block_seeker *)cmd->reserved_area;
@@ -276,6 +289,9 @@ struct kava_chan *kava_chan_nl_socket_new(const char *dev_name)
     getsockopt(nl_socket_get_fd(nls), SOL_SOCKET, SO_SNDBUF, &buf_len, &buf_len_size);
     pr_info("Default socket send buffer size %ld\n", buf_len);
     pr_info("Default socket message buffer size %ld\n", nl_socket_get_msg_buf_size(nls));
+
+    //set non blocking to lower latency.
+    nl_socket_set_nonblocking(nls);
 
     /* Notify klib of PID */
     cmd = nl_socket_cmd_new(chan, sizeof(struct kava_cmd_base), 0);
