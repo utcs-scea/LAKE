@@ -40,7 +40,7 @@ static struct nlmsghdr *create_nlmsg(size_t data_len) {
 int init_upcall(void)
 {
     int sock_fd;
-    size_t buf_len = 0, set_buf_len = 2097152;
+    size_t buf_len = 0, set_buf_len = NL_MSG_LEN_MAX;
     socklen_t buf_len_size = sizeof(size_t);
     struct nlmsghdr *nlh;
     struct sockaddr_nl src_addr, dest_addr;
@@ -100,8 +100,14 @@ void wait_upcall(int fd, void **buf, size_t *size)
     /* Prepare receive message */
     nlh = create_nlmsg(sizeof(struct base_buffer));
 
-    recvmsg(fd, &msg, 0);
+    //recvmsg(fd, &msg, 0);
 
+    while (1) {
+        int x;
+        x = recvmsg(fd, &msg, MSG_DONTWAIT);
+        if (x > 0) break;
+    }
+ 
 #if PRINT_TIME_K_TO_U
     gettimeofday(&tv_recv, NULL);
     pr_info("Upcall received: sec=%lu, usec=%lu\n", tv_recv.tv_sec, tv_recv.tv_usec);

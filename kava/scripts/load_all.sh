@@ -24,6 +24,7 @@ cd ${ROOT}/worker/cuda
 make clean; make G=1 R=1
 echo "Starting worker..."
 #sudo ./worker cuda cuda_file_poll
-sudo ./worker cuda cuda_nl_socket
+sudo taskset --cpu-list 3 ./worker cuda cuda_nl_socket
+#sudo ./worker cuda cuda_nl_socket
 
 cd ${ROOT}/scripts

@@ -26,6 +26,8 @@
 #include <net/sock.h>
 #include <asm/uaccess.h>
 
+#include <linux/workqueue.h>
+
 #include "api.h"
 #include "channel.h"
 #include "channel_kern.h"
@@ -106,31 +108,26 @@ static struct kava_cmd_base *nl_socket_cmd_new(struct kava_chan *chan,
     return cmd;
 }
 
-/**
- * nl_socket_cmd_send - Send the message and all its attached buffers
- * @chan: command channel
- * @cmd: command to be sent
- *
- * This call is asynchronous and does not block for the command to
- * complete execution. It is responsible to free the sent command.
- * The message can either be allocated in a skb, or as a standalone buffer.
- */
-static void nl_socket_cmd_send(struct kava_chan *chan, struct kava_cmd_base *cmd)
-{
+long nlsend_cpu(void* arg) {
+    struct kava_cmd_base *cmd = (struct kava_cmd_base *) arg;
     struct block_seeker *seeker = (struct block_seeker *)cmd->reserved_area;
     struct sk_buff *skb_out;
-    struct nlmsghdr *nlh;
     size_t cmd_size;
+    struct nlmsghdr *nlh;
     int ret;
-
-    if (!__is_worker_connected) return;
+    
+    // int cpu;
+    // cpu = get_cpu();
+    // struct timespec ts;
+    // getnstimeofday(&ts);
+    // pr_info("Upcall called (cpu %d): sec=%lu, usec=%lu\n", cpu, ts.tv_sec, ts.tv_nsec / 1000);
 
     if (seeker->skb_start) {
         skb_out = seeker->skb_start;
         seeker->skb_start = NULL; /* Do not send this secret to user-space. */
         nlmsg_end(skb_out, (struct nlmsghdr *)skb_out->data);
-        //ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
-        ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
+        ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
+        //ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
         if (ret < 0) {
             pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
             __is_worker_connected = 0;
@@ -154,6 +151,61 @@ static void nl_socket_cmd_send(struct kava_chan *chan, struct kava_cmd_base *cmd
         else
             kfree(cmd);
     }
+
+    //put_cpu();
+    return 0;
+}
+
+/**
+ * nl_socket_cmd_send - Send the message and all its attached buffers
+ * @chan: command channel
+ * @cmd: command to be sent
+ *
+ * This call is asynchronous and does not block for the command to
+ * complete execution. It is responsible to free the sent command.
+ * The message can either be allocated in a skb, or as a standalone buffer.
+ */
+static void nl_socket_cmd_send(struct kava_chan *chan, struct kava_cmd_base *cmd)
+{
+    //struct block_seeker *seeker = (struct block_seeker *)cmd->reserved_area;
+    //struct sk_buff *skb_out;
+    //struct nlmsghdr *nlh;
+    //size_t cmd_size;
+    //int ret;
+
+    if (!__is_worker_connected) return;
+
+    work_on_cpu(4, nlsend_cpu, (void*)cmd);
+
+    // if (seeker->skb_start) {
+    //     skb_out = seeker->skb_start;
+    //     seeker->skb_start = NULL; /* Do not send this secret to user-space. */
+    //     nlmsg_end(skb_out, (struct nlmsghdr *)skb_out->data);
+    //     //ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
+    //     ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
+    //     if (ret < 0) {
+    //         pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
+    //         __is_worker_connected = 0;
+    //         up(&recv_cmdr->count_sem);
+    //     }
+    // }
+    // else {
+    //     cmd_size = cmd->command_size + cmd->region_size;
+    //     skb_out = nlmsg_new(cmd_size, 0);
+    //     nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, cmd_size, 0);
+    //     NETLINK_CB(skb_out).dst_group = 0;
+    //     memcpy(nlmsg_data(nlh), cmd, cmd_size);
+    //     nlmsg_end(skb_out, nlh);
+    //     //ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
+    //     ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
+    //     if (ret < 0) {
+    //         pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
+    //         __is_worker_connected = 0;
+    //         up(&recv_cmdr->count_sem);
+    //     }
+    //     else
+    //         kfree(cmd);
+    // }
 }
 
 static void netlink_recv_msg(struct sk_buff *skb)
@@ -161,6 +213,10 @@ static void netlink_recv_msg(struct sk_buff *skb)
     struct kava_cmd_base *cmd = (struct kava_cmd_base *)skb->data;
     struct block_seeker *seeker = (struct block_seeker *)cmd->reserved_area;
     struct kava_cmd_base *cmd_new;
+
+    struct timespec ts;
+    getnstimeofday(&ts);
+    pr_info("krecv:  sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
     if (cmd->mode == KAVA_CMD_MODE_INTERNAL && cmd->command_id == KAVA_CMD_ID_CHANNEL_INIT) {
         if (__is_worker_connected) {
@@ -210,6 +266,10 @@ static struct kava_cmd_base *nl_socket_cmd_receive(struct kava_chan *chan)
     if (!__is_worker_connected) {
         wait_event_interruptible(is_worker_connected, __is_worker_connected == 1);
     }
+
+    struct timespec ts;
+    getnstimeofday(&ts);
+    pr_info("k cb: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
     down(&recv_cmdr->count_sem);
 

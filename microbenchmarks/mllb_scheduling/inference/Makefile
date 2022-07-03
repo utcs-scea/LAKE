@@ -1,2 +1,2 @@
 all:
-	nvcc *.cpp kernels.cu -o main -O3
+	nvcc *.cpp kernels.cu -o main -O1

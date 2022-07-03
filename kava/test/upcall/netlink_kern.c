@@ -6,6 +6,8 @@
 #include <linux/time.h>
 #include <linux/uaccess.h>
 #include <asm/uaccess.h>
+#include <linux/init.h>
+#include <linux/kernel.h>
 
 #include <net/sock.h>
 #include <linux/netlink.h>
@@ -87,11 +89,17 @@ void _do_upcall(upcall_handle_t handle,
 
 #if PRINT_TIME_K_TO_U
     getnstimeofday(&ts);
-    pr_info("Upcall called: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 #endif
 
-    //ret = nlmsg_unicast(handle->nl_sk, handle->skb_out, handle->pid);
-    ret = netlink_unicast(handle->nl_sk, handle->skb_out, handle->pid, 0);
+    ret = nlmsg_unicast(handle->nl_sk, handle->skb_out, handle->pid);
+    //ret = netlink_unicast(handle->nl_sk, handle->skb_out, handle->pid, 0);
+
+#if PRINT_TIME_K_TO_U
+    int cpu = get_cpu();
+    pr_info("Upcall called (cpu %d): sec=%lu, usec=%lu\n", cpu, ts.tv_sec, ts.tv_nsec / 1000);
+    put_cpu();
+#endif
+
     if (ret < 0) {
         printk(KERN_INFO "Error while notifying user\n");
     }

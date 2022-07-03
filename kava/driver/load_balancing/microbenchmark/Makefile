@@ -4,7 +4,7 @@ KAVA_ROOT = $(mkfile_dir)/../../..
 
 ifneq ($(KERNELRELEASE),)
 
-ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O1 -march=native -mhard-float -msse
+ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O3 -march=native -mhard-float -msse
 
 obj-m += mllb_kern.o
 mllb_kern-objs := driver.o helpers.o consts.o
@@ -25,3 +25,7 @@ clean:
 .PHONY : clean
 
 endif
+
+.PHONY: utest
+utest:
+	nvcc consts.c driver.c helpers.c kernels.cu -o utest -lcuda
