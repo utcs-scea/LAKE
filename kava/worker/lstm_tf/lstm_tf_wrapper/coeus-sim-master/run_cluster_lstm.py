@@ -24,7 +24,7 @@ from timeit import default_timer as timer
 kleio_lstm = None
 
 st_times = {}
-for i in range(1, 86, 5):
+for i in range(1, 130, 8):
   st_times[i] = []
 
 def kleio_load_model(path):
@@ -39,7 +39,7 @@ def dogc():
 
 def kleio_inference(inputs, n, batch_size):
   do_timer = True
-  if (batch_size-1)%5 != 0:
+  if (batch_size-1)%8 != 0:
     do_timer = False
     batch_size = batch_size-1
     gc.collect()
@@ -89,7 +89,8 @@ if __name__ == "__main__":
 
   kleio_load_model("/disk/hfingler/HACK/kava/driver/kleio/microbenchmark/lstm_page_539")
   t = [60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140] 
-  for i in range(1, 86, 5):
+  for i in range(1, 130, 8):
+    kleio_inference(t, 26, i+1)
     kleio_inference(t, 26, i)
   #for i in range(1):
   #  kleio_inference(t, 26, 8192)

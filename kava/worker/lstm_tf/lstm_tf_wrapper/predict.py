@@ -5,7 +5,7 @@ import numpy as np
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 # os.environ["CUDA_VISIBLE_DEVICES"] = ""
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import tensorflow as tf
 from tensorflow import keras
@@ -20,8 +20,16 @@ batch_size = 32
 feature_dimension = 341
 
 st_times = {}
-for i in range(20, 380, 40):
-    st_times[i] = []
+
+def add_time(k, v):
+    global st_times
+    if k not in st_times.keys():
+        st_times[k] = []
+    st_times[k].append(v)
+
+def reset_times():
+    global st_times
+    st_times = {}
 
 def convertToOneHot(vector, num_classes=341):
     """
@@ -116,9 +124,7 @@ def print_stats():
         m = mean(v) if len(v) > 0 else 0
         print(f"{k}, {m}")
 
-    st_times = {}
-    for i in range(20, 380, 40):
-        st_times[i] = []
+    reset_times()
 
 def get_input(i):
     inp = np.empty(i, dtype=int)
@@ -163,7 +169,7 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
     end = timer()
     # we store time in  ms
     if do_timer:
-        st_times[num_syscall].append((end-start)*1000)
+        add_time(num_syscall, (end-start)*1000)
 
     return result
 
@@ -181,8 +187,6 @@ if __name__ == "__main__":
 
     WARM = 2
     RUNS = 5
-
-    
 
     for i in range(20, 361, 40):
         inp = get_input(i)

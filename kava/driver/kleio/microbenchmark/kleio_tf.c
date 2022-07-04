@@ -93,7 +93,7 @@ void main(void) {
         n_inputs = i;
         // warmup
         for (k = 0; k < N_WARM; k++) {
-            PRINT("infer %d\n", i);
+            //PRINT("infer %d\n", i);
             kleio_inference((void*)inputs, 26, n_inputs+1);
             usleep_range(250, 1000);
         }
