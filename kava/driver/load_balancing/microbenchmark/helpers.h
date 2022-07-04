@@ -57,7 +57,7 @@ void gpu_clean(CUdeviceptr d_inputs, CUdeviceptr d_w1, CUdeviceptr d_b1, CUdevic
 void gpu_setup_inputs(CUdeviceptr d_inputs, int* inputs, int n);
 //float gpu_inference();
 int gpu_inference_many(CUfunction* cufunc, int n_inputs,
-        CUdeviceptr d_inputs, CUdeviceptr d_w1, CUdeviceptr d_b1, CUdeviceptr d_w2, float b2, CUdeviceptr d_results);
+        CUdeviceptr d_inputs, CUdeviceptr d_w1, CUdeviceptr d_b1, CUdeviceptr d_w2, float b2, CUdeviceptr d_results, int sync);
 int gpu_get_result(int n_inputs, CUdeviceptr d_results, float* outs);
 
 #endif

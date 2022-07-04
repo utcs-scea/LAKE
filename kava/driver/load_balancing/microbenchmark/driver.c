@@ -208,24 +208,26 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
         //warmup
         for (j = 0 ; j < RUNS ; j++) {
             gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
-            gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
-            usleep_range(100, 200);
+            gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
+            usleep_range(200, 300);
         }
 
         for (j = 0 ; j < RUNS ; j++) {
-            //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", j+1, n/batch_size, batch_size);
             t_start = ktime_get_ns();
             gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
-            c_start = ktime_get_ns();
-            gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results);
-            c_stop = ktime_get_ns();
+            gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 0);
             gpu_get_result(batch_size, d_results, outs);
             t_stop = ktime_get_ns();
 
-            //PRINT(V_INFO, "time: %lld\n", (c_stop - c_start)/1000);
+            usleep_range(200, 300);
+
+            c_start = ktime_get_ns();
+            gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
+            c_stop = ktime_get_ns();
+
             comp_run_times[j] = (c_stop - c_start);
             total_run_times[j] = (t_stop - t_start);
-            usleep_range(250, 1000);
+            usleep_range(200, 300);
         }
 
         avg = 0; avg_total = 0;
@@ -262,7 +264,7 @@ static int run(void) {
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
 
     run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
-    //run_gpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
+    run_gpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
 
     return 0;
 }
