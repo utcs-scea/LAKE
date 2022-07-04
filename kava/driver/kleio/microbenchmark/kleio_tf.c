@@ -43,12 +43,12 @@ void dogc(void);
 #define PRINT(...) do { if (1) printf(__VA_ARGS__); } while (0)
 #endif
 
-#define BUF_LEN 200
 #define MODEL_LOAD_FAILURE -1
 
 #ifdef __KERNEL__
-static char model_name[BUF_LEN];
-module_param_string(model_name, model_name, BUF_LEN, S_IRUGO);
+static char *model_name = "mllb.cubin";
+module_param(model_name, charp, 0444);
+MODULE_PARM_DESC(model_name, "The path to mllb.cubin, default ./mllb.cubin");
 MODULE_VERSION("0.01");
 MODULE_LICENSE("GPL");
 #else

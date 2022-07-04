@@ -5,8 +5,8 @@ CC=gcc
 CXX=g++
 LINKER=gcc
 
-PY_COMPILE_FLAGS = $(shell python3.7-config --cflags)
-PY_LINKER_FLAGS = $(shell python3.7-config --libs)
+PY_COMPILE_FLAGS = $(shell python3.6-config --cflags)
+PY_LINKER_FLAGS = $(shell python3.6-config --libs)
 
 all:
 	gcc $(PY_COMPILE_FLAGS) -fPIE -c c_wrapper.c -o c_wrapper.o

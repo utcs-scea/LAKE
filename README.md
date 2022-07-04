@@ -13,4 +13,4 @@ kava/worker/lstm_tf/lstm_tf_wrapper/Makefile
 
 
 https://stackoverflow.com/questions/44888925/fatal-error-numpy-arrayobject-h-no-such-file-or-directory
-sudo ln -s /home/hfingler/.local/lib/python3.7/site-packages/numpy/core/include/numpy /usr/include/numpy
+sudo ln -s /home/hfingler/.local/lib/python3.6/site-packages/numpy/core/include/numpy /usr/include/numpy
