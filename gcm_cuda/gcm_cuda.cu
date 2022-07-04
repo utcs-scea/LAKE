@@ -522,34 +522,34 @@ __global__ void AES_GCM_next_nonce_kernel(uint8_t* nonce) {
   }
 }
 
-void AES_GCM_xcrypt(uint8_t* dst, const AES_GCM_engine* engine, const uint8_t* nonce,
+void AES_GCM_xcrypt(uint8_t* dst, const uint8_t* nonce,
     const uint8_t* src, uint32_t size) {
   int num_block = (size / 16 + kBaseThreadNum-1) / kBaseThreadNum;
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_xcrypt_kernel), num_block, kBaseThreadNum, 0, stream,
 //       dst, engine->sbox, engine->aes_roundkey, nonce, src, size);
   dim3 numBlocks(num_block);
   dim3 dimBlocks(kBaseThreadNum);
-  AES_GCM_xcrypt_kernel<<<numBlocks, dimBlocks>>>(dst, engine->sbox, engine->aes_roundkey, nonce,
+  AES_GCM_xcrypt_kernel<<<numBlocks, dimBlocks>>>(dst, d_engine->sbox, d_engine->aes_roundkey, nonce,
      src, size);
 }
 
-void AES_GCM_encrypt_one_block(const AES_GCM_engine* engine, uint8_t* data) {  
+void AES_GCM_encrypt_one_block(uint8_t* data) {  
 //   hipLaunchNOW(HIP_KERNEL_NAME(AES_encrypt_one_block_kernel), 1, 1, 0, stream,
 //       engine->sbox, engine->aes_roundkey, data);
     dim3 numBlocks(1);
     dim3 dimBlocks(1);
-    AES_encrypt_one_block_kernel<<<numBlocks, dimBlocks>>>(engine->sbox, engine->aes_roundkey, data);
+    AES_encrypt_one_block_kernel<<<numBlocks, dimBlocks>>>(d_engine->sbox, d_engine->aes_roundkey, data);
 }
 
-void AES_GCM_compute_mac( uint8_t* dst, AES_GCM_engine* engine, uint8_t* nonce,
+void AES_GCM_compute_mac( uint8_t* dst, uint8_t* nonce,
     uint8_t* src, uint32_t size) {
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_mac_kernel), AES_GCM_STEP, AES_GCM_STEP, 0, stream,
 //       engine->gf_last4, engine->HL_sqr_long, engine->HH_sqr_long, AES_GCM_STEP * AES_GCM_STEP,
 //       src, size / 16, engine->buffer1);
   dim3 numBlocks_1(AES_GCM_STEP);
   dim3 dimBlocks_1(AES_GCM_STEP);
-  AES_GCM_mac_kernel<<<numBlocks_1, dimBlocks_1>>>(engine->gf_last4, engine->HL_sqr_long, 
-  engine->HH_sqr_long, AES_GCM_STEP * AES_GCM_STEP, src, size / 16, engine->buffer1);
+  AES_GCM_mac_kernel<<<numBlocks_1, dimBlocks_1>>>(d_engine->gf_last4, d_engine->HL_sqr_long, 
+  d_engine->HH_sqr_long, AES_GCM_STEP * AES_GCM_STEP, src, size / 16, d_engine->buffer1);
 
 
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_mac_kernel), AES_GCM_STEP / 8, 8, 0, stream,
@@ -557,17 +557,17 @@ void AES_GCM_compute_mac( uint8_t* dst, AES_GCM_engine* engine, uint8_t* nonce,
 //       engine->buffer1, AES_GCM_STEP * AES_GCM_STEP, engine->buffer2);
   dim3 numBlocks_2(AES_GCM_STEP / 8);
   dim3 dimBlocks_2(8);
-  AES_GCM_mac_kernel<<<numBlocks_2, dimBlocks_2>>>(engine->gf_last4, engine->HL_long, 
-  engine->HH_long, AES_GCM_STEP,
-   engine->buffer1, AES_GCM_STEP * AES_GCM_STEP, engine->buffer2);
+  AES_GCM_mac_kernel<<<numBlocks_2, dimBlocks_2>>>(d_engine->gf_last4, d_engine->HL_long, 
+  d_engine->HH_long, AES_GCM_STEP,
+   d_engine->buffer1, AES_GCM_STEP * AES_GCM_STEP, d_engine->buffer2);
 
 
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_mac_kernel), 1, 1, 0, stream,
 //       engine->gf_last4, engine->HL, engine->HH, 1, engine->buffer2, AES_GCM_STEP, dst);
   dim3 numBlocks_3(1);
   dim3 dimBlocks_3(1);
-  AES_GCM_mac_kernel<<<numBlocks_3, dimBlocks_3>>>(engine->gf_last4, engine->HL, engine->HH,
-   1, engine->buffer2, AES_GCM_STEP, dst);
+  AES_GCM_mac_kernel<<<numBlocks_3, dimBlocks_3>>>(d_engine->gf_last4, d_engine->HL, d_engine->HH,
+   1, d_engine->buffer2, AES_GCM_STEP, dst);
 
 
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_mac_final_kernel), 1, 1, 0, stream,
@@ -575,8 +575,8 @@ void AES_GCM_compute_mac( uint8_t* dst, AES_GCM_engine* engine, uint8_t* nonce,
 //       nonce, dst, size, dst);
   dim3 numBlocks_4(1);
   dim3 dimBlocks_4(1);
-  AES_GCM_mac_final_kernel<<<numBlocks_4, dimBlocks_4>>>(engine->gf_last4, engine->HL, 
-  engine->HH, engine->sbox, engine->aes_roundkey, nonce, dst, size, dst);
+  AES_GCM_mac_final_kernel<<<numBlocks_4, dimBlocks_4>>>(d_engine->gf_last4, d_engine->HL, 
+  d_engine->HH, d_engine->sbox, d_engine->aes_roundkey, nonce, dst, size, dst);
 
 
 }
@@ -637,7 +637,7 @@ void AES_GCM_init(const uint8_t* key) {
   
   
 //   //HIP_CHECK(hipMemset(e->gcm_h, 0, 16)); // memset async isn't supported by HIP, so we block here
-  AES_GCM_encrypt_one_block(d_engine, d_engine->gcm_h);
+  AES_GCM_encrypt_one_block(d_engine->gcm_h);
 
 //   HIP_CHECK(nw_hipMemcpySync(e->gf_last4, gf_last4_host, sizeof(gf_last4_host), hipMemcpyHostToDevice, stream));
     cudaMemcpy(d_engine->gf_last4, gf_last4_host, sizeof(gf_last4_host), cudaMemcpyHostToDevice);
@@ -659,19 +659,19 @@ void AES_GCM_destroy(AES_GCM_engine* engine) {
 void AES_GCM_encrypt(uint8_t* dst, AES_GCM_engine* engine, uint8_t* nonce,
     const uint8_t* src, uint32_t size) {
 //   assert(size % AES_BLOCKLEN == 0);
-  AES_GCM_xcrypt(dst, engine, nonce, src, size);
-  AES_GCM_compute_mac(&dst[size], engine, nonce, dst, size);
+  AES_GCM_xcrypt(dst, nonce, src, size);
+  AES_GCM_compute_mac(&dst[size], nonce, dst, size);
 }
 
 // src buffer should be of size: size + crypto_aead_aes256gcm_ABYTES
 //void AES_GCM_decrypt(hip_launch_batch_t* batch, uint8_t* dst, const AES_GCM_engine* engine, const uint8_t* nonce,
 //    const uint8_t* src, uint32_t size, hipStream_t stream) {
-void AES_GCM_decrypt(uint8_t* dst, AES_GCM_engine* engine, uint8_t* nonce,
+void AES_GCM_decrypt(uint8_t* dst, uint8_t* nonce,
     uint8_t* src, uint32_t size) {
 //   assert(size % AES_BLOCKLEN == 0);
-  AES_GCM_compute_mac(dst, engine, nonce, src, size);
+  AES_GCM_compute_mac(dst, nonce, src, size);
 //   // TODO verify mac for i in crypto_aead_aes256gcm_ABYTES: (dst == src[size])
-  AES_GCM_xcrypt(dst, engine, nonce, src, size);
+  AES_GCM_xcrypt(dst, nonce, src, size);
 }
 
 //void AES_GCM_next_nonce(hip_launch_batch_t* batch, uint8_t* nonce, hipStream_t stream) {
