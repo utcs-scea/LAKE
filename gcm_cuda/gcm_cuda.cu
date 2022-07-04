@@ -72,6 +72,13 @@ static const uint8_t Rcon_host[11] = {
  *  up to rcon[8] for AES-192, up to rcon[7] for AES-256. rcon[0] is not used in AES algorithm."
  */
 
+uint8_t key[AES_KEYLEN];
+uint8_t nonce_host[crypto_aead_aes256gcm_NPUBBYTES];
+uint8_t* nonce_device;
+AES_GCM_engine* d_engine;
+EVP_CIPHER_CTX* encrypt_ctx;
+EVP_CIPHER_CTX* decrypt_ctx;
+
 
 /*****************************************************************************/
 /* Private functions:                                                        */
@@ -592,12 +599,6 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
    }
 }
 
-uint8_t key[AES_KEYLEN];
-uint8_t nonce_host[crypto_aead_aes256gcm_NPUBBYTES];
-uint8_t* nonce_device;
-AES_GCM_engine* d_engine;
-EVP_CIPHER_CTX* encrypt_ctx;
-EVP_CIPHER_CTX* decrypt_ctx;
 
 
 /*
@@ -625,6 +626,7 @@ void AES_GCM_init(const uint8_t* key) {
     memcpy(h_engine.rsbox, rsbox_host, SBOX_SIZE);
     memcpy(h_engine.Rcon, Rcon_host, RCON_SIZE);
     memcpy(h_engine.key, key, AES_KEYLEN);
+    memset(h_engine.gcm_h, 0, 16);
 
     cudaMemcpy(d_engine, &h_engine, sizeof(AES_GCM_engine), cudaMemcpyHostToDevice);
 
@@ -656,7 +658,7 @@ void AES_GCM_destroy(AES_GCM_engine* engine) {
 // dst buffer should be of size: size + crypto_aead_aes256gcm_ABYTES
 //void AES_GCM_encrypt(hip_launch_batch_t* batch, uint8_t* dst, const AES_GCM_engine* engine, const uint8_t* nonce,
 //    const uint8_t* src, uint32_t size, hipStream_t stream) {
-void AES_GCM_encrypt(uint8_t* dst, AES_GCM_engine* engine, uint8_t* nonce,
+void AES_GCM_encrypt(uint8_t* dst, uint8_t* nonce,
     const uint8_t* src, uint32_t size) {
 //   assert(size % AES_BLOCKLEN == 0);
   AES_GCM_xcrypt(dst, nonce, src, size);
@@ -677,6 +679,16 @@ void AES_GCM_decrypt(uint8_t* dst, uint8_t* nonce,
 //void AES_GCM_next_nonce(hip_launch_batch_t* batch, uint8_t* nonce, hipStream_t stream) {
 void AES_GCM_next_nonce(uint8_t* nonce) {
   //hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_next_nonce_kernel), 1, 1, 0, stream, nonce);
+}
+
+void EncryptAsync(void* ciphertext, const void* plaintext, size_t sizeBytes) {
+  AES_GCM_encrypt(static_cast<uint8_t*>(ciphertext),
+      nonce_device, static_cast<const uint8_t*>(plaintext), sizeBytes);
+}
+
+void DecryptAsync(void* ciphertext, void* plaintext, size_t sizeBytes) {
+  AES_GCM_decrypt(static_cast<uint8_t*>(plaintext), nonce_device,
+    static_cast<uint8_t*>(ciphertext), sizeBytes);
 }
 
 
@@ -709,6 +721,15 @@ int main() {
     gpuErrchk(cudaMalloc(&nonce_device, crypto_aead_aes256gcm_NPUBBYTES));
     cudaMemcpy(nonce_device, nonce_host, crypto_aead_aes256gcm_NPUBBYTES,
         cudaMemcpyHostToDevice);
+    char plaintext[] = "sixtynine";
+    char* ciphertext = (char *) malloc(sizeof(plaintext));
+    EncryptAsync(ciphertext, plaintext, sizeof(plaintext));
+
+    char* plaintext_check = (char *) malloc(sizeof(plaintext));
+    DecryptAsync(ciphertext, plaintext_check, sizeof(plaintext));
+    printf("%s\n", plaintext);
+    printf("%s\n", plaintext_check);
+
     // encrypt_ctx = EVP_CIPHER_CTX_new();
     // assert(encrypt_ctx != NULL);
     // decrypt_ctx = EVP_CIPHER_CTX_new();
@@ -723,10 +744,4 @@ void EncryptAsync(hip_launch_batch_t* batch, void* ciphertext, const void* plain
       state.nonce_device, static_cast<const uint8_t*>(plaintext), sizeBytes, stream);
 }
 */
-// void EncryptAsync(void* ciphertext, const void* plaintext, size_t sizeBytes,
-//     EncryptionState& state) {
-//   AES_GCM_encrypt(static_cast<uint8_t*>(ciphertext), state.engine_device,
-//       state.nonce_device, static_cast<const uint8_t*>(plaintext), sizeBytes);
-// }
-
 }
