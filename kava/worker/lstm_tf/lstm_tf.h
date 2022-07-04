@@ -17,6 +17,7 @@ extern "C" {
 
 int load_model(const char *file);
 void close_ctx(void);
+void dogc(void);
 int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
 
 int kleio_load_model(const char *file);

@@ -11,6 +11,7 @@
 int load_model(const char *file);
 void close_ctx(void);
 int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
+void dogc(void);
 
 #ifdef __KERNEL__
 #include <linux/time.h>
@@ -40,6 +41,8 @@ MODULE_LICENSE("GPL");
 #define N_WARM 5
 #define N_RUNS 5
 
+#define USE_KSHM 1
+
 static int __init lstm_init(void) {
     int *syscalls;
     unsigned int num_syscall;
@@ -68,8 +71,10 @@ static int __init lstm_init(void) {
     for (i = 20; i <= 360; i += 40) {
     //for (i = 20; i <= 40; i += 40) {
         num_syscall = i;
-        /* syscalls = (int *)kava_alloc((size_t)(sizeof(int) * num_syscall)); */
-        syscalls = (int *)vmalloc((size_t)(sizeof(int) * num_syscall));
+        if (USE_KSHM)
+            syscalls = (int *)kava_alloc((size_t)(sizeof(int) * num_syscall));
+        else
+            syscalls = (int *)vmalloc((size_t)(sizeof(int) * num_syscall));
 
         // generate random syscall traces
         for (j=0; j<num_syscall; j++) {
@@ -80,7 +85,7 @@ static int __init lstm_init(void) {
 
         // warmup
         for (k = 0; k < N_WARM; k++) {
-            standard_inference((void *)syscalls, num_syscall, 21);
+            standard_inference((void *)syscalls, 1, 21);
             usleep_range(250, 1000);
         }
 
@@ -94,10 +99,12 @@ static int __init lstm_init(void) {
             usleep_range(250, 1000);
 
             t_start = ktime_get_ns();
-            standard_inference((void *)syscalls, num_syscall, sliding_window);
+            standard_inference((void *)syscalls, 1, sliding_window);
             t_stop = ktime_get_ns();
 
-            total_run_times[k] = (t_stop - t_start);
+            total_run_times[k] = (t_stop - t_start); 
+            usleep_range(250, 1000);
+            dogc();
             usleep_range(250, 1000);
         }
 
@@ -105,9 +112,12 @@ static int __init lstm_init(void) {
         for (k = 0; k < N_RUNS; k++) {
             avg_total += total_run_times[k];
         }
-        avg_total = avg_total / (1000*N_RUNS);
+        avg_total = avg_total / (1000000*N_RUNS); //ns to ms
         PRINT(V_INFO, "%d, %lld\n", i, avg_total);
-        vfree(syscalls);
+        if (USE_KSHM)
+            kava_free(syscalls);
+        else
+            vfree(syscalls);
     }
 
     close_ctx();

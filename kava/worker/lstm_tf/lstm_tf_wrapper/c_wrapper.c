@@ -86,6 +86,15 @@ int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned 
     return -1;
 }
 
+void dogc(void) {
+    PyObject *func = PyDict_GetItem(pDict, PyUnicode_FromString("dogc"));
+    PyObject *pyResult = PyObject_CallObject(func, 0);
+    if (!pyResult) {
+        printf("dogc failed\n");
+    }
+    fflush(stdout);
+}
+
 void close_ctx(void) {
     // gc
     //PyObject *closeCtxFunc = PyDict_GetItem(pDict, PyUnicode_FromString("close_ctx"));

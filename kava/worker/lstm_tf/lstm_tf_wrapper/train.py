@@ -9,12 +9,9 @@ import os
 # from keras.layers.recurrent import LSTM
 # from keras.models import Sequential
 # from keras.models import model_from_json
-
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
-
-
 import preprocess
 
 # Global hyper-parameters

@@ -105,6 +105,16 @@ __wrapper_kleio_load_model(const char *file)
     }
 }
 
+static void
+__wrapper_dogc()
+{
+    {
+
+        dogc();
+
+        return;
+    }
+}
 
 static void
 __wrapper_close_ctx()
@@ -288,6 +298,39 @@ __handle_command_lstm_tf(struct kava_chan *__chan, const struct kava_cmd_base *_
 
         break;
     }
+    case CALL_LSTM_TF_DOGC:{
+        GPtrArray *__kava_alloc_list_dogc =
+            g_ptr_array_new_full(0, (GDestroyNotify) kava_buffer_with_deallocator_free);
+        struct lstm_tf_dogc_call *__call = (struct lstm_tf_dogc_call *)__cmd;
+        assert(__call->base.mode == KAVA_CMD_MODE_API);
+        assert(__call->base.command_size == sizeof(struct lstm_tf_dogc_call)
+            &&
+            "Command size does not match ID. (Can be caused by incorrectly computed buffer sizes, especially using `strlen(s)` instead of `strlen(s)+1`)");
+
+        /* Unpack and translate arguments */
+
+        /* Perform Call */
+
+        __wrapper_dogc();
+
+        size_t __total_buffer_size = 0;
+        {
+        }
+        struct lstm_tf_dogc_ret *__ret =
+            (struct lstm_tf_dogc_ret *)__chan->cmd_new(__chan, sizeof(struct lstm_tf_dogc_ret),
+            __total_buffer_size);
+        __ret->base.mode = KAVA_CMD_MODE_API;
+        __ret->base.command_id = RET_LSTM_TF_dogc;
+        __ret->base.thread_id = __call->base.thread_id;
+        __ret->__call_id = __call->__call_id;
+
+        /* Send reply message */
+        __chan->cmd_send(__chan, (struct kava_cmd_base *)__ret);
+        g_ptr_array_unref(__kava_alloc_list_dogc); /* Deallocate all memory in the alloc list */
+
+        break;
+    }
+
 
     case CALL_LSTM_TF_CLOSE_CTX:{
         GPtrArray *__kava_alloc_list_close_ctx =

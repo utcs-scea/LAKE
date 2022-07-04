@@ -76,8 +76,9 @@ static int __init kleio_init(void) {
             t_stop = ktime_get_ns();
 
             total_run_times[k] = (t_stop - t_start);
-            //usleep_range(250, 1000);
-            //usleep_range(250, 250);
+            usleep_range(250, 1000);
+            dogc();
+            usleep_range(250, 1000);
         }
 
         avg_total = 0;

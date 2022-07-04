@@ -20,6 +20,7 @@ extern "C" {
 #endif
 
 int load_model(const char *file);
+void dogc(void);
 void close_ctx(void);
 int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
 

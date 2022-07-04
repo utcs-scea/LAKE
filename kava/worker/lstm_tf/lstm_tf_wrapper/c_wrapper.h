@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 int load_model(const char *filepath);
+void dogc(void);
 void close_ctx(void);
 int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
 

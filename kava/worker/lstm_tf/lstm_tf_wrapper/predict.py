@@ -12,6 +12,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 import preprocess
 from timeit import default_timer as timer
+from time import sleep
 
 sequence_length = 20
 epochs = 10
@@ -110,6 +111,7 @@ def load_model(filepath="/home"):
 def print_stats():
     global st_times
     from statistics import mean
+    print(st_times)
     for k, v in st_times.items():
         m = mean(v) if len(v) > 0 else 0
         print(f"{k}, {m}")
@@ -118,6 +120,12 @@ def print_stats():
     for i in range(20, 380, 40):
         st_times[i] = []
 
+def get_input(i):
+    inp = np.empty(i, dtype=int)
+    for j in range(i):
+        inp[j] = random.randint(0, MAX_SYSCALL_IDX-1)
+    return inp
+
 def standard_inference(syscalls, num_syscall, sliding_window=1):
     #print(f"num_syscall {num_syscall}")
     #print(f"syscalls {syscalls}")
@@ -125,13 +133,15 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
     if sliding_window == 21:
         do_timer = False
         sliding_window = 20
-        gc.collect()
+        #gc.collect()
+
+    syscalls = get_input(320)
 
     start = timer()
 
-    if (len(syscalls) != num_syscall):
-        print("standard_inference failed because number of syscalls sent is different to num_syscall\n")
-        return -1
+    # if (len(syscalls) != num_syscall):
+    #     print("standard_inference failed because number of syscalls sent is different to num_syscall\n")
+    #     return -1
     
     n_gram_data = sequence_n_gram_parsing(syscalls, sliding_window=sliding_window)
     if (len(n_gram_data) <= 0):
@@ -159,3 +169,34 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
 
 def close_ctx():
     gc.collect()
+
+def dogc():
+    gc.collect()
+    
+if __name__ == "__main__":
+    load_model("/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper/gb_model")
+    import random
+    from time import sleep
+    MAX_SYSCALL_IDX = 340
+
+    WARM = 2
+    RUNS = 5
+
+    
+
+    for i in range(20, 361, 40):
+        inp = get_input(i)
+    
+        for _ in range(WARM):
+            standard_inference(inp, i, 21)
+            sleep(0.2)
+            gc.collect()
+            sleep(0.2)
+
+        for _ in range(RUNS):
+            standard_inference(inp, i, 20)
+            sleep(0.2)
+            gc.collect()
+            sleep(0.2)
+
+    print_stats()
