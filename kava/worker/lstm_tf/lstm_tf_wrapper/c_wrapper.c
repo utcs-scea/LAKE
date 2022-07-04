@@ -141,7 +141,9 @@ int kleio_load_model(const char *filepath) {
 
     Py_Initialize();
     PySys_SetArgv(1, _argv);
-    import_array();
+    printf("importing np array\n");
+    _import_array();
+    printf("imported\n");
 
     PyObject* sysPath = PySys_GetObject("path");
     char *libpath = "/disk/hfingler/HACK/kava/worker/lstm_tf/lstm_tf_wrapper/coeus-sim-master";
@@ -172,6 +174,7 @@ int kleio_load_model(const char *filepath) {
         }
     }
     //Py_Finalize();
+    printf("model loaded\n");
     return 0;
 }
 
