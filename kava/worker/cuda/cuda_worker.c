@@ -18,7 +18,7 @@
 #include "cuda_kava_utilities.h"
 
 
-#define TBREAKDOWN 1
+#define TBREAKDOWN 0
 
 
 static struct kava_endpoint __kava_endpoint;
@@ -200,9 +200,20 @@ __wrapper_cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridD
         struct timespec start, stop;
         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &start);
     #endif
+
+        //TODO: remove this hack, this is just for experimenting
+        char is_sync = 0;
+        if (gridDimZ == 69) {
+            gridDimZ = 1;
+            is_sync = 1;
+        }
+
         ret = cuLaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX,
                              blockDimY, blockDimZ, sharedMemBytes, hStream,
                              kernelParams, extra);
+
+        if (is_sync) cuStreamSynchronize(hStream);
+
     #if TBREAKDOWN
         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);
         double result = (stop.tv_sec - start.tv_sec) * 1e6 + (stop.tv_nsec - start.tv_nsec) / 1e3;  
