@@ -22,8 +22,8 @@ numcpu=$(expr $numcpu - 1)
 
 for cpu in $( seq 0 $numcpu )
 do
-  #cpufreq-set -c $cpu -g performance
-  cpufreq-set -c $cpu -g powersave
+  cpufreq-set -c $cpu -g performance
+  #cpufreq-set -c $cpu -g powersave
 done
 
 echo "Disabling cstate"
