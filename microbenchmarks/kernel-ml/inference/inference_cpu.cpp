@@ -285,7 +285,7 @@ int main(int argc, char** argv) {
     csv << ", inference, inference+transfer\n";
 
 
-    int cpu_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512};
+    int cpu_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     int RUNS = 10;
 
     for (int &N_INPUTS_BATCH : cpu_sizes) {

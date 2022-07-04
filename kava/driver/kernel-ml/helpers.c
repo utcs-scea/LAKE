@@ -27,7 +27,6 @@ void gpu_init(int dev, CUcontext *cuctx) {
 void gpu_get_cufunc(char* cubin, char* kname, CUfunction *func) {
     CUmodule cuModule;
     CUresult res;
-    printf("loading %s\n", cubin);
     res = cuModuleLoad(&cuModule, cubin);
     if (res != CUDA_SUCCESS) {
         #ifdef __KERNEL__

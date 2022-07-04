@@ -236,7 +236,7 @@ void linear_layer_forward(CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows
 }
 
 
-void autodiff_forward(int batch_size) { 
+void autodiff_forward(int batch_size, int sync) { 
     /*
     void linear_layer_forward(CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows, 
             int linear_w_columns, CUdeviceptr bias_vector, int layer_index, CUdeviceptr out,
@@ -258,8 +258,10 @@ void autodiff_forward(int batch_size) {
     void *args3[] = {
 		&d_out2, &w2_rows, &d_result_cols
 	};
+
+    int zg = sync == 0 ? 1 : 69; 
     check_error(cuLaunchKernel(matrix_argmax, 
-				1, 1, 1,          //blocks
+				1, 1, zg,          //blocks
 				out2_rows, 1, 1,   //threads per block
 				0,   //shared mem
                 NULL, args3, NULL),
@@ -323,9 +325,9 @@ void readahead_normalized_online_data(int batch_size) {
     //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
 }
 
-void predict_readahead_class(int batch_size) {
+void predict_readahead_class(int batch_size, int sync) {
     readahead_normalized_online_data(batch_size);
-    autodiff_forward(batch_size);
+    autodiff_forward(batch_size, sync);
 }
 
 static int run_gpu(void) {
@@ -364,7 +366,6 @@ static int run_gpu(void) {
     total_run_times = (u64*) malloc(RUNS*sizeof(u64));
 #endif
 
-
     for (i = 0 ; i < n_batches ; i++) {
         batch_size = batch_sizes[i];
 
@@ -372,23 +373,27 @@ static int run_gpu(void) {
         result = (int*) kava_alloc(batch_size * sizeof(int));
         setup_gpu(batch_size);
         copy_batch_inputs(batch_size);
-        predict_readahead_class(batch_size);
-
-        exit(0);
+        predict_readahead_class(batch_size, 1);
 
         usleep_range(1000, 2000);
-        cuCtxSynchronize();
+
     
         for (j = 0 ; j < RUNS ; j++) {
             //PRINT(V_INFO, "Runing for batch size %d\n", batch_size);
             t_start = ktime_get_ns();
             copy_batch_inputs(batch_size);
-            c_start = ktime_get_ns();
-            predict_readahead_class(batch_size);
-            cuCtxSynchronize();
-            c_stop = ktime_get_ns();
+            predict_readahead_class(batch_size, 0);
             get_result_batch(batch_size);
             t_stop = ktime_get_ns();
+
+            usleep_range(100, 200);
+
+            c_start = ktime_get_ns();
+            predict_readahead_class(batch_size, 1);
+            c_stop = ktime_get_ns();
+            
+            usleep_range(100, 200);
+    
             comp_run_times[j] = (c_stop - c_start);
             total_run_times[j] = (t_stop - t_start);
 	    }
