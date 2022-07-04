@@ -2,7 +2,7 @@ import sys, csv, math, gc
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 # switch between "" and "0" to use cpu or gpu
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import tensorflow as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -25,7 +25,7 @@ kleio_lstm = None
 
 st_times = {}
 for i in range(1, 86, 5):
-    st_times[i] = []
+  st_times[i] = []
 
 def kleio_load_model(path):
   print("py model at ", path)
@@ -33,7 +33,11 @@ def kleio_load_model(path):
   kleio_lstm = LSTM_model(path)
   return 0
 
+def dogc():
+  gc.collect()
+
 def kleio_inference(inputs, n, batch_size):
+  print("a")
   do_timer = True
   if (batch_size-1)%5 != 0:
     do_timer = False
@@ -41,7 +45,7 @@ def kleio_inference(inputs, n, batch_size):
     gc.collect()
 
   start = timer()
-  #inputs = [60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140] 
+  inputs = [60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140] 
   kinput = LSTM_input(inputs)
   history_length = 6 # periods
   kinput.timeseries_to_history_seq(history_length)
