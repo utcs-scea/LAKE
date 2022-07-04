@@ -2,7 +2,7 @@ import sys, csv, math, gc
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 # switch between "" and "0" to use cpu or gpu
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import tensorflow as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')

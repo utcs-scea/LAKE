@@ -95,7 +95,9 @@ void main(void) {
         for (k = 0; k < N_WARM; k++) {
             //PRINT("infer %d\n", i);
             kleio_inference((void*)inputs, 26, n_inputs+1);
-            usleep_range(250, 1000);
+            sleep_range(200, 300);
+            dogc();
+            sleep_range(200, 300);
         }
 
         for (k = 0; k < N_RUNS; k++) {
@@ -104,9 +106,9 @@ void main(void) {
             t_stop = ktime_get_ns();
 
             total_run_times[k] = (t_stop - t_start);
-            usleep_range(1000, 2000);
+            usleep_range(200, 300);
             dogc();
-            usleep_range(1000, 2000);
+            sleep_range(200, 300);
         }
 
         avg_total = 0;
