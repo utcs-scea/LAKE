@@ -65,13 +65,13 @@ class LSTM_input:
           self.trainX.append(self.dataX[s])
           self.trainY.append(self.dataY[s])
         s += 1
-    print(f"trainX  {len(self.trainX)}")
+    #print(f"trainX  {len(self.trainX)}")
     
   def to_categor(self, num_classes):
     # shape is [samples, time steps, features]
     inter = to_categorical(np.array(self.trainX), num_classes = num_classes)
-    print(f"trainX shape  {np.array(self.trainX).shape}")
-    print(f"inter shape {inter.shape}")
+    #print(f"trainX shape  {np.array(self.trainX).shape}")
+    #print(f"inter shape {inter.shape}")
     self.trainX_categor = np.reshape(inter, (inter.shape[0], inter.shape[1], num_classes))
 
     inter = to_categorical(np.array(self.valX), num_classes = num_classes)
@@ -99,7 +99,7 @@ class LSTM_model:
 
   def infer(self, kinput, batch_size):
     inputs = kinput.trainX_categor
-    print(f"Infering: {inputs.shape}")
+    #print(f"Infering: {inputs.shape}")
 
     if batch_size != 0:
       if batch_size < 20:
@@ -107,9 +107,9 @@ class LSTM_model:
       else:
         x,y,z = inputs.shape
         inputs = np.resize(inputs, (batch_size,y,z) )
-        print(f"resizing to {(batch_size,y,z)}")
+        #print(f"resizing to {(batch_size,y,z)}")
 
-    print(f"changed to: {inputs.shape}")
+    #print(f"changed to: {inputs.shape}")
 
     predictY = self.model.predict(inputs)
     
@@ -117,7 +117,7 @@ class LSTM_model:
     predictY = np.array([np.argmax(x) for x in predictY])
 
   def calculate_prediction_error(self, dataY, predictY):
-    print (dataY.shape, predictY.shape)
+    #print (dataY.shape, predictY.shape)
     err = 0.0
     dataY = np.array([np.argmax(x) for x in dataY])
     predictY = np.array([np.argmax(x) for x in predictY])

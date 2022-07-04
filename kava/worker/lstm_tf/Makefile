@@ -54,8 +54,8 @@ PYTHON_WRAPPER_OBJECT_C=$(addprefix objs/,$(PYTHON_SOURCES_C:.c=.o))
 WORKER_SPECIFIC_OBJECTS=$(addprefix objs/,$(patsubst %.cpp,%.o,$(WORKER_SPECIFIC_SOURCES:.c=.o)))
 WORKER_SPECIFIC_OBJECTS_C=$(addprefix objs/,$(WORKER_SPECIFIC_SOURCES_C:.c=.o))
 
-PY_COMPILE_FLAGS = $(shell python3.6-config --cflags)
-PY_LINKER_FLAGS = $(shell python3.6-config --libs)	# This is for python 3.6 and below, for above, use embed
+PY_COMPILE_FLAGS = $(shell python3.7-config --cflags)
+PY_LINKER_FLAGS = $(shell python3.7-config --libs)	# This is for python 3.6 and below, for above, use embed
 
 dump:
 	echo $(GENERAL_SOURCES_C)

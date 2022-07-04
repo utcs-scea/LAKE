@@ -144,7 +144,6 @@ int kleio_load_model(const char *filepath) {
     import_array();
 
     PyObject* sysPath = PySys_GetObject("path");
-
     char *libpath = "/disk/hfingler/HACK/kava/worker/lstm_tf/lstm_tf_wrapper/coeus-sim-master";
     PyList_Append(sysPath, PyUnicode_FromString(libpath));
 
@@ -177,7 +176,6 @@ int kleio_load_model(const char *filepath) {
 }
 
 void dogc(void) {
-    printf("1");
     PyObject *func = PyDict_GetItem(kleio_pDict, PyUnicode_FromString("dogc"));
     PyObject *pyResult = PyObject_CallObject(func, 0);
     if (!pyResult) {

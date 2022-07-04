@@ -22,3 +22,10 @@ clean:
 .PHONY : clean
 
 endif
+
+.PHONY: utest
+
+utest:
+	cd ../../../worker/lstm_tf/lstm_tf_wrapper && make
+	cp ../../../worker/lstm_tf/lstm_tf_wrapper/c_wrapper.o .
+	gcc  kleio_tf.c c_wrapper.o -o utest $(shell python3.7-config --libs)

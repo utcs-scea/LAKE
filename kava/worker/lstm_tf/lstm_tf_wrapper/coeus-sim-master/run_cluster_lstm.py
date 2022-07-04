@@ -31,13 +31,13 @@ def kleio_load_model(path):
   print("py model at ", path)
   global kleio_lstm
   kleio_lstm = LSTM_model(path)
+  print("done loading model")
   return 0
 
 def dogc():
   gc.collect()
 
 def kleio_inference(inputs, n, batch_size):
-  print("a")
   do_timer = True
   if (batch_size-1)%5 != 0:
     do_timer = False
@@ -45,13 +45,13 @@ def kleio_inference(inputs, n, batch_size):
     gc.collect()
 
   start = timer()
-  inputs = [60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140] 
+  #inputs = [60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140] 
   kinput = LSTM_input(inputs)
   history_length = 6 # periods
   kinput.timeseries_to_history_seq(history_length)
   kinput.split_data(1)
   num_classes = max(set(inputs)) + 1
-  print(f"num_classes {num_classes}")
+  #print(f"num_classes {num_classes}")
   kinput.to_categor(num_classes)
 
   #for _ in range(500):
