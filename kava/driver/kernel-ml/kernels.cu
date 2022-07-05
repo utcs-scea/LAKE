@@ -157,3 +157,153 @@ __global__ void matrix_argmax(float *src, int cols, int *max_col_array) {
     max_col_array[threadId] = max_col;
 
 }
+
+
+//fused
+
+//lets do 160 per block, that's 32*5, so 32 inputs per block
+//input before was each line was 5 inputs, with batch rows
+//need at least 32 threads, we must ensure no OOB
+__global__ void normalize_fused(int batch_size, float* inputs, float* avg_base, float* avg_out, 
+        float* last_values, float* var_out, float* final_out) {
+    int tid = threadIdx.x;
+    int uid = blockIdx.x * blockDim.x + threadIdx.x;
+    int intrablock_idx = tid % 5;
+    int inputs_per_block = 32;
+    int base_idx = blockIdx.x * inputs_per_block + intrablock_idx;
+
+    float* input  = inputs    + base_idx;
+    float* output = final_out + base_idx;
+
+    const int MAX = 5*batch_size;
+    const int k1 = 10; //n_seconds
+    const int k2 = 9; // n_1_seconds
+
+    //calculate averages
+    if (uid < 5) {
+        float sum = 0;
+        //do average of each point in all inputs
+        for(int j = 0; j < batch_size; j++) {
+            sum += inputs[j*5 + tid];
+        }
+        avg_out[uid] = avg_base[uid] * k1 /(k2  + batch_size) + sum / (k2 + batch_size);
+    }
+
+    //calculate variance, stddev through the magic thingy
+    //use second warp
+    if (uid > 15 && uid <= 20) {
+        float* var_init = avg_base;
+        int idx = uid - 16;
+
+        float sum_diff = 0;
+        for(int j = 0; j < batch_size; j++) {
+            sum_diff += (last_values[idx] -  inputs[j*5 + idx]) * (last_values[idx] -  inputs[j*5 + idx]) ;
+        }
+        var_out[idx] = var_init[idx] * k1 /(k2 + batch_size) + sum_diff/ (k2 + batch_size);
+
+        float r = 1;
+        float x = var_out[idx];
+        long long i = *(long long *)&x;
+        i = 0x5fe6eb50c7b537a9 - (i >> 1);
+        r = *(float *)&i;
+        r = r * (1.5f - 0.5f * x * r * r);
+        r = r * (1.5f - 0.5f * x * r * r);
+        r = r * (1.5f - 0.5f * x * r * r);
+        r = r * (1.5f - 0.5f * x * r * r);
+        r = r * (1.5f - 0.5f * x * r * r);
+        var_out[idx] =  r * x;
+    }
+
+    __syncthreads();
+
+    if (uid < MAX) {
+        *output = (*input - avg_out[intrablock_idx]) / var_out[intrablock_idx];
+    }
+}
+
+//fused linear
+__global__ void fused_forward(float *input, int* result, int batch_size, 
+        float* d_w0, float* d_b0, float* wt0,
+        float* d_w1, float* d_b1, float* wt1,
+        float* d_w2, float* d_b2, float* wt2,
+        float* d_out0, float* d_out1, float* d_out2) {
+    // const int w0_rows = 15;
+    // const int w0_cols = 5;
+    // const int b0_rows = 15;
+    // const int b0_cols = 1;
+    // const int w1_rows = 5;
+    // const int w1_cols = 15;
+    // const int b1_rows = 5;
+    // const int b1_cols = 1; 
+    // const int w2_rows = 4;
+    // const int w2_cols = 5;
+    // const int b2_rows = 4;
+    // const int b2_cols = 1;
+
+    int tid = threadIdx.x;
+
+    //TODO: something is probably wrong, I think matrices are all transposed
+    //matrix mult input (batch x 5) and wt0 (5 x 15) (apparently its 15 x 5)
+    // out is (batch x 15)
+    {
+        float* my_row = input + blockIdx.x * 5;
+        float* my_out = d_out0 + blockIdx.x * 15;
+
+        if (tid < 15) {
+            float acc = 0;
+            for(int i = 0; i < 5; i++) {
+                acc += my_row[i] * wt0[i*5 + tid];
+            }
+            my_out[tid] = acc + d_b0[tid];
+        }
+    }
+
+    __syncthreads();
+
+    //matrix mult d_out0 (batch x 15) and wt1 (15 x 5)
+    // out is (batch x 5)
+    {
+        float* my_row = d_out0 + blockIdx.x * 15;
+        float* my_out = d_out1 + blockIdx.x * 5;
+
+        if (tid < 5) {
+            float acc = 0;
+            for(int i = 0; i < 15; i++) {
+                acc += my_row[i] * wt1[i*15 + tid];
+            }
+            my_out[tid] = acc + d_b1[tid];
+        }
+    }
+
+    __syncthreads();
+
+    //matrix mult d_out1 (batch x 5) and wt2 (5 x 4)
+    // out is (batch x 4)
+    {
+        float* my_row = d_out1 + blockIdx.x * 5;
+        float* my_out = d_out2 + blockIdx.x * 4;
+
+        if (tid < 4) {
+            float acc = 0;
+            for(int i = 0; i < 15; i++) {
+                acc += my_row[i] * wt1[i*15 + tid];
+            }
+            my_out[tid] = acc + d_b2[tid];
+        }
+    }
+
+    __syncthreads();
+
+    //final output is sized: batch size
+    {
+        float* my_row = d_out2 + blockIdx.x * 4;
+        if (tid == 0) {
+            int idx = 0;
+            for(int i = 1; i < 3; i++) {
+                if (my_row[i] > my_row[idx])
+                    idx = i;    
+            }
+            result[blockIdx.x] = idx;
+        }
+    }
+}

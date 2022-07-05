@@ -4,6 +4,8 @@
 #else
 #define kava_free(X) free(X)
 #define kava_alloc(X) malloc(X)
+#define vfree(X) free(X)
+#define vmalloc(X) malloc(X)
 #include <stdint.h>
 #include <stdio.h>
 #define u64 uint64_t
@@ -31,12 +33,15 @@ MODULE_PARM_DESC(cubin_path, "The path to kml.cubin, default ./kml.cubin");
 static char *cubin_path = "/disk/hfingler/HACK/kava/driver/kernel-ml/kml.cubin";
 #endif
 
+
+#define RUNS 1
+
+
 static int run_cpu(void) {
     return 0;
 }
 
 static int w0_rows, w0_cols, b0_rows, b0_cols, w1_rows, w1_cols, b1_rows, b1_cols, w2_rows, w2_cols, b2_rows, b2_cols, input_cols;
-static int out0_rows, out0_cols, out1_rows, out1_cols, out2_rows, out2_cols;
 
 CUdeviceptr d_w0, d_b0, d_w1, d_b1, d_w2, d_b2, d_out0, d_out1, d_out2, d_input, d_result_cols, d_intital_stats;
 static float* batch_input;
@@ -48,10 +53,12 @@ int readahead_online_data_rows = 1;
 CUdeviceptr d_readahead_norm_online_data;
 CUfunction get_average, get_variance, matrix_map, normalize_data, matrix_transpose,
     matrix_mult, add_bias, matrix_argmax;
+
+CUfunction normalize_fused, forward_fused;
+
 //readahead_normalized_online_data
 CUdeviceptr diff, local_average, local_std_dev, local_variance, readahead_norm_online_data_last_values;
-
-CUdeviceptr wx0, wx1, wx2, bias;
+CUdeviceptr bias;
 CUdeviceptr wt0, wt1, wt2;
 
 static void setup_gpu(int batch_size) {
@@ -112,17 +119,9 @@ static void setup_gpu(int batch_size) {
     check_error(cuMemAlloc((CUdeviceptr*) &d_intital_stats, sizeof(float) *input_cols), "cuMemAlloc ", __LINE__);
     check_error(cuMemcpyHtoD(d_intital_stats, stats, sizeof(float) * input_cols), "cuMemcpyHtoD", __LINE__);
     
-
     //refactor below
     check_error(cuMemAlloc((CUdeviceptr*) &d_readahead_norm_online_data, 
         sizeof(float) *readahead_online_data_cols * batch_size), "cuMemAlloc ", __LINE__);
-
-    out0_rows = batch_size;
-    out0_cols = w0_rows;
-    out1_rows = batch_size;
-    out1_cols = w1_rows;
-    out2_rows = batch_size;
-    out2_cols = w2_rows;
 
     //readahead_normalized_online_data
     check_error(cuMemAlloc((CUdeviceptr*) &local_average, 
@@ -136,25 +135,25 @@ static void setup_gpu(int batch_size) {
         sizeof(float) * readahead_online_data_cols * batch_size), "cuMemAlloc ", __LINE__);
 
     //autodiff_forward
-    check_error(cuMemAlloc((CUdeviceptr*) &d_out0, sizeof(float) *w0_rows * batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_out1, sizeof(float) *w1_rows * out0_rows), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_out2, sizeof(float) *w2_rows * out1_rows), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_out0, sizeof(float) * w0_rows * batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_out1, sizeof(float) * w1_rows * batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_out2, sizeof(float) * w2_rows * batch_size), "cuMemAlloc ", __LINE__);
 
     //linear_layer_forward
     check_error(cuMemAlloc((CUdeviceptr*) &wt0, 
         sizeof(float) * w0_cols * w0_rows), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &wx0, 
-        sizeof(float) * batch_size * w0_rows), "cuMemAlloc ", __LINE__);
+    // check_error(cuMemAlloc((CUdeviceptr*) &wx0, 
+    //     sizeof(float) * batch_size * w0_rows), "cuMemAlloc ", __LINE__);
 
     check_error(cuMemAlloc((CUdeviceptr*) &wt1, 
         sizeof(float) * w1_cols * w1_rows), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &wx1, 
-        sizeof(float) * batch_size * w1_rows), "cuMemAlloc ", __LINE__);
+    // check_error(cuMemAlloc((CUdeviceptr*) &wx1, 
+    //     sizeof(float) * batch_size * w1_rows), "cuMemAlloc ", __LINE__);
 
     check_error(cuMemAlloc((CUdeviceptr*) &wt2, 
         sizeof(float) * w2_cols * w2_rows), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &wx2, 
-        sizeof(float) * batch_size * w2_rows), "cuMemAlloc ", __LINE__);
+    // check_error(cuMemAlloc((CUdeviceptr*) &wx2, 
+    //     sizeof(float) * batch_size * w2_rows), "cuMemAlloc ", __LINE__);
 
 }
 
@@ -188,142 +187,198 @@ void clean_batch(void) {
     cuMemFree(readahead_norm_online_data_last_values);
 
     cuMemFree(wt0);
-    cuMemFree(wx0);
+    //cuMemFree(wx0);
     cuMemFree(wt1);
-    cuMemFree(wx1);
+    //cuMemFree(wx1);
     cuMemFree(wt2);
-    cuMemFree(wx2);
+    //cuMemFree(wx2);
 }
 
-void linear_layer_forward(CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows, 
-            int linear_w_columns, CUdeviceptr bias_vector, CUdeviceptr out, CUdeviceptr wx, CUdeviceptr wt, int batch_size) {
+// linear_layer_forward(d_readahead_norm_online_data, 
+//                                  d_w0, w0_rows, w0_cols, d_b0, d_out0, wx0, wt0, batch_size);
+// linear_layer_forward(d_out0, d_w1, w1_rows, w1_cols, d_b1, d_out1, wx1, wt1, batch_size);
+// linear_layer_forward(d_out1, d_w2, w2_rows, w2_cols, d_b2, d_out2, wx2, wt2, batch_size);
 
-    void *args[] = {
-		&linear_w, &wt, &linear_w_columns, &linear_w_rows
-	};
-    check_error(cuLaunchKernel(matrix_transpose, 
-				linear_w_columns, 1, 1,          //blocks
-				linear_w_rows, 1, 1,   //threads per block
-				0,   //shared mem
-                NULL, args, NULL),
-			"cuLaunchKernel", __LINE__);
+// void linear_layer_forward(CUdeviceptr x, 
+//         CUdeviceptr linear_w, int linear_w_rows, 
+//         int linear_w_columns, CUdeviceptr bias_vector, CUdeviceptr out, CUdeviceptr wx, CUdeviceptr wt, int batch_size) {
 
-    //wx = matrix_mult(x, wt);
-    int block_size = 16;
-    int grid_rows = (batch_size + block_size - 1) / block_size;
-    int grid_cols = (linear_w_rows + block_size - 1) / block_size;
+//     void *args[] = {
+// 		&linear_w, &wt, &linear_w_columns, &linear_w_rows
+// 	};
+//     check_error(cuLaunchKernel(matrix_transpose, 
+// 				linear_w_columns, 1, 1,          //blocks
+// 				linear_w_rows, 1, 1,   //threads per block
+// 				0,   //shared mem
+//                 NULL, args, NULL),
+// 			"cuLaunchKernel", __LINE__);
 
-    void *args1[] = {
-		&x, &wt, &wx, &batch_size, &linear_w_columns, &linear_w_rows
-	};
+//     //wx = matrix_mult(x, wt);
+//     int block_size = 16;
+//     int grid_rows = (batch_size + block_size - 1) / block_size;
+//     int grid_cols = (linear_w_rows + block_size - 1) / block_size;
 
-    check_error(cuLaunchKernel(matrix_mult, 
-				grid_cols, grid_rows, 1,          //blocks
-				block_size, block_size, 1,   //threads per block
-				0,   //shared mem
-                NULL, args1, NULL),
-		"cuLaunchKernel", __LINE__);
+//     void *args1[] = {
+// 		&x, &wt, &wx, &batch_size, &linear_w_columns, &linear_w_rows
+// 	};
 
-    void *args3[] = {
-		&wx, &bias_vector, &out
-	};
-    check_error(cuLaunchKernel(add_bias, 
-				batch_size, 1, 1,          //blocks
-				linear_w_rows, 1, 1,   //threads per block
-				0,   //shared mem
-                NULL, args3, NULL),
-			"cuLaunchKernel", __LINE__);
-}
+//     check_error(cuLaunchKernel(matrix_mult, 
+// 				grid_cols, grid_rows, 1,          //blocks
+// 				block_size, block_size, 1,   //threads per block
+// 				0,   //shared mem
+//                 NULL, args1, NULL),
+// 		"cuLaunchKernel", __LINE__);
+
+//     void *args3[] = {
+// 		&wx, &bias_vector, &out
+// 	};
+//     check_error(cuLaunchKernel(add_bias, 
+// 				batch_size, 1, 1,          //blocks
+// 				linear_w_rows, 1, 1,   //threads per block
+// 				0,   //shared mem
+//                 NULL, args3, NULL),
+// 			"cuLaunchKernel", __LINE__);
+// }
 
 
 void autodiff_forward(int batch_size, int sync) { 
-    /*
-    void linear_layer_forward(CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows, 
-            int linear_w_columns, CUdeviceptr bias_vector, int layer_index, CUdeviceptr out,
-            CUfunction* matrix_transpose, CUfunction* matrix_mult, 
-            CUfunction* add_bias, int batch_size) {
 
- CUdeviceptr x, CUdeviceptr linear_w, int linear_w_rows, int linear_w_columns, CUdeviceptr bias_vector, int layer_index, CUdeviceptr out,
+    // linear_layer_forward(d_readahead_norm_online_data, 
+    //                              d_w0, w0_rows, w0_cols, d_b0, d_out0, wx0, wt0, batch_size);
+    // linear_layer_forward(d_out0, d_w1, w1_rows, w1_cols, d_b1, d_out1, wx1, wt1, batch_size);
+    // linear_layer_forward(d_out1, d_w2, w2_rows, w2_cols, d_b2, d_out2, wx2, wt2, batch_size);
 
-    linear_layer_forward(d_readahead_norm_online_data, d_w0, w0_rows, w0_cols, d_b0, 0, d_out0, batch_size);
-    linear_layer_forward(d_out0, d_w1, w1_rows, w1_cols, d_b1, 1, d_out1, batch_size);
-    linear_layer_forward(d_out1, d_w2, w2_rows, w2_cols, d_b2, 2, d_out2, batch_size);
-    */
+    // void *args3[] = {
+	// 	&d_out2, &w2_rows, &d_result_cols
+	// };
 
-    linear_layer_forward(d_readahead_norm_online_data, 
-                                 d_w0, w0_rows, w0_cols, d_b0, d_out0, wx0, wt0, batch_size);
-    linear_layer_forward(d_out0, d_w1, w1_rows, w1_cols, d_b1, d_out1, wx1, wt1, batch_size);
-    linear_layer_forward(d_out1, d_w2, w2_rows, w2_cols, d_b2, d_out2, wx2, wt2, batch_size);
+    // int zg = sync == 0 ? 1 : 69; 
+    // check_error(cuLaunchKernel(matrix_argmax, 
+	// 			1, 1, zg,          //blocks
+	// 			out2_rows, 1, 1,   //threads per block
+	// 			0,   //shared mem
+    //             NULL, args3, NULL),
+	// 		"cuLaunchKernel", __LINE__);
 
-    void *args3[] = {
-		&d_out2, &w2_rows, &d_result_cols
+     void *args[] = {
+		&d_readahead_norm_online_data, &d_result_cols, &batch_size,
+        &d_w0, &d_b0, &wt0,
+        &d_w1, &d_b1, &wt1, 
+        &d_w2, &d_b2, &wt2,
+        &d_out0, &d_out1, &d_out2
 	};
 
-    int zg = sync == 0 ? 1 : 69; 
-    check_error(cuLaunchKernel(matrix_argmax, 
-				1, 1, zg,          //blocks
-				out2_rows, 1, 1,   //threads per block
-				0,   //shared mem
-                NULL, args3, NULL),
-			"cuLaunchKernel", __LINE__);
-
-    //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
-    
-    //int *result_cols = (int*) kava_alloc(sizeof(int)* batch_size);
-    //check_error(cuMemcpyDtoH(result_cols, d_result_cols, sizeof(int) * batch_size), "cuMemcpyDtoH", __LINE__);
-    //return result_cols;
-}
-
-void readahead_normalized_online_data(int batch_size) {
-    int n_seconds = 10;
-    int n_1_seconds = 9;
-
-    void *args[] = {
-		&d_intital_stats, &n_seconds, &n_1_seconds, &batch_size, &d_input, &local_average
-	};
-    check_error(cuLaunchKernel(get_average, 
-				1, 1, 1,          //blocks
-				readahead_online_data_cols, 1, 1,   //threads per block
+    check_error(cuLaunchKernel(forward_fused, 
+				batch_size, 1, 1,          //blocks
+				16, 1, 1,   //threads per block
 				0,   //shared mem
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
-    //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
-
-
-    void *args1[] = {
-		&d_intital_stats, &n_seconds, &n_1_seconds, &batch_size, &d_input, 
-        &readahead_norm_online_data_last_values, &local_variance
-	};
-    check_error(cuLaunchKernel(get_variance, 
-				1, 1, 1,          //blocks
-				readahead_online_data_cols, 1, 1,   //threads per block
-				0,   //shared mem
-                NULL, args1, NULL),
-			"cuLaunchKernel", __LINE__);
-    //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
-    
-    void *args2[] = {
-		&local_variance, &local_std_dev
-	};
-    check_error(cuLaunchKernel(matrix_map, 
-				1, 1, 1,          //blocks
-				readahead_online_data_cols, 1, 1,   //threads per block
-				0,   //shared mem
-                NULL, args2, NULL),
-		"cuLaunchKernel", __LINE__);
-    //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
-
-    void *args3[] = {
-		&d_input, &local_average, &local_std_dev, &d_readahead_norm_online_data
-	};
-    check_error(cuLaunchKernel(normalize_data, 
-				batch_size, 1, 1,          //blocks
-				readahead_online_data_cols, 1, 1,   //threads per block
-				0,   //shared mem
-                NULL, args3, NULL),
-			"cuLaunchKernel", __LINE__);
-    //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
 }
+
+void readahead_normalized_online_data(int batch_size) {
+    // int n_seconds = 10;
+    // int n_1_seconds = 9;
+
+    // void *args[] = {
+	// 	&d_intital_stats, &n_seconds, &n_1_seconds, &batch_size, &d_input, &local_average
+	// };
+    // check_error(cuLaunchKernel(get_average, 
+	// 			1, 1, 1,          //blocks
+	// 			readahead_online_data_cols, 1, 1,   //threads per block
+	// 			0,   //shared mem
+    //             NULL, args, NULL),
+	// 		"cuLaunchKernel", __LINE__);
+    // //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
+
+
+    // void *args1[] = {
+    //     //float *var_init, float k1, float k2, 
+    //     //int batch_size ,float *inp, float *data_last_values, float * var_final
+	// 	&d_intital_stats, &n_seconds, &n_1_seconds, &batch_size, &d_input, 
+    //     &readahead_norm_online_data_last_values, &local_variance
+	// };
+    // check_error(cuLaunchKernel(get_variance, 
+	// 			1, 1, 1,          //blocks
+	// 			readahead_online_data_cols, 1, 1,   //threads per block
+	// 			0,   //shared mem
+    //             NULL, args1, NULL),
+	// 		"cuLaunchKernel", __LINE__);
+    // //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
+    
+    // void *args2[] = {
+	// 	&local_variance, &local_std_dev
+	// };
+    // check_error(cuLaunchKernel(matrix_map, 
+	// 			1, 1, 1,          //blocks
+	// 			readahead_online_data_cols, 1, 1,   //threads per block
+	// 			0,   //shared mem
+    //             NULL, args2, NULL),
+	// 	"cuLaunchKernel", __LINE__);
+    // //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
+
+    // void *args3[] = {
+    //     //float *inp, float *avg, float *std_dev, float *out) {
+	// 	&d_input, &local_average, &local_std_dev, &d_readahead_norm_online_data
+	// };
+    // check_error(cuLaunchKernel(normalize_data, 
+	// 			batch_size, 1, 1,          //blocks
+	// 			readahead_online_data_cols, 1, 1,   //threads per block
+	// 			0,   //shared mem
+    //             NULL, args3, NULL),
+	// 		"cuLaunchKernel", __LINE__);
+    // //check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
+
+    // float xx[readahead_online_data_cols*batch_size];
+    // cuMemcpyDtoH(xx, d_readahead_norm_online_data, readahead_online_data_cols*batch_size*sizeof(float) );
+
+    // for (int i = 0 ; i < 10 ; i++) {
+    //     printf("%.2f ", xx[i]);
+    // }
+    // printf("\n");
+
+
+    // //int batch_size, float* inputs, float* avg_base, float* avg_out, 
+    // //    float* last_values, float* var_out, float* final_out
+    
+    // void *fargs[] = {
+    //     &batch_size, &d_input, &d_intital_stats, &local_average,
+    //     &readahead_norm_online_data_last_values, &local_variance, &d_readahead_norm_online_data
+	// };
+
+    // int blocks = (batch_size+159) / 160;
+    // int tpb = batch_size < 160 ? 32 : 160;
+
+    // check_error(cuLaunchKernel(normalize_fused, 
+	// 			blocks, 1, 1,          //blocks
+	// 			tpb, 1, 1,   //threads per block
+	// 			0,   //shared mem
+    //             NULL, fargs, NULL),
+	// 		"cuLaunchKernel", __LINE__);
+
+    // cuMemcpyDtoH(xx, d_readahead_norm_online_data, readahead_online_data_cols*batch_size*sizeof(float) );
+    // for (int i = 0 ; i < 10 ; i++) {
+    //     printf("%.2f ", xx[i]);
+    // }
+    // printf("\n");
+
+    //TODO: uncomment above and find why values are different
+    
+    void *fargs[] = {
+        &batch_size, &d_input, &d_intital_stats, &local_average,
+        &readahead_norm_online_data_last_values, &local_variance, &d_readahead_norm_online_data
+	};
+
+    int blocks = (batch_size+159) / 160; //ceil
+    int tpb = batch_size < 160 ? 32 : 160; //at least 32 threads, at most 160 (32*5)
+
+    check_error(cuLaunchKernel(normalize_fused, 
+				blocks, 1, 1,          //blocks
+				tpb, 1, 1,   //threads per block
+				0,   //shared mem
+                NULL, fargs, NULL),
+			"cuLaunchKernel", __LINE__);
+}   
 
 void predict_readahead_class(int batch_size, int sync) {
     readahead_normalized_online_data(batch_size);
@@ -332,9 +387,11 @@ void predict_readahead_class(int batch_size, int sync) {
 
 static int run_gpu(void) {
     int i, j;
-    int RUNS;
     const int n = 1024;
-    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    //int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    int batch_sizes[] = {512};
+    int n_batches = 1;
+
     int batch_size;
     u64 t_start, t_stop, c_start, c_stop;
     u64* comp_run_times;
@@ -345,26 +402,21 @@ static int run_gpu(void) {
     CUcontext cuContext;
     gpu_init(0, &cuContext);
 
-    int n_batches = 11;
-
-    gpu_get_cufunc(cubin_path, "_Z11get_averagePfiiiS_S_", &get_average);
-    gpu_get_cufunc(cubin_path, "_Z12get_variancePfffiS_S_S_", &get_variance);
-    gpu_get_cufunc(cubin_path, "_Z10matrix_mapPfS_", &matrix_map);
-    gpu_get_cufunc(cubin_path, "_Z14normalize_dataPfS_S_S_", &normalize_data);
-    gpu_get_cufunc(cubin_path, "_Z16matrix_transposePfS_ii", &matrix_transpose);
-    gpu_get_cufunc(cubin_path, "_Z11matrix_multPfS_S_iii", &matrix_mult);
-    gpu_get_cufunc(cubin_path, "_Z8add_biasPfS_S_", &add_bias);
-    gpu_get_cufunc(cubin_path, "_Z13matrix_argmaxPfiPi", &matrix_argmax);
-    RUNS = 10;
-
+    // gpu_get_cufunc(cubin_path, "_Z11get_averagePfiiiS_S_", &get_average);
+    // gpu_get_cufunc(cubin_path, "_Z12get_variancePfffiS_S_S_", &get_variance);
+    // gpu_get_cufunc(cubin_path, "_Z10matrix_mapPfS_", &matrix_map);
+    // gpu_get_cufunc(cubin_path, "_Z14normalize_dataPfS_S_S_", &normalize_data);
+    // gpu_get_cufunc(cubin_path, "_Z16matrix_transposePfS_ii", &matrix_transpose);
+    // gpu_get_cufunc(cubin_path, "_Z11matrix_multPfS_S_iii", &matrix_mult);
+    // gpu_get_cufunc(cubin_path, "_Z8add_biasPfS_S_", &add_bias);
+    // gpu_get_cufunc(cubin_path, "_Z13matrix_argmaxPfiPi", &matrix_argmax);
     
-#ifdef __KERNEL__
-    comp_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
-    total_run_times = (u64*) kmalloc(RUNS*sizeof(u64), GFP_KERNEL);
-#else
-    comp_run_times = (u64*) malloc(RUNS*sizeof(u64));
-    total_run_times = (u64*) malloc(RUNS*sizeof(u64));
-#endif
+    gpu_get_cufunc(cubin_path, "_Z15normalize_fusediPfS_S_S_S_S_", &normalize_fused);
+    gpu_get_cufunc(cubin_path, "_Z13fused_forwardPfPiiS_S_S_S_S_S_S_S_S_S_S_S_", &forward_fused);
+    
+
+    comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
+    total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
 
     for (i = 0 ; i < n_batches ; i++) {
         batch_size = batch_sizes[i];
@@ -377,7 +429,6 @@ static int run_gpu(void) {
 
         usleep_range(1000, 2000);
 
-    
         for (j = 0 ; j < RUNS ; j++) {
             //PRINT(V_INFO, "Runing for batch size %d\n", batch_size);
             t_start = ktime_get_ns();
@@ -414,9 +465,12 @@ static int run_gpu(void) {
 #else
         printf("GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
 #endif
-
         clean_batch();
 	}
+
+    vfree(comp_run_times);
+    vfree(total_run_times);
+    
     return 0;
 }
 

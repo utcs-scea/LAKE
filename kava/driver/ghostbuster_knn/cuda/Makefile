@@ -1,17 +1,15 @@
 .PHONY: all cpu
 
 CUDA_OBJS = knncuda.cubin
-NVCC_OPTIONS = -cubin -arch sm_60 -O3
-LIB_CUDA = -lcuda #-lcublas -lcudart
-INCLUDES=
+NVCC_OPTIONS = -cubin -O3 -gencode arch=compute_80,code=sm_80 
 
-all: cpu $(CUDA_OBJS)
+all: cpu knncuda.cubin
 
 cpu:
 	nvcc -o cpu cpu.cpp knncuda.cu -lcuda -lcublas -lcudart -Wno-deprecated-gpu-targets -O3
 
-%.cubin: %.cu
-	nvcc $(NVCC_OPTIONS) $(INCLUDES) $< -o $@ $(LIB_CUDA)
+knncuda.cubin:
+	nvcc knncuda.cu $(NVCC_OPTIONS) $< -o $@ 
 
 clean:
 	rm cpu

@@ -9,8 +9,8 @@
 
 #include "knncuda.h"
 
-#define WARMS 2
-#define RUNS 5
+#define WARMS 1
+#define RUNS 2
 
 
 /**
@@ -320,7 +320,7 @@ int main(int argc, char** argv) {
     // printf("- Dimension of points     : %d\n",   dim);
     // printf("- Number of neighbors     : %d\n\n", k);
 
-    int dims[] = {8, 16, 32, 64, 128};
+    int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
     //int dims[] = {16};
 
     for (int &dim : dims) {
@@ -362,8 +362,8 @@ int main(int argc, char** argv) {
 
         // Test all k-NN functions
         //printf("TESTS\n");
-        //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_c, "knn_c", RUNS);
-        test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cuda_global,  "knn_cuda_global",  RUNS); 
+        test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_c, "knn_c", RUNS);
+        //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cuda_global,  "knn_cuda_global",  RUNS); 
         //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cuda_texture, "knn_cuda_texture", RUNS); 
         //test(ref, ref_nb, query, query_nb, dim, k, knn_dist, knn_index, &knn_cublas,       "knn_cublas",       RUNS); 
 

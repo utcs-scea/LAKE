@@ -19,12 +19,12 @@ all: kml.cubin
 kml.cubin:
 	make -f Makefile.cubin
 
-utest:
-	nvcc driver.c helpers.c kernels.cu weights.c -o utest -lcuda
-
 clean:
 	$(MAKE) -C $(KDIR) M=$(shell pwd) clean
 
-.PHONY : clean
+.PHONY : clean utest
 
 endif
+
+utest:
+	nvcc driver.c helpers.c kernels.cu weights.c -o utest -lcuda

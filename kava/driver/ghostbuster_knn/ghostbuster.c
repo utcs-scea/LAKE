@@ -569,8 +569,8 @@ int run_knn( void )
   int query_sz;
   int knn_dist_sz = query_nb * k * sizeof( FLOAT );
   int i, dim;
-  int dims[] = {8, 16, 32, 64, 128};
-  int ndims = 5;
+  int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
+  int ndims = 11;
 
   knn_index = (int *) vmalloc( knn_index_sz );
   knn_dist = vmalloc( knn_dist_sz );

@@ -126,14 +126,14 @@ void readahead_normalized_online_data(float *readahead_online_data, int readahea
     int n_1_seconds = 9;
 
     get_average(stats, n_seconds, n_1_seconds, 
-    batch_size, readahead_online_data, local_average, readahead_online_data_cols);
+        batch_size, readahead_online_data, local_average, readahead_online_data_cols);
 
     get_variance(stats, n_seconds, n_1_seconds, batch_size, readahead_online_data, 
         readahead_norm_online_data_last_values, local_variance, readahead_online_data_cols);
     
     matrix_map(local_variance, local_std_dev, readahead_online_data_cols);
     normalize_data(readahead_online_data, local_average, 
-    local_std_dev, readahead_norm_online_data, batch_size, readahead_online_data_cols);
+        local_std_dev, readahead_norm_online_data, batch_size, readahead_online_data_cols);
     
     free(local_average);
     free(local_std_dev);
