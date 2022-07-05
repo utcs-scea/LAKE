@@ -175,7 +175,7 @@ static void nl_socket_cmd_send(struct kava_chan *chan, struct kava_cmd_base *cmd
 
     if (!__is_worker_connected) return;
 
-    //work_on_cpu(4, nlsend_cpu, (void*)cmd);
+    //work_on_cpu(2, nlsend_cpu, (void*)cmd);
 
     if (seeker->skb_start) {
         skb_out = seeker->skb_start;

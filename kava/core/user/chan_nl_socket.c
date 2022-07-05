@@ -108,12 +108,12 @@ static struct kava_cmd_base *nl_socket_cmd_receive(struct kava_chan *chan)
     ssize_t ret;
     //struct timeval tv_recv;
 
-    // while(1) {
-    //     ret = nl_recv(nls, &nla, (unsigned char **)&nlh, NULL);
-    //     if (ret > 0) break;
-    // }
+    while(1) {
+        ret = nl_recv(nls, &nla, (unsigned char **)&nlh, NULL);
+        if (ret > 0) break;
+    }
 
-    nl_recv(nls, &nla, (unsigned char **)&nlh, NULL);
+    //nl_recv(nls, &nla, (unsigned char **)&nlh, NULL);
 
     //gettimeofday(&tv_recv, NULL);
     //printf("Upcall received: sec=%lu, usec=%lu\n", tv_recv.tv_sec, tv_recv.tv_usec);
@@ -293,7 +293,7 @@ struct kava_chan *kava_chan_nl_socket_new(const char *dev_name)
     pr_info("Default socket message buffer size %ld\n", nl_socket_get_msg_buf_size(nls));
 
     //set non blocking to lower latency.
-    //nl_socket_set_nonblocking(nls);
+    nl_socket_set_nonblocking(nls);
 
     /* Notify klib of PID */
     cmd = nl_socket_cmd_new(chan, sizeof(struct kava_cmd_base), 0);

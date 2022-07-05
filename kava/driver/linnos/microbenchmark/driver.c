@@ -9,6 +9,7 @@
 #define LEN_LAYER_0_HALF 128
 #define LEN_LAYER_1 2
 
+#define RUNS 3
 
 static char *cubin_path = "linnos.cubin";
 module_param(cubin_path, charp, 0444);
@@ -115,9 +116,8 @@ void get_result_batch(int batch_size) {
 
 static int run_gpu(void) {
     int i, j;
-    int RUNS;
-    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
-    int n_batches = 11;
+    int batch_sizes[] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    int n_batches = 12;
     // n needs to be at least as large as the largest batch size
     const int n = 1024;
     
@@ -136,7 +136,6 @@ static int run_gpu(void) {
 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
-    RUNS = 10;
     comp_run_times = (u64*) kava_alloc(RUNS*sizeof(u64));
     total_run_times = (u64*) kava_alloc(RUNS*sizeof(u64));
 
@@ -153,10 +152,9 @@ static int run_gpu(void) {
         copy_batch_inputs(batch_size);
 
         //warmup
-        for (j = 0 ; j < RUNS ; j++) {
-            gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
-            usleep_range(200, 300);
-        }
+        gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
+        cuCtxSynchronize();
+        usleep_range(250, 1000);
     
         for (j = 0 ; j < RUNS ; j++) {
             //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
@@ -166,13 +164,13 @@ static int run_gpu(void) {
             get_result_batch(batch_size);
             t_stop = ktime_get_ns();
             
-            usleep_range(200, 300);
+            usleep_range(500, 2000);
 
             c_start = ktime_get_ns();
             gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
             c_stop = ktime_get_ns();
             
-            usleep_range(200, 300);
+            usleep_range(500, 2000);
             comp_run_times[j] = (c_stop - c_start);
             total_run_times[j] = (t_stop - t_start);
 	    }

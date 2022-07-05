@@ -302,7 +302,7 @@ static int run(void) {
     //int batch_sizes[] = {512};
     //int n_batches = 1;
     int batch_sizes[] = {16, 1,2,4,8,16,32,64, 128, 256, 512,1024};
-    int n_batches = 11;
+    int n_batches = 12;
     const int max_batch = 1024;
     int RUNS = 3;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};

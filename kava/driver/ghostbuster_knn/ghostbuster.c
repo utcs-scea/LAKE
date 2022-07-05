@@ -339,7 +339,6 @@ int knn_cuda( const FLOAT *ref,
    ret |= cuMemcpyHtoDAsync( query_dev, query,
                              query_pitch_in_bytes, ctx.stream );
 
-
   if ( ret ) {
     pr_err( "Unable to copy data from host to device\n" );
     goto out;
@@ -513,7 +512,7 @@ int test( const FLOAT *ref,
 
     ctimes += ctime;
     ttimes += ttime;
-    usleep_range(20, 200);
+    usleep_range(500, 2000);
   }
   //pr_info( "KNN computation succeeded\n" );
 
@@ -569,8 +568,8 @@ int run_knn( void )
   int query_sz;
   int knn_dist_sz = query_nb * k * sizeof( FLOAT );
   int i, dim;
-  int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
-  int ndims = 11;
+  int dims[] = {512, 1,2,4,8, 16, 32, 64, 128,256,512,1024};
+  int ndims = 12;
 
   knn_index = (int *) vmalloc( knn_index_sz );
   knn_dist = vmalloc( knn_dist_sz );

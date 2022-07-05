@@ -267,9 +267,9 @@ void autodiff_forward(int batch_size, int sync) {
         &d_w2, &d_b2, &wt2,
         &d_out0, &d_out1, &d_out2
 	};
-
+    int zg = sync == 0 ? 1 : 69; 
     check_error(cuLaunchKernel(forward_fused, 
-				batch_size, 1, 1,          //blocks
+				batch_size, 1, zg,          //blocks
 				16, 1, 1,   //threads per block
 				0,   //shared mem
                 NULL, args, NULL),
@@ -388,9 +388,9 @@ void predict_readahead_class(int batch_size, int sync) {
 static int run_gpu(void) {
     int i, j;
     const int n = 1024;
-    //int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
-    int batch_sizes[] = {512};
-    int n_batches = 1;
+    int batch_sizes[] = {512,1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    //int batch_sizes[] = {512};
+    int n_batches = 12;
 
     int batch_size;
     u64 t_start, t_stop, c_start, c_stop;
@@ -425,9 +425,12 @@ static int run_gpu(void) {
         result = (int*) kava_alloc(batch_size * sizeof(int));
         setup_gpu(batch_size);
         copy_batch_inputs(batch_size);
-        predict_readahead_class(batch_size, 1);
-
+        predict_readahead_class(batch_size, 0);
+        cuCtxSynchronize();
         usleep_range(1000, 2000);
+        predict_readahead_class(batch_size, 0);
+        cuCtxSynchronize();
+
 
         for (j = 0 ; j < RUNS ; j++) {
             //PRINT(V_INFO, "Runing for batch size %d\n", batch_size);
@@ -437,13 +440,13 @@ static int run_gpu(void) {
             get_result_batch(batch_size);
             t_stop = ktime_get_ns();
 
-            usleep_range(100, 200);
+            usleep_range(1000, 2000);
 
             c_start = ktime_get_ns();
             predict_readahead_class(batch_size, 1);
             c_stop = ktime_get_ns();
             
-            usleep_range(100, 200);
+            usleep_range(1000, 2000);
     
             comp_run_times[j] = (c_stop - c_start);
             total_run_times[j] = (t_stop - t_start);
