@@ -38,7 +38,7 @@ MODULE_DESCRIPTION(description_string);
 MODULE_VERSION("0.01");
 MODULE_LICENSE("GPL");
 
-#define N_WARM 5
+#define N_WARM 3
 #define N_RUNS 5
 
 #define USE_KSHM 1

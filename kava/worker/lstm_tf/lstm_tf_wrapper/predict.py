@@ -5,7 +5,7 @@ import numpy as np
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 # os.environ["CUDA_VISIBLE_DEVICES"] = ""
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
 import tensorflow as tf
 from tensorflow import keras
@@ -99,7 +99,7 @@ def sequence_n_gram_parsing(alist,n_gram=20,num_class=341,sliding_window=1):
     ans = np.array(ans) # ans is an array of 20 one-hot encoding for a given syscall file
     return (ans)
 
-
+model = None
 def load_model(filepath="/home"):
     global model
     try:
@@ -141,8 +141,7 @@ def standard_inference(syscalls, num_syscall, sliding_window=1):
         sliding_window = 20
         #gc.collect()
 
-    syscalls = get_input(320)
-
+    #syscalls = get_input(320)
     start = timer()
 
     # if (len(syscalls) != num_syscall):
@@ -180,7 +179,7 @@ def dogc():
     gc.collect()
     
 if __name__ == "__main__":
-    load_model("/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper/gb_model")
+    load_model("/disk/hfingler/HACK/kava/worker/lstm_tf/lstm_tf_wrapper/gb_model")
     import random
     from time import sleep
     MAX_SYSCALL_IDX = 340

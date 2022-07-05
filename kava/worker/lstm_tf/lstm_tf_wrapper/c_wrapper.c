@@ -19,7 +19,7 @@ PyObject *makearray(int *array, size_t size) {
 
 int load_model(const char *filepath) {
     /* char *filepath = "/home/edwardhu/kava/worker/lstm_tf/lstm_tf_wrapper/"; */
-    printf("%s\n", filepath);
+    printf("loading model from : %s\n", filepath);
 
     wchar_t** _argv = PyMem_Malloc(sizeof(wchar_t*)*1);
     wchar_t* arg = Py_DecodeLocale("test", NULL);
@@ -31,7 +31,7 @@ int load_model(const char *filepath) {
 
     PyObject* sysPath = PySys_GetObject("path");
 
-    char *libpath = "/home/hfingler/hf-HACK/kava/worker/lstm_tf/lstm_tf_wrapper";
+    char *libpath = "/disk/hfingler/HACK/kava/worker/lstm_tf/lstm_tf_wrapper";
     PyList_Append(sysPath, PyUnicode_FromString(libpath));
 
     PyObject *moduleString = PyUnicode_FromString("predict");
@@ -58,7 +58,6 @@ int load_model(const char *filepath) {
             return -1;
         }
     }
-
     //Py_Finalize();
     return 0;
 }
@@ -68,7 +67,6 @@ int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned 
     if (standardInferenceFunc != NULL) {
         /* Marshall args */
         PyObject *pArgs = PyTuple_New(3);
-
         PyTuple_SetItem(pArgs, 0, makearray((int *)syscalls, num_syscall));
         PyTuple_SetItem(pArgs, 1, PyLong_FromUnsignedLong((unsigned long)num_syscall));
         PyTuple_SetItem(pArgs, 2, PyLong_FromUnsignedLong((unsigned long)sliding_window));
@@ -141,9 +139,7 @@ int kleio_load_model(const char *filepath) {
 
     Py_Initialize();
     PySys_SetArgv(1, _argv);
-    printf("importing np array\n");
     _import_array();
-    printf("imported\n");
 
     PyObject* sysPath = PySys_GetObject("path");
     char *libpath = "/disk/hfingler/HACK/kava/worker/lstm_tf/lstm_tf_wrapper/coeus-sim-master";
@@ -174,11 +170,19 @@ int kleio_load_model(const char *filepath) {
         }
     }
     //Py_Finalize();
-    printf("model loaded\n");
     return 0;
 }
 
 void dogc(void) {
+    if (!kleio_pDict) {
+        PyObject* sysPath = PySys_GetObject("path");
+        char *libpath = "/disk/hfingler/HACK/kava/worker/lstm_tf/lstm_tf_wrapper/coeus-sim-master";
+        PyList_Append(sysPath, PyUnicode_FromString(libpath));
+        PyObject *moduleString = PyUnicode_FromString("run_cluster_lstm");
+        PyObject *PyPredict = PyImport_Import(moduleString);
+        kleio_pDict = PyModule_GetDict(PyPredict);
+    }
+
     PyObject *func = PyDict_GetItem(kleio_pDict, PyUnicode_FromString("dogc"));
     PyObject *pyResult = PyObject_CallObject(func, 0);
     if (!pyResult) {
