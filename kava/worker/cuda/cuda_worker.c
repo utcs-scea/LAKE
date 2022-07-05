@@ -212,7 +212,7 @@ __wrapper_cuLaunchKernel(CUfunction f, unsigned int gridDimX, unsigned int gridD
                              blockDimY, blockDimZ, sharedMemBytes, hStream,
                              kernelParams, extra);
 
-        if (is_sync) cuStreamSynchronize(hStream);
+        if (is_sync != 0) cuStreamSynchronize(hStream);
 
     #if TBREAKDOWN
         clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &stop);

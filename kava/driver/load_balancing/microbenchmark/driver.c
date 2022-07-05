@@ -12,7 +12,7 @@
 #include <stdio.h>
 #define u64 uint64_t
 #include <unistd.h>
-#define usleep_range(X,Y) sleep(X/1000)
+#define usleep_range(X,Y) sleep(X/1000000)
 #include <sys/time.h>
 u64 get_tsns() {
     struct timeval current_time;
@@ -36,7 +36,7 @@ int use_kshm = 1;
 module_param(use_kshm, int, 0);
 MODULE_PARM_DESC(use_kshm, "Set to 1 (default) to use zero copy");
 #else
-static char *cubin_path = "/disk/hfingler/HACK/kava/driver/load_balancing/microbenchmark/mllb.cubin";
+static char *cubin_path = "/home/hfingler/hf-HACK/kava/driver/load_balancing/microbenchmark/mllb.cubin";
 int use_kshm = 1;
 #endif
 
@@ -202,15 +202,15 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
     for (i = 0 ; i < n_batches ; i++) {
         batch_size = batch_sizes[i];
         gpu_setup(batch_size, &d_inputs, &d_w1, &d_b1, &d_w2, &d_results);
-
         float* outs = vmalloc(batch_size * sizeof(float));
 
         //warmup
-        for (j = 0 ; j < RUNS ; j++) {
-            gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
-            gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
-            usleep_range(200, 300);
-        }
+        gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
+        gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 0);
+        cuCtxSynchronize();
+        gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 0);
+        cuCtxSynchronize();
+        usleep_range(250, 1000);
 
         for (j = 0 ; j < RUNS ; j++) {
             t_start = ktime_get_ns();
@@ -219,28 +219,72 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
             gpu_get_result(batch_size, d_results, outs);
             t_stop = ktime_get_ns();
 
-            usleep_range(200, 300);
-
             c_start = ktime_get_ns();
             gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
             c_stop = ktime_get_ns();
 
             comp_run_times[j] = (c_stop - c_start);
             total_run_times[j] = (t_stop - t_start);
-            usleep_range(200, 300);
+            usleep_range(250, 1000);
         }
 
         avg = 0; avg_total = 0;
+        best = 0; best_total = 0;
         for (j = 0 ; j < RUNS ; j++) {
             avg += comp_run_times[j];
             avg_total += total_run_times[j];
+            if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
+            if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
         }
         avg = avg / (1000*RUNS); 
         avg_total = avg_total / (1000*RUNS);
-        
+        best = best / 1000; 
+        best_total = best_total / 1000;
+
+        //PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
         PRINT(V_INFO, "%d, %lld, %lld\n", batch_size, avg, avg_total);
         gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
         vfree(outs);
+
+
+        // float* outs = vmalloc(batch_size * sizeof(float));
+
+        // //warmup
+        // for (j = 0 ; j < 1 ; j++) {
+        //     gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
+        //     gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
+        //     usleep_range(200, 300);
+        // }
+
+        // for (j = 0 ; j < RUNS ; j++) {
+        //     t_start = ktime_get_ns();
+        //     gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
+        //     gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 0);
+        //     gpu_get_result(batch_size, d_results, outs);
+        //     t_stop = ktime_get_ns();
+
+        //     usleep_range(1000, 2000);
+
+        //     c_start = ktime_get_ns();
+        //     gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
+        //     c_stop = ktime_get_ns();
+
+        //     comp_run_times[j] = (c_stop - c_start);
+        //     total_run_times[j] = (t_stop - t_start);
+        //     usleep_range(1000, 2000);
+        // }
+
+        // avg = 0; avg_total = 0;
+        // for (j = 0 ; j < RUNS ; j++) {
+        //     avg += comp_run_times[j];
+        //     avg_total += total_run_times[j];
+        // }
+        // avg = avg / (1000*RUNS); 
+        // avg_total = avg_total / (1000*RUNS);
+        
+        // PRINT(V_INFO, "%d, %lld, %lld\n", batch_size, avg, avg_total);
+        // gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
+        // vfree(outs);
     }
 
     if (!use_kshm) 
@@ -257,13 +301,13 @@ static int run(void) {
     //these are configurable
     //int batch_sizes[] = {512};
     //int n_batches = 1;
-    int batch_sizes[] = {1,2,4,8,16,32,64, 128, 256, 512,1024};
+    int batch_sizes[] = {16, 1,2,4,8,16,32,64, 128, 256, 512,1024};
     int n_batches = 11;
     const int max_batch = 1024;
-    int RUNS = 10;
+    int RUNS = 3;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
 
-    run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
+    //run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
     run_gpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
 
     return 0;

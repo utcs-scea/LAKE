@@ -26,7 +26,7 @@
 #include <net/sock.h>
 #include <asm/uaccess.h>
 
-#include <linux/workqueue.h>
+//#include <linux/workqueue.h>
 
 #include "api.h"
 #include "channel.h"
@@ -126,8 +126,8 @@ long nlsend_cpu(void* arg) {
         skb_out = seeker->skb_start;
         seeker->skb_start = NULL; /* Do not send this secret to user-space. */
         nlmsg_end(skb_out, (struct nlmsghdr *)skb_out->data);
-        ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
-        //ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
+        //ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
+        ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
         if (ret < 0) {
             pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
             __is_worker_connected = 0;
@@ -167,45 +167,45 @@ long nlsend_cpu(void* arg) {
  */
 static void nl_socket_cmd_send(struct kava_chan *chan, struct kava_cmd_base *cmd)
 {
-    //struct block_seeker *seeker = (struct block_seeker *)cmd->reserved_area;
-    //struct sk_buff *skb_out;
-    //struct nlmsghdr *nlh;
-    //size_t cmd_size;
-    //int ret;
+    struct block_seeker *seeker = (struct block_seeker *)cmd->reserved_area;
+    struct sk_buff *skb_out;
+    struct nlmsghdr *nlh;
+    size_t cmd_size;
+    int ret;
 
     if (!__is_worker_connected) return;
 
-    work_on_cpu(4, nlsend_cpu, (void*)cmd);
+    //work_on_cpu(4, nlsend_cpu, (void*)cmd);
 
-    // if (seeker->skb_start) {
-    //     skb_out = seeker->skb_start;
-    //     seeker->skb_start = NULL; /* Do not send this secret to user-space. */
-    //     nlmsg_end(skb_out, (struct nlmsghdr *)skb_out->data);
-    //     //ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
-    //     ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
-    //     if (ret < 0) {
-    //         pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
-    //         __is_worker_connected = 0;
-    //         up(&recv_cmdr->count_sem);
-    //     }
-    // }
-    // else {
-    //     cmd_size = cmd->command_size + cmd->region_size;
-    //     skb_out = nlmsg_new(cmd_size, 0);
-    //     nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, cmd_size, 0);
-    //     NETLINK_CB(skb_out).dst_group = 0;
-    //     memcpy(nlmsg_data(nlh), cmd, cmd_size);
-    //     nlmsg_end(skb_out, nlh);
-    //     //ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
-    //     ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
-    //     if (ret < 0) {
-    //         pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
-    //         __is_worker_connected = 0;
-    //         up(&recv_cmdr->count_sem);
-    //     }
-    //     else
-    //         kfree(cmd);
-    // }
+    if (seeker->skb_start) {
+        skb_out = seeker->skb_start;
+        seeker->skb_start = NULL; /* Do not send this secret to user-space. */
+        nlmsg_end(skb_out, (struct nlmsghdr *)skb_out->data);
+        //ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
+        ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
+        if (ret < 0) {
+            pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
+            __is_worker_connected = 0;
+            up(&recv_cmdr->count_sem);
+        }
+    }
+    else {
+        cmd_size = cmd->command_size + cmd->region_size;
+        skb_out = nlmsg_new(cmd_size, 0);
+        nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, cmd_size, 0);
+        NETLINK_CB(skb_out).dst_group = 0;
+        memcpy(nlmsg_data(nlh), cmd, cmd_size);
+        nlmsg_end(skb_out, nlh);
+        //ret = nlmsg_unicast(nl_sk, skb_out, worker_pid);
+        ret = netlink_unicast(nl_sk, skb_out, worker_pid, 0);
+        if (ret < 0) {
+            pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
+            __is_worker_connected = 0;
+            up(&recv_cmdr->count_sem);
+        }
+        else
+            kfree(cmd);
+    }
 }
 
 static void netlink_recv_msg(struct sk_buff *skb)

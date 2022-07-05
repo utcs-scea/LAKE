@@ -93,6 +93,8 @@ int gpu_inference_many(CUfunction* cufunc, int n_inputs,
     //pr_info("kernel<: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
     //cuCtxSynchronize();
+
+    //cuCtxSynchronize();
     //getnstimeofday(&ts);
     //pr_info("sync: sec=%lu, usec=%lu\n", ts.tv_sec, ts.tv_nsec / 1000);
 
