@@ -587,8 +587,6 @@ void AES_GCM_compute_mac( uint8_t* dst, uint8_t* nonce,
   dim3 dimBlocks_4(1);
   AES_GCM_mac_final_kernel<<<numBlocks_4, dimBlocks_4>>>(d_engine.gf_last4, d_engine.HL, 
   d_engine.HH, d_engine.sbox, d_engine.aes_roundkey, nonce, dst, size, dst);
-
-
 }
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
