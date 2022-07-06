@@ -28,16 +28,25 @@ struct AES_GCM_engine {
     uint8_t buffer2[BLOCK_SIZE * AES_GCM_STEP];
 };
 
-// void AES_GCM_init(AES_GCM_engine** engine, const uint8_t* key, hipStream_t stream);
+struct AES_GCM_engine_device {
+    uint8_t *sbox;
+    uint8_t *rsbox;
+    uint8_t *Rcon;
+    uint8_t *key;
+    uint8_t *aes_roundkey;
+    uint8_t *gcm_h;
 
-// void AES_GCM_destroy(AES_GCM_engine* engine);
+    uint64_t *HL;
+    uint64_t *HH;
+    uint64_t *HL_long;
+    uint64_t *HH_long;
+    uint64_t *HL_sqr_long;
+    uint64_t *HH_sqr_long;
+    uint64_t *gf_last4;
 
-// void AES_GCM_encrypt(hip_launch_batch_t* batch, uint8_t* dst, const AES_GCM_engine* engine, const uint8_t* nonce,
-//         const uint8_t* src, uint32_t size, hipStream_t stream);
+    uint8_t *buffer1;
+    uint8_t *buffer2;
+};
 
-// void AES_GCM_decrypt(hip_launch_batch_t* batch, uint8_t* dst, const AES_GCM_engine* engine, const uint8_t* nonce,
-//         const uint8_t* src, uint32_t size, hipStream_t stream);
-
-// void AES_GCM_next_nonce(hip_launch_batch_t* batch, uint8_t* nonce, hipStream_t stream);
 
 #endif

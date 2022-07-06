@@ -17,10 +17,10 @@
 // state - array holding the intermediate results during decryption.
 typedef uint8_t state_t[4][4];
 
-// The lookup-tables are marked const so they can be placed in read-only storage instead of RAM
+// The lookup-tables are marked so they can be placed in read-only storage instead of RAM
 // The numbers below can be computed dynamically trading ROM for RAM -
 // This can be useful in (embedded) bootloader applications, where ROM is often limited.
-static const uint8_t sbox_host[256] = {
+static uint8_t sbox_host[256] = {
   //0     1    2      3     4    5     6     7      8    9     A      B    C     D     E     F
   0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
   0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
@@ -39,7 +39,7 @@ static const uint8_t sbox_host[256] = {
   0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
   0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16 };
 
-static const uint8_t rsbox_host[256] = {
+static uint8_t rsbox_host[256] = {
   0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
   0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
   0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
@@ -59,7 +59,7 @@ static const uint8_t rsbox_host[256] = {
 
 // The round constant word array, Rcon[i], contains the values given by
 // x to the power (i-1) being powers of x (x is denoted as {02}) in the field GF(2^8)
-static const uint8_t Rcon_host[11] = {
+static uint8_t Rcon_host[11] = {
   0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36 };
 
 /*
@@ -72,10 +72,15 @@ static const uint8_t Rcon_host[11] = {
  *  up to rcon[8] for AES-192, up to rcon[7] for AES-256. rcon[0] is not used in AES algorithm."
  */
 
+#define FIXED_SIZE_FULL (0x1UL << 20) // 1 MB
+
 uint8_t key[AES_KEYLEN];
 uint8_t nonce_host[crypto_aead_aes256gcm_NPUBBYTES];
 uint8_t* nonce_device;
-AES_GCM_engine* d_engine;
+
+AES_GCM_engine_device d_engine;
+AES_GCM_engine h_engine;
+
 EVP_CIPHER_CTX* encrypt_ctx;
 EVP_CIPHER_CTX* decrypt_ctx;
 
@@ -85,8 +90,8 @@ EVP_CIPHER_CTX* decrypt_ctx;
 /*****************************************************************************/
 
 // This function produces Nb(Nr+1) round keys. The round keys are used in each round to decrypt the states.
-__device__ void KeyExpansion(const uint8_t* sbox, const uint8_t* Rcon, uint8_t* RoundKey,
-    const uint8_t* Key)
+__device__ void KeyExpansion(uint8_t* sbox, uint8_t* Rcon, uint8_t* RoundKey,
+    uint8_t* Key)
 {
   unsigned i, j, k;
   uint8_t tempa[4]; // Used for the column/row operations
@@ -119,7 +124,7 @@ __device__ void KeyExpansion(const uint8_t* sbox, const uint8_t* Rcon, uint8_t* 
 
       // Function RotWord()
       {
-        const uint8_t u8tmp = tempa[0];
+        uint8_t u8tmp = tempa[0];
         tempa[0] = tempa[1];
         tempa[1] = tempa[2];
         tempa[2] = tempa[3];
@@ -159,7 +164,7 @@ __device__ void KeyExpansion(const uint8_t* sbox, const uint8_t* Rcon, uint8_t* 
 
 // This function adds the round key to state.
 // The round key is added to the state by an XOR function.
-__device__ void AddRoundKey(uint8_t r, state_t* state, const uint8_t* RoundKey)
+__device__ void AddRoundKey(uint8_t r, state_t* state, uint8_t* RoundKey)
 {
   uint8_t i,j;
 #pragma unroll
@@ -175,7 +180,7 @@ __device__ void AddRoundKey(uint8_t r, state_t* state, const uint8_t* RoundKey)
 
 // The SubBytes Function Substitutes the values in the
 // state matrix with values in an S-box.
-__device__ void SubBytes(const uint8_t* sbox, state_t* state)
+__device__ void SubBytes(uint8_t* sbox, state_t* state)
 {
   uint8_t i, j;
 #pragma unroll
@@ -244,7 +249,7 @@ __device__ void MixColumns(state_t* state)
 
 
 // Cipher is the main function that encrypts the PlainText.
-__device__ void Cipher(const uint8_t* sbox, state_t* state, const uint8_t* RoundKey)
+__device__ void Cipher(uint8_t* sbox, state_t* state, uint8_t* RoundKey)
 {
   uint8_t r = 0;
   state_t local_state;
@@ -286,15 +291,15 @@ __device__ void Cipher(const uint8_t* sbox, state_t* state, const uint8_t* Round
   }
 }
 
-__global__ void AES_key_expansion_kernel(const uint8_t* sbox, const uint8_t* Rcon,
-    const uint8_t* key, uint8_t* roundkey) {
+__global__ void AES_key_expansion_kernel(uint8_t* sbox, uint8_t* Rcon,
+    uint8_t* key, uint8_t* roundkey) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid == 0) {
     KeyExpansion(sbox, Rcon, roundkey, key);
   }
 }
 
-__global__ void AES_encrypt_one_block_kernel(const uint8_t* sbox, const uint8_t* roundkey,
+__global__ void AES_encrypt_one_block_kernel(uint8_t* sbox, uint8_t* roundkey,
     uint8_t* data) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid == 0) {
@@ -302,11 +307,11 @@ __global__ void AES_encrypt_one_block_kernel(const uint8_t* sbox, const uint8_t*
   }
 }
 
-static const uint64_t gf_last4_host[16] = {
+static uint64_t gf_last4_host[16] = {
   0x0000, 0x1c20, 0x3840, 0x2460, 0x7080, 0x6ca0, 0x48c0, 0x54e0,
   0xe100, 0xfd20, 0xd940, 0xc560, 0x9180, 0x8da0, 0xa9c0, 0xb5e0  };
 
-__device__ uint32_t get_be32(const uint8_t *a)
+__device__ uint32_t get_be32(uint8_t *a)
 {
   return ((uint32_t) a[0] << 24) | ((uint32_t) a[1] << 16) | ((uint32_t) a[2] << 8) | a[3];
 }
@@ -319,8 +324,8 @@ __device__ void put_be32(uint8_t *a, uint32_t val)
   a[3] = val & 0xff;
 }
 
-__device__ void gf_mult_fast(const uint64_t* last4, const uint64_t* HL, const uint64_t* HH,
-    const uint8_t* x, uint8_t* output) {
+__device__ void gf_mult_fast(uint64_t* last4, uint64_t* HL, uint64_t* HH,
+    uint8_t* x, uint8_t* output) {
   int i;
   uint8_t lo, hi, rem;
   uint64_t zh, zl;
@@ -353,7 +358,7 @@ __device__ void gf_mult_fast(const uint64_t* last4, const uint64_t* HL, const ui
   put_be32(output + 12, zl);
 }
 
-__device__ void gf_build_table(const uint8_t* h, uint64_t* HL, uint64_t* HH) {
+__device__ void gf_build_table(uint8_t* h, uint64_t* HL, uint64_t* HH) {
   int i, j;
   uint64_t hi, lo;
   uint64_t vl, vh;
@@ -390,7 +395,7 @@ __device__ void gf_build_table(const uint8_t* h, uint64_t* HL, uint64_t* HH) {
 }
 
 __global__ void AES_GCM_setup_gf_mult_table_kernel(
-    const uint64_t* last4, const uint8_t* h, uint64_t* HL, uint64_t* HH,
+    uint64_t* last4, uint8_t* h, uint64_t* HL, uint64_t* HH,
     uint64_t* HL_long, uint64_t* HH_long,
     uint64_t* HL_sqr_long, uint64_t* HH_sqr_long) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
@@ -422,8 +427,8 @@ __global__ void AES_GCM_setup_gf_mult_table_kernel(
   }
 }
 
-__global__ void AES_GCM_xcrypt_kernel(uint8_t* dst, const uint8_t* sbox, const uint8_t* roundkey,
-    const uint8_t* nonce, const uint8_t* src, uint32_t size) {
+__global__ void AES_GCM_xcrypt_kernel(uint8_t* dst, uint8_t* sbox, uint8_t* roundkey,
+    uint8_t* nonce, uint8_t* src, uint32_t size) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid * AES_BLOCKLEN < size) {
     uint8_t buffer[16];
@@ -489,7 +494,7 @@ __global__ void AES_GCM_mac_kernel(
 }
 
 __global__ void AES_GCM_mac_final_kernel(
-    const uint64_t* last4, uint64_t* HL, uint64_t* HH, uint8_t* sbox, uint8_t* roundkey,
+    uint64_t* last4, uint64_t* HL, uint64_t* HH, uint8_t* sbox, uint8_t* roundkey,
     uint8_t* nonce, uint8_t* x, uint32_t input_size, uint8_t* mac) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid == 0) {
@@ -529,15 +534,13 @@ __global__ void AES_GCM_next_nonce_kernel(uint8_t* nonce) {
   }
 }
 
-void AES_GCM_xcrypt(uint8_t* dst, const uint8_t* nonce,
-    const uint8_t* src, uint32_t size) {
+void AES_GCM_xcrypt(uint8_t* dst, uint8_t* nonce, uint8_t* src, uint32_t size) {
   int num_block = (size / 16 + kBaseThreadNum-1) / kBaseThreadNum;
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_xcrypt_kernel), num_block, kBaseThreadNum, 0, stream,
 //       dst, engine->sbox, engine->aes_roundkey, nonce, src, size);
   dim3 numBlocks(num_block);
   dim3 dimBlocks(kBaseThreadNum);
-  AES_GCM_xcrypt_kernel<<<numBlocks, dimBlocks>>>(dst, d_engine->sbox, d_engine->aes_roundkey, nonce,
-     src, size);
+  AES_GCM_xcrypt_kernel<<<numBlocks, dimBlocks>>>(dst, d_engine.sbox, d_engine.aes_roundkey, nonce, src, size);
 }
 
 void AES_GCM_encrypt_one_block(uint8_t* data) {  
@@ -545,7 +548,7 @@ void AES_GCM_encrypt_one_block(uint8_t* data) {
 //       engine->sbox, engine->aes_roundkey, data);
     dim3 numBlocks(1);
     dim3 dimBlocks(1);
-    AES_encrypt_one_block_kernel<<<numBlocks, dimBlocks>>>(d_engine->sbox, d_engine->aes_roundkey, data);
+    AES_encrypt_one_block_kernel<<<numBlocks, dimBlocks>>>(d_engine.sbox, d_engine.aes_roundkey, data);
 }
 
 void AES_GCM_compute_mac( uint8_t* dst, uint8_t* nonce,
@@ -555,8 +558,8 @@ void AES_GCM_compute_mac( uint8_t* dst, uint8_t* nonce,
 //       src, size / 16, engine->buffer1);
   dim3 numBlocks_1(AES_GCM_STEP);
   dim3 dimBlocks_1(AES_GCM_STEP);
-  AES_GCM_mac_kernel<<<numBlocks_1, dimBlocks_1>>>(d_engine->gf_last4, d_engine->HL_sqr_long, 
-  d_engine->HH_sqr_long, AES_GCM_STEP * AES_GCM_STEP, src, size / 16, d_engine->buffer1);
+  AES_GCM_mac_kernel<<<numBlocks_1, dimBlocks_1>>>(d_engine.gf_last4, d_engine.HL_sqr_long, 
+  d_engine.HH_sqr_long, AES_GCM_STEP * AES_GCM_STEP, src, size / 16, d_engine.buffer1);
 
 
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_mac_kernel), AES_GCM_STEP / 8, 8, 0, stream,
@@ -564,17 +567,17 @@ void AES_GCM_compute_mac( uint8_t* dst, uint8_t* nonce,
 //       engine->buffer1, AES_GCM_STEP * AES_GCM_STEP, engine->buffer2);
   dim3 numBlocks_2(AES_GCM_STEP / 8);
   dim3 dimBlocks_2(8);
-  AES_GCM_mac_kernel<<<numBlocks_2, dimBlocks_2>>>(d_engine->gf_last4, d_engine->HL_long, 
-  d_engine->HH_long, AES_GCM_STEP,
-   d_engine->buffer1, AES_GCM_STEP * AES_GCM_STEP, d_engine->buffer2);
+  AES_GCM_mac_kernel<<<numBlocks_2, dimBlocks_2>>>(d_engine.gf_last4, d_engine.HL_long, 
+  d_engine.HH_long, AES_GCM_STEP,
+   d_engine.buffer1, AES_GCM_STEP * AES_GCM_STEP, d_engine.buffer2);
 
 
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_mac_kernel), 1, 1, 0, stream,
 //       engine->gf_last4, engine->HL, engine->HH, 1, engine->buffer2, AES_GCM_STEP, dst);
   dim3 numBlocks_3(1);
   dim3 dimBlocks_3(1);
-  AES_GCM_mac_kernel<<<numBlocks_3, dimBlocks_3>>>(d_engine->gf_last4, d_engine->HL, d_engine->HH,
-   1, d_engine->buffer2, AES_GCM_STEP, dst);
+  AES_GCM_mac_kernel<<<numBlocks_3, dimBlocks_3>>>(d_engine.gf_last4, d_engine.HL, d_engine.HH,
+   1, d_engine.buffer2, AES_GCM_STEP, dst);
 
 
 //   hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_mac_final_kernel), 1, 1, 0, stream,
@@ -582,12 +585,11 @@ void AES_GCM_compute_mac( uint8_t* dst, uint8_t* nonce,
 //       nonce, dst, size, dst);
   dim3 numBlocks_4(1);
   dim3 dimBlocks_4(1);
-  AES_GCM_mac_final_kernel<<<numBlocks_4, dimBlocks_4>>>(d_engine->gf_last4, d_engine->HL, 
-  d_engine->HH, d_engine->sbox, d_engine->aes_roundkey, nonce, dst, size, dst);
+  AES_GCM_mac_final_kernel<<<numBlocks_4, dimBlocks_4>>>(d_engine.gf_last4, d_engine.HL, 
+  d_engine.HH, d_engine.sbox, d_engine.aes_roundkey, nonce, dst, size, dst);
 
 
 }
-
 
 #define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
@@ -598,57 +600,46 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
       if (abort) exit(code);
    }
 }
+//void AES_GCM_init(AES_GCM_engine** engine, uint8_t* key, hipStream_t stream) {
+void AES_GCM_init(uint8_t* key) {
+    gpuErrchk(cudaMalloc(&d_engine.sbox, SBOX_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.rsbox, SBOX_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.Rcon,  RCON_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.key,   AES_KEYLEN));
+    gpuErrchk(cudaMalloc((void**)&d_engine.aes_roundkey, AES_ROUNDKEYLEN));
+    gpuErrchk(cudaMalloc((void**)&d_engine.gcm_h, 16));
 
+    gpuErrchk(cudaMalloc((void**)&d_engine.HL,          BLOCK_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.HH,          BLOCK_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.HL_long,     BLOCK_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.HH_long,     BLOCK_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.HL_sqr_long, BLOCK_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.HH_sqr_long, BLOCK_SIZE));
+    gpuErrchk(cudaMalloc((void**)&d_engine.gf_last4,    BLOCK_SIZE));
 
+    gpuErrchk(cudaMalloc((void**)&d_engine.buffer1, BLOCK_SIZE * AES_GCM_STEP * AES_GCM_STEP));
+    gpuErrchk(cudaMalloc((void**)&d_engine.buffer2, BLOCK_SIZE * AES_GCM_STEP));
 
-/*
-template <typename... Args, typename F = void (*)(Args...)>
-inline void hipLaunchNOW(F kernel, const dim3& numBlocks, const dim3& dimBlocks,
-                         std::uint32_t sharedMemBytes, hipStream_t stream, Args... args)
-{
-    hsa_kernel_dispatch_packet_t aql = {0};
-    auto kernarg = hip_impl::make_kernarg(std::move(args)...);
-
-    auto fun = hip_function_lookup((uintptr_t)kernel, stream);
-    hip_function_to_aql(&aql, fun, DIM3_TO_AQL(numBlocks, dimBlocks), 0);
-
-    __do_c_hipHccModuleLaunchKernel(&aql, stream, nullptr, (char *)kernarg.data(),
-                                    kernarg.size(), nullptr, nullptr);
-}
-*/
-
-void AES_GCM_init(const uint8_t* key) {
-    //HIP_CHECK(hipMalloc(engine, sizeof(AES_GCM_engine)));
-    gpuErrchk(cudaMalloc((void**)&d_engine, sizeof(AES_GCM_engine)));
-
-    AES_GCM_engine h_engine;
-    memcpy(h_engine.sbox, sbox_host, SBOX_SIZE);
-    memcpy(h_engine.rsbox, rsbox_host, SBOX_SIZE);
-    memcpy(h_engine.Rcon, Rcon_host, RCON_SIZE);
-    memcpy(h_engine.key, key, AES_KEYLEN);
-    memset(h_engine.gcm_h, 0, 16);
-
-    cudaMemcpy(d_engine, &h_engine, sizeof(AES_GCM_engine), cudaMemcpyHostToDevice);
+    gpuErrchk(cudaMemcpy(d_engine.sbox, sbox_host, SBOX_SIZE, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(d_engine.rsbox, rsbox_host, SBOX_SIZE, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(d_engine.Rcon, Rcon_host, RCON_SIZE, cudaMemcpyHostToDevice));
+    gpuErrchk(cudaMemcpy(d_engine.key, key, AES_KEYLEN, cudaMemcpyHostToDevice));
 
     dim3 numBlocks(1);
     dim3 dimBlocks(1);
+    AES_key_expansion_kernel<<<numBlocks, dimBlocks>>>(d_engine.sbox, d_engine.Rcon, d_engine.key, d_engine.aes_roundkey);
 
-    //hipLaunchNOW(HIP_KERNEL_NAME(AES_key_expansion_kernel), 1, 1, 0, stream,
-    //    e->sbox, e->Rcon, e->key, e->aes_roundkey);
-    AES_key_expansion_kernel<<<numBlocks, dimBlocks>>>(d_engine->sbox, d_engine->Rcon, d_engine->key, d_engine->aes_roundkey);
-  
-  
-//   //HIP_CHECK(hipMemset(e->gcm_h, 0, 16)); // memset async isn't supported by HIP, so we block here
-  AES_GCM_encrypt_one_block(d_engine->gcm_h);
+    //gpuErrchk(cudaMemset(d_engine.gcm_h, 0, 16));
+    //HIP_CHECK(hipMemset(e->gcm_h, 0, 16)); // memset async isn't supported by HIP, so we block here
+    AES_GCM_encrypt_one_block(d_engine.gcm_h);
 
-//   HIP_CHECK(nw_hipMemcpySync(e->gf_last4, gf_last4_host, sizeof(gf_last4_host), hipMemcpyHostToDevice, stream));
-    cudaMemcpy(d_engine->gf_last4, gf_last4_host, sizeof(gf_last4_host), cudaMemcpyHostToDevice);
+    //HIP_CHECK(nw_hipMemcpySync(e->gf_last4, gf_last4_host, sizeof(gf_last4_host), hipMemcpyHostToDevice, stream));
+    cudaMemcpy(d_engine.gf_last4, gf_last4_host, BLOCK_SIZE, cudaMemcpyHostToDevice);
 
-//   hipLaunchNOW(HIP_KERNEL_NAME(AES_GCM_setup_gf_mult_table_kernel), 1, 1, 0, stream,
-//       e->gf_last4, e->gcm_h, e->HL, e->HH, e->HL_long, e->HH_long, e->HL_sqr_long, e->HH_sqr_long);
-AES_GCM_setup_gf_mult_table_kernel<<<numBlocks, dimBlocks>>>(d_engine->gf_last4, d_engine->gcm_h,
- d_engine->HL, d_engine->HH, d_engine->HL_long, d_engine->HH_long, d_engine->HL_sqr_long, d_engine->HH_sqr_long);
-//   // no need to synchronize since all future GPU encryption operations will be on the same stream (hopefully?)
+    //   hipLaunchNOW(HIP_KERNEL_NAME(AES_GCM_setup_gf_mult_table_kernel), 1, 1, 0, stream,
+    //       e->gf_last4, e->gcm_h, e->HL, e->HH, e->HL_long, e->HH_long, e->HL_sqr_long, e->HH_sqr_long);
+    AES_GCM_setup_gf_mult_table_kernel<<<numBlocks, dimBlocks>>>(d_engine.gf_last4, d_engine.gcm_h,
+        d_engine.HL, d_engine.HH, d_engine.HL_long, d_engine.HH_long, d_engine.HL_sqr_long, d_engine.HH_sqr_long);
 }
 
 void AES_GCM_destroy(AES_GCM_engine* engine) {
@@ -656,39 +647,27 @@ void AES_GCM_destroy(AES_GCM_engine* engine) {
 }
 
 // dst buffer should be of size: size + crypto_aead_aes256gcm_ABYTES
-//void AES_GCM_encrypt(hip_launch_batch_t* batch, uint8_t* dst, const AES_GCM_engine* engine, const uint8_t* nonce,
-//    const uint8_t* src, uint32_t size, hipStream_t stream) {
-void AES_GCM_encrypt(uint8_t* dst, uint8_t* nonce,
-    const uint8_t* src, uint32_t size) {
-//   assert(size % AES_BLOCKLEN == 0);
-  AES_GCM_xcrypt(dst, nonce, src, size);
-  AES_GCM_compute_mac(&dst[size], nonce, dst, size);
+//void AES_GCM_encrypt(hip_launch_batch_t* batch, uint8_t* dst, AES_GCM_engine* engine, uint8_t* nonce,
+//    uint8_t* src, uint32_t size, hipStream_t stream) {
+void AES_GCM_encrypt(uint8_t* dst, uint8_t* nonce, uint8_t* src, uint32_t size) {
+    assert(size % AES_BLOCKLEN == 0);
+    AES_GCM_xcrypt(dst, nonce, src, size);
+    AES_GCM_compute_mac(&dst[size], nonce, dst, size);
 }
 
 // src buffer should be of size: size + crypto_aead_aes256gcm_ABYTES
-//void AES_GCM_decrypt(hip_launch_batch_t* batch, uint8_t* dst, const AES_GCM_engine* engine, const uint8_t* nonce,
-//    const uint8_t* src, uint32_t size, hipStream_t stream) {
-void AES_GCM_decrypt(uint8_t* dst, uint8_t* nonce,
-    uint8_t* src, uint32_t size) {
-//   assert(size % AES_BLOCKLEN == 0);
-  AES_GCM_compute_mac(dst, nonce, src, size);
-//   // TODO verify mac for i in crypto_aead_aes256gcm_ABYTES: (dst == src[size])
-  AES_GCM_xcrypt(dst, nonce, src, size);
+//void AES_GCM_decrypt(hip_launch_batch_t* batch, uint8_t* dst, AES_GCM_engine* engine, uint8_t* nonce,
+//    uint8_t* src, uint32_t size, hipStream_t stream) {
+void AES_GCM_decrypt(uint8_t* dst, uint8_t* nonce, uint8_t* src, uint32_t size) {
+    assert(size % AES_BLOCKLEN == 0);
+    AES_GCM_compute_mac(dst, nonce, src, size);
+    // TODO verify mac for i in crypto_aead_aes256gcm_ABYTES: (dst == src[size])
+    AES_GCM_xcrypt(dst, nonce, src, size);
 }
 
 //void AES_GCM_next_nonce(hip_launch_batch_t* batch, uint8_t* nonce, hipStream_t stream) {
 void AES_GCM_next_nonce(uint8_t* nonce) {
   //hipLaunchAddToBatch(batch, HIP_KERNEL_NAME(AES_GCM_next_nonce_kernel), 1, 1, 0, stream, nonce);
-}
-
-void EncryptAsync(void* ciphertext, const void* plaintext, size_t sizeBytes) {
-  AES_GCM_encrypt(static_cast<uint8_t*>(ciphertext),
-      nonce_device, static_cast<const uint8_t*>(plaintext), sizeBytes);
-}
-
-void DecryptAsync(void* ciphertext, void* plaintext, size_t sizeBytes) {
-  AES_GCM_decrypt(static_cast<uint8_t*>(plaintext), nonce_device,
-    static_cast<uint8_t*>(ciphertext), sizeBytes);
 }
 
 
@@ -699,49 +678,38 @@ int main() {
         key[i] = i%255;
     }
 
-  //code below is this: from lgm_memcpy.cpp
-  /*
-  EncryptionState::EncryptionState(hipStream_t stream) {
-  assert(RAND_bytes(key, AES_KEYLEN) == 1);
-  AES_GCM_init(&engine_device, key, stream);
-  HIP_CHECK(hipMalloc(&nonce_device, crypto_aead_aes256gcm_NPUBBYTES));
-  HIP_CHECK(nw_hipMemcpySync(nonce_device, nonce_host, crypto_aead_aes256gcm_NPUBBYTES,
-      hipMemcpyHostToDevice, stream));
-  encrypt_ctx = EVP_CIPHER_CTX_new();
-  assert(encrypt_ctx != NULL);
-  decrypt_ctx = EVP_CIPHER_CTX_new();
-  assert(decrypt_ctx != NULL);
-}
-  */
-
-
-
     AES_GCM_init(key);
-    cudaDeviceSynchronize();
-    gpuErrchk(cudaMalloc(&nonce_device, crypto_aead_aes256gcm_NPUBBYTES));
-    cudaMemcpy(nonce_device, nonce_host, crypto_aead_aes256gcm_NPUBBYTES,
-        cudaMemcpyHostToDevice);
-    char plaintext[] = "sixtynine";
-    char* ciphertext = (char *) malloc(sizeof(plaintext));
-    EncryptAsync(ciphertext, plaintext, sizeof(plaintext));
+    gpuErrchk(cudaDeviceSynchronize());
+    gpuErrchk(cudaMalloc(&nonce_device, 12));
+    cudaMemcpy(nonce_device, nonce_host, crypto_aead_aes256gcm_NPUBBYTES, cudaMemcpyHostToDevice);
 
-    char* plaintext_check = (char *) malloc(sizeof(plaintext));
-    DecryptAsync(ciphertext, plaintext_check, sizeof(plaintext));
+
+    /*
+    encrypt_ctx = EVP_CIPHER_CTX_new();
+    assert(encrypt_ctx != NULL);
+    decrypt_ctx = EVP_CIPHER_CTX_new();
+    assert(decrypt_ctx != NULL);
+    */
+
+    char plaintext[] = "sixteencharcter";
+    int plainlen = strlen(plaintext)+1;
+    char *d_cipher, *d_plain, *d_decrypted;
+    gpuErrchk(cudaMalloc(&d_cipher, FIXED_SIZE_FULL + crypto_aead_aes256gcm_ABYTES));
+    gpuErrchk(cudaMalloc(&d_plain, FIXED_SIZE_FULL));
+    gpuErrchk(cudaMalloc(&d_decrypted, FIXED_SIZE_FULL));
+    cudaMemcpy(d_plain, plaintext, plainlen, cudaMemcpyHostToDevice);
+
+    AES_GCM_encrypt((uint8_t*)d_cipher, nonce_device, (uint8_t*)d_plain, plainlen);
+    gpuErrchk(cudaDeviceSynchronize());
+
+    AES_GCM_decrypt((uint8_t*)d_decrypted, nonce_device,  (uint8_t*)d_cipher, plainlen);
+    gpuErrchk(cudaDeviceSynchronize());
+
+    char decrypted[256];
+    cudaMemcpy(decrypted, d_decrypted, plainlen, cudaMemcpyDeviceToHost);
+    gpuErrchk(cudaDeviceSynchronize());
+
     printf("%s\n", plaintext);
-    printf("%s\n", plaintext_check);
+    printf("%s\n", decrypted);
 
-    // encrypt_ctx = EVP_CIPHER_CTX_new();
-    // assert(encrypt_ctx != NULL);
-    // decrypt_ctx = EVP_CIPHER_CTX_new();
-    // assert(decrypt_ctx != NULL);
-
-
-//translate this:
-/*
-void EncryptAsync(hip_launch_batch_t* batch, void* ciphertext, const void* plaintext, size_t sizeBytes,
-    hipStream_t stream, EncryptionState& state) {
-  AES_GCM_encrypt(batch, static_cast<uint8_t*>(ciphertext), state.engine_device,
-      state.nonce_device, static_cast<const uint8_t*>(plaintext), sizeBytes, stream);
-}
-*/
 }
