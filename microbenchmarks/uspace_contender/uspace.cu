@@ -116,20 +116,18 @@ int main(int argc, char** argv) {
   for (int k = 0; k < n_iterations; ++k) {
     for (i = 0; i < n_pages; i += batch_size * max_concurrency) {
       for (j = 0; j < max_concurrency; ++j) {
-    CUdeviceptr concur_pages = d_pages + j * batch_size * PAGE_SIZE;
-    CUdeviceptr concur_checksum = d_checksum + j * batch_size * sizeof(uint32_t);
+        CUdeviceptr concur_pages = d_pages + j * batch_size * PAGE_SIZE;
+        CUdeviceptr concur_checksum = d_checksum + j * batch_size * sizeof(uint32_t);
 
-    if (j == 0 && k == 0) {
-      memcpy(((char *) h_pages) + j * batch_size * PAGE_SIZE, ((char *) pages) + (i + j * batch_size) * PAGE_SIZE, batch_size * PAGE_SIZE);
-  
-  
-      // Copy to dev
-      res = cuMemcpyHtoDAsync(concur_pages, h_pages, batch_size * PAGE_SIZE, streams[j]);
-      if (res) { printf("Error memcpy htod 1 (%d)\n", res); }
-      cuStreamSynchronize(streams[j]);
-      pages_checksummed[0] = 0;
-      times[0] = std::chrono::high_resolution_clock::now();
-    }
+        if (j == 0 && k == 0) {
+          memcpy(((char *) h_pages) + j * batch_size * PAGE_SIZE, ((char *) pages) + (i + j * batch_size) * PAGE_SIZE, batch_size * PAGE_SIZE);
+          // Copy to dev
+          res = cuMemcpyHtoDAsync(concur_pages, h_pages, batch_size * PAGE_SIZE, streams[j]);
+          if (res) { printf("Error memcpy htod 1 (%d)\n", res); }
+          cuStreamSynchronize(streams[j]);
+          pages_checksummed[0] = 0;
+          times[0] = std::chrono::high_resolution_clock::now();
+        }
 
         cuStreamSynchronize(streams[j]);
 
@@ -139,13 +137,12 @@ int main(int argc, char** argv) {
           0, streams[j], args, NULL);
         if (res) { printf("Error launching kernel (%d)\n", res); }
 
-    if (j == 0 && k == 0) {
-      // Copy to host
-      res = cuMemcpyDtoHAsync(h_checksum + j * batch_size, concur_checksum,
-        batch_size * sizeof(uint32_t), streams[0]);
-      if (res) { printf("Error memcpy dtoh (%d)\n", res); }
-    }
-
+        if (j == 0 && k == 0) {
+          // Copy to host
+          res = cuMemcpyDtoHAsync(h_checksum + j * batch_size, concur_checksum,
+            batch_size * sizeof(uint32_t), streams[0]);
+          if (res) { printf("Error memcpy dtoh (%d)\n", res); }
+        }
 
 //   // TODO: remove
 //   // Check results
