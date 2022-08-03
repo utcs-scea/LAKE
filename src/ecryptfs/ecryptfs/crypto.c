@@ -455,6 +455,7 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 		rc = ecr->rc;
 		reinit_completion(&ecr->completion);
 	}
+	ecryptfs_printk(KERN_DEBUG, "done!\n");
 out:
 	skcipher_request_free(ablk_req);
 	aead_request_free(aead_req);
@@ -1122,8 +1123,8 @@ static void ecryptfs_generate_new_key(struct ecryptfs_crypt_stat *crypt_stat)
 	ecryptfs_compute_root_iv(crypt_stat);
 	if (unlikely(ecryptfs_verbosity > 0)) {
 		ecryptfs_printk(KERN_DEBUG, "Generated new session key:\n");
-		ecryptfs_dump_hex(crypt_stat->key,
-				  crypt_stat->key_size);
+		//ecryptfs_dump_hex(crypt_stat->key,
+		//		  crypt_stat->key_size);
 	}
 }
 

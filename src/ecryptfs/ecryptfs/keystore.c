@@ -2359,13 +2359,13 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 		       crypt_stat->key_size);
 		ecryptfs_printk(KERN_DEBUG,
 				"Cached session key encryption key:\n");
-		if (ecryptfs_verbosity > 0)
-			ecryptfs_dump_hex(session_key_encryption_key, 16);
+		//if (ecryptfs_verbosity > 0)
+			//ecryptfs_dump_hex(session_key_encryption_key, 16);
 	}
-	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(KERN_DEBUG, "Session key encryption key:\n");
-		ecryptfs_dump_hex(session_key_encryption_key, 16);
-	}
+	// if (unlikely(ecryptfs_verbosity > 0)) {
+	// 	ecryptfs_printk(KERN_DEBUG, "Session key encryption key:\n");
+	// 	ecryptfs_dump_hex(session_key_encryption_key, 16);
+	// }
 	rc = virt_to_scatterlist(crypt_stat->key, key_rec->enc_key_size,
 				 src_sg, 2);
 	if (rc < 1 || rc > 2) {
@@ -2423,12 +2423,12 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 		goto out;
 	}
 	ecryptfs_printk(KERN_DEBUG, "This should be the encrypted key:\n");
-	if (ecryptfs_verbosity > 0) {
-		ecryptfs_printk(KERN_DEBUG, "EFEK of size [%zd]:\n",
-				key_rec->enc_key_size);
-		ecryptfs_dump_hex(key_rec->enc_key,
-				  key_rec->enc_key_size);
-	}
+	// if (ecryptfs_verbosity > 0) {
+	// 	ecryptfs_printk(KERN_DEBUG, "EFEK of size [%zd]:\n",
+	// 			key_rec->enc_key_size);
+	// 	ecryptfs_dump_hex(key_rec->enc_key,
+	// 			  key_rec->enc_key_size);
+	// }
 encrypted_session_key_set:
 	/* This format is inspired by OpenPGP; see RFC 2440
 	 * packet tag 3

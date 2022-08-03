@@ -5,6 +5,8 @@
 #include <linux/sched/signal.h>
 #include <linux/random.h>
 #include <linux/scatterlist.h>
+#include <linux/uio.h>
+#include <linux/swap.h>
 
 #define DECRYPT		0
 #define ENCRYPT		1
@@ -358,28 +360,493 @@ out:
 
 ssize_t lake_ecryptfs_read_update_atime(struct kiocb *iocb, struct iov_iter *to)
 {
-	printk(KERN_ERR "NIY lake_ecryptfs_read_update_atime\n");
-    return 0;
+	ssize_t rc;
+	struct path *path;
+	struct file *file = iocb->ki_filp;
+
+	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_read_update_atime\n");
+	rc = lake_ecryptfs_file_read_iter(iocb, to);
+	if (rc >= 0) {
+		path = ecryptfs_dentry_to_lower_path(file->f_path.dentry);
+		touch_atime(path);
+	}
+	return rc;
 }
 
 ssize_t lake_ecryptfs_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 {
-	printk(KERN_ERR "NIY lake_ecryptfs_file_read_iter\n");
-    return 0;
+	size_t count = iov_iter_count(iter);
+	ssize_t retval = 0;
+
+	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_file_read_iter\n");
+
+    if (!count) {
+        goto out; /* skip atime */
+    }
+
+	if (iocb->ki_flags & IOCB_DIRECT) {
+        pr_err("IOCB not supported\n");
+        goto out;
+	}
+
+    retval = lake_ecryptfs_file_buffered_read(iocb, iter, retval);
+out:
+	return retval;
 }
 
+static void shrink_readahead_size_eio(struct file *filp,
+					struct file_ra_state *ra)
+{
+	ra->ra_pages /= 4;
+}
+
+//related to   static ssize_t generic_file_buffered_read(struct kiocb *iocb,
+//			struct iov_iter *iter, ssize_t written)
 ssize_t lake_ecryptfs_file_buffered_read(struct kiocb *iocb, 
             struct iov_iter *iter, ssize_t written)
 {
-	printk(KERN_ERR "NIY lake_ecryptfs_file_buffered_read\n");
-    return 0;
+	struct file *filp = iocb->ki_filp;
+	struct address_space *mapping = filp->f_mapping;
+	struct inode *inode = mapping->host;
+	struct file_ra_state *ra = &filp->f_ra;
+	loff_t *ppos = &iocb->ki_pos;
+	pgoff_t index;
+	pgoff_t last_index;
+	pgoff_t prev_index;
+	unsigned long offset;      /* offset into pagecache page */
+	unsigned int prev_offset;
+	int error = 0;
+	struct page **pgs_cached, **pgs_no_cached;
+	int nr_pgs;
+	int i = 0, pg_idx = 0, nr_pgs_no_cached = 0, nr_pgs_cached = 0;
+	//loff_t isize = i_size_read(inode);
+    size_t real_count = iter->count;
+
+	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_file_buffered_read\n");
+
+    if (unlikely(*ppos >= i_size_read(inode))) {
+        return 0;
+	}
+	if (unlikely(*ppos >= inode->i_sb->s_maxbytes)) {
+		return 0;
+	}
+	iov_iter_truncate(iter, inode->i_sb->s_maxbytes);
+
+    if (i_size_read(inode) - *ppos < real_count)
+        real_count = i_size_read(inode) - *ppos;
+    nr_pgs = DIV_ROUND_UP(real_count, PAGE_SIZE);
+	pgs_cached = kzalloc(nr_pgs * sizeof(struct page *), GFP_KERNEL);
+	pgs_no_cached = kzalloc(nr_pgs * sizeof(struct page *), GFP_KERNEL);
+	if (!pgs_cached || !pgs_no_cached) {
+	    error = -ENOMEM;
+	    printk(KERN_ERR "[kava] Error allocating pages\n");
+	    goto out;
+	}
+
+	index = *ppos >> PAGE_SHIFT;
+	last_index = (*ppos + iter->count + PAGE_SIZE-1) >> PAGE_SHIFT;
+
+	for (; pg_idx < nr_pgs;) {
+		struct page *page;
+
+		cond_resched();
+find_page:
+		if (fatal_signal_pending(current)) {
+			error = -EINTR;
+			goto out;
+		}
+
+		page = find_get_page(mapping, index);
+		if (!page) {
+			if (iocb->ki_flags & IOCB_NOWAIT)
+				goto would_block;
+			page_cache_sync_readahead(mapping,
+					ra, filp,
+					index, last_index - index);
+			page = find_get_page(mapping, index);
+			if (unlikely(page == NULL))
+				goto no_cached_page;
+		}
+		if (PageReadahead(page)) {
+			page_cache_async_readahead(mapping,
+					ra, filp, page,
+					index, last_index - index);
+		}
+
+        pgs_cached[pg_idx++] = page;
+        index++;
+        nr_pgs_cached++;
+		continue;
+
+no_cached_page:
+		/*
+		 * Ok, it wasn't cached, so we need to create a new
+		 * page..
+		 */
+		page = page_cache_alloc(mapping);
+		if (!page) {
+			error = -ENOMEM;
+			goto out;
+		}
+		error = add_to_page_cache_lru(page, mapping, index,
+				mapping_gfp_constraint(mapping, GFP_KERNEL));
+		if (error) {
+			put_page(page);
+			if (error == -EEXIST) {
+				error = 0;
+				goto find_page;
+			}
+			goto out;
+		}
+
+        /*
+         * A previous I/O error may have been due to temporary
+         * failures, eg. multipath errors.
+         * PG_error will be set again if readpage fails.
+         */
+        ClearPageError(page);
+
+        pgs_no_cached[nr_pgs_no_cached++] = page;
+        pg_idx++;
+        index++;
+	}
+
+//readpage:
+    /* Start the actual read. The read will unlock the page. */
+    //pr_info("nr_pgs_no_cached = %x, nr_pgs_cached = %x\n", nr_pgs_no_cached, nr_pgs_cached);
+    //error = mapping->a_ops->readpages(filp, mapping, pgs_no_cached, nr_pgs_no_cached);
+    if (nr_pgs_no_cached)
+        error = lake_ecryptfs_decrypt_pages(pgs_no_cached, nr_pgs_no_cached);
+
+    if (unlikely(error))
+        goto readpage_error;
+
+//page_ok:
+	index = *ppos >> PAGE_SHIFT;
+	prev_index = ra->prev_pos >> PAGE_SHIFT;
+	prev_offset = ra->prev_pos & (PAGE_SIZE-1);
+	offset = *ppos & ~PAGE_MASK;
+
+    pg_idx = 0;
+    i = 0;
+
+    for (; pg_idx < nr_pgs;) {
+        struct page *page;
+		pgoff_t end_index;
+		loff_t isize;
+		unsigned long nr, ret;
+
+        page = pgs_cached[pg_idx];
+        pgs_cached[pg_idx++] = NULL;
+        if (likely(!page)) {
+            page = pgs_no_cached[i];
+            pgs_no_cached[i++] = NULL;
+
+            if (unlikely(!page)) {
+                error = -EEXIST;
+                goto out;
+            }
+
+            if (!PageUptodate(page)) {
+                error = lock_page_killable(page);
+                if (unlikely(error))
+                    goto readpage_error;
+                if (!PageUptodate(page)) {
+                    if (page->mapping == NULL) {
+                        /*
+                         * invalidate_mapping_pages got it
+                         */
+                        unlock_page(page);
+                        put_page(page);
+                        error = -EIO;
+                        goto readpage_error;
+                    }
+                    unlock_page(page);
+                    shrink_readahead_size_eio(filp, ra);
+                    error = -EIO;
+                    goto readpage_error;
+                }
+                unlock_page(page);
+            }
+        }
+
+		/*
+		 * i_size must be checked after we know the page is Uptodate.
+		 *
+		 * Checking i_size after the check allows us to calculate
+		 * the correct value for "nr", which means the zero-filled
+		 * part of the page is not copied back to userspace (unless
+		 * another truncate extends the file - this is desired though).
+		 */
+
+		isize = i_size_read(inode);
+		end_index = (isize - 1) >> PAGE_SHIFT;
+		if (unlikely(!isize || index > end_index)) {
+			put_page(page);
+			goto out;
+		}
+
+		/* nr is the maximum number of bytes to copy from this page */
+		nr = PAGE_SIZE;
+		if (index == end_index) {
+			nr = ((isize - 1) & ~PAGE_MASK) + 1;
+			if (nr <= offset) {
+				put_page(page);
+				goto out;
+			}
+		}
+		nr = nr - offset;
+
+		/* If users can be writing to this page using arbitrary
+		 * virtual addresses, take care about potential aliasing
+		 * before reading the page on the kernel side.
+		 */
+		if (mapping_writably_mapped(mapping))
+			flush_dcache_page(page);
+
+		/*
+		 * When a sequential read accesses a page several times,
+		 * only mark it as accessed the first time.
+		 */
+		if (prev_index != index || offset != prev_offset)
+			mark_page_accessed(page);
+		prev_index = index;
+
+		/*
+		 * Ok, we have the page, and it's up-to-date, so
+		 * now we can copy it to user space...
+		 */
+
+		ret = copy_page_to_iter(page, offset, nr, iter);
+		offset += ret;
+		index += offset >> PAGE_SHIFT;
+		offset &= ~PAGE_MASK;
+		prev_offset = offset;
+
+		put_page(page);
+		written += ret;
+		if (!iov_iter_count(iter))
+			goto out;
+		if (ret < nr) {
+			error = -EFAULT;
+			goto out;
+		}
+    }
+
+readpage_error:
+	/* UHHUH! A synchronous read error occurred. Report it */
+	goto out;
+
+would_block:
+	error = -EAGAIN;
+out:
+    for (i = 0; i < nr_pgs; i++) {
+        if (pgs_cached[i])
+            put_page(pgs_cached[i]);
+        if (pgs_no_cached[i])
+            put_page(pgs_no_cached[i]);
+    }
+
+    if (nr_pgs > 0) {
+        kfree(pgs_cached);
+        kfree(pgs_no_cached);
+    }
+
+	ra->prev_pos = prev_index;
+	ra->prev_pos <<= PAGE_SHIFT;
+	ra->prev_pos |= prev_offset;
+
+	*ppos = ((loff_t)index << PAGE_SHIFT) + offset;
+	file_accessed(filp);
+	return written ? written : error;
 }
 
+//related to ecryptfs_decrypt_page(struct page *page)
+// and crypt_extent_aead
 int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
 {
-	printk(KERN_ERR "NIY lake_ecryptfs_decrypt_pages\n");
-    return 0;
+	//ecryptfs_decrypt_page
+	struct inode *ecryptfs_inode;
+    struct ecryptfs_crypt_stat *crypt_stat;
+	struct ecryptfs_extent_metadata extent_metadata;
+	char *page_virt;
+	//unsigned long extent_offset;
+	loff_t lower_offset;
+	int rc = 0;
+	//int num_extents;
+	int data_extent_num;
+	int meta_extent_num;
+	int metadata_per_extent;
+	u8 *tag_data = NULL;
+	u8 *iv_data = NULL;
+
+	//crypt_extent_aead
+	//loff_t extent_base;
+	//char *extent_iv;
+	struct scatterlist *src_sg = NULL;
+	struct scatterlist *dst_sg = NULL;
+	size_t extent_size;
+
+    unsigned int i = 0;
+
+	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_decrypt_pages\n");
+
+    if (!nr_pages || !pgs || !pgs[0]) {
+        goto out;
+    }
+
+	ecryptfs_inode = pgs[0]->mapping->host;
+    crypt_stat =
+        &(ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat);
+    BUG_ON(!(crypt_stat->flags & ECRYPTFS_ENCRYPTED));
+
+	metadata_per_extent = crypt_stat->extent_size / sizeof(extent_metadata);
+	extent_size = crypt_stat->extent_size;
+
+    src_sg = (struct scatterlist *)kmalloc(nr_pages * sizeof(struct scatterlist) * 2,
+            GFP_KERNEL);
+    if (!src_sg) {
+        rc = -EFAULT;
+        ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
+                "source scatter list\n");
+        goto out;
+    }
+
+	dst_sg = (struct scatterlist *)kmalloc(nr_pages * sizeof(struct scatterlist),
+            GFP_KERNEL);
+    if (!dst_sg) {
+        rc = -EFAULT;
+        ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
+                "dest scatter list\n");
+        goto out;
+    }
+
+    sg_init_table(src_sg, nr_pages*2);
+	sg_init_table(dst_sg, nr_pages);
+
+	tag_data = kmalloc(ECRYPTFS_GCM_TAG_SIZE * nr_pages, GFP_KERNEL);
+	if (!tag_data) {
+		rc = -ENOMEM;
+		ecryptfs_printk(KERN_ERR, "Error allocating memory for "
+				"auth_tag\n");
+		goto out;
+	}
+
+	iv_data = kmalloc(ECRYPTFS_MAX_IV_BYTES * nr_pages, GFP_KERNEL);
+	if (!iv_data) {
+		rc = -ENOMEM;
+		ecryptfs_printk(KERN_ERR, "Error allocating memory for "
+				"iv_data\n");
+		goto out;
+	}
+
+    for (i = 0; i < nr_pages; i++) {
+    	// char *page_virt;
+    	// loff_t lower_offset;
+    	// lower_offset = lower_offset_for_page(crypt_stat, pgs[i]);
+    	// page_virt = kmap(pgs[i]);
+
+    	// rc = ecryptfs_read_lower(page_virt, lower_offset, PAGE_SIZE,
+        //         ecryptfs_inode);
+        // if (rc < 0) {
+        //     ecryptfs_printk(KERN_ERR, "Error attempting to read lower page; "
+        //             "rc = [%d] \n", rc);
+        // }
+
+        // kunmap(pgs[i]);
+        // flush_dcache_page(pgs[i]);
+        // sg_set_page(sgs + i, pgs[i], PAGE_SIZE, 0);
+
+		/*
+		* Lower offset must take into account the number of
+		* data extents, auth tag extents, and header size.
+		*/
+		lower_offset = ecryptfs_lower_header_size(crypt_stat);
+		data_extent_num = pgs[i]->index + 1;
+		lower_offset += (data_extent_num - 1)
+			* crypt_stat->extent_size;
+		meta_extent_num = (data_extent_num
+			+ (metadata_per_extent - 1))
+			/ metadata_per_extent;
+		lower_offset += meta_extent_num
+			* crypt_stat->extent_size;
+
+		page_virt = kmap(pgs[i]);
+		rc = ecryptfs_read_lower(page_virt,
+			lower_offset,
+			crypt_stat->extent_size,
+			ecryptfs_inode);
+		kunmap(pgs[i]);
+
+		if (rc < 0) {
+			printk(KERN_ERR "Error attempting to read lower"
+					"page; rc = [%d]\n", rc);
+			goto out;
+		}
+
+		lower_offset = ecryptfs_lower_header_size(crypt_stat);
+		lower_offset += (meta_extent_num - 1) *
+			(metadata_per_extent + 1) *
+			crypt_stat->extent_size;
+
+		rc = ecryptfs_read_lower((void *)&extent_metadata,
+				lower_offset,
+				sizeof(extent_metadata),
+				ecryptfs_inode);
+
+		memcpy(tag_data + ECRYPTFS_GCM_TAG_SIZE * i,
+			&(extent_metadata.auth_tag_bytes),
+			ECRYPTFS_GCM_TAG_SIZE);
+
+		memcpy(iv_data + ECRYPTFS_MAX_IV_BYTES * i,
+			&(extent_metadata.iv_bytes),
+			ECRYPTFS_MAX_IV_BYTES);
+
+		if (rc < 0) {
+			printk(KERN_ERR "Error attempting to read lower"
+					"page; rc = [%d]\n", rc);
+		}
+
+		// original code would call crypt_extent_aead now
+		//rc = crypt_extent_aead(crypt_stat, page, page,
+		//		  tag_data, iv_data, extent_offset, DECRYPT);
+
+		sg_set_page(&src_sg[i*2], pgs[i], extent_size, 0);
+		sg_set_buf(&src_sg[(i*2)+1], tag_data + (i*ECRYPTFS_GCM_TAG_SIZE), ECRYPTFS_GCM_TAG_SIZE);
+		sg_set_page(&dst_sg[i], pgs[i], extent_size, 0);
+    }
+
+	printk(KERN_ERR "lake_ecryptfs_decrypt_pages: sgs set, calling crypt\n");
+
+    rc = crypt_scatterlist(crypt_stat, src_sg, dst_sg, nr_pages * PAGE_SIZE,
+            iv_data, DECRYPT);
+
+	if (rc == -74) {
+		printk(KERN_ERR "Decryption auth failed, ignoring for now..\n");
+		rc = 0;
+	}
+
+	if (rc < 0) {
+		printk(KERN_ERR "Error attempting to crypt pages "
+		       "rc = [%d]\n", rc);
+		goto out;
+	}
+
+    for (i = 0; i < nr_pages; i++) {
+        SetPageUptodate(pgs[i]);
+        if (PageLocked(pgs[i]))
+            unlock_page(pgs[i]);
+	}
+
+out:
+    kfree(src_sg);
+	kfree(dst_sg);
+	kfree(tag_data);
+	kfree(iv_data);
+
+    return (rc >= 0 ? 0 : rc);
 }
+
 
 int lake_ecryptfs_mmap_writepages(struct address_space *mapping,
 			       struct writeback_control *wbc)
