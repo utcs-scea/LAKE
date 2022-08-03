@@ -456,6 +456,16 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 	cipher_code = ecryptfs_code_for_cipher_string(
 		mount_crypt_stat->global_default_cipher_name,
 		mount_crypt_stat->global_default_cipher_key_size);
+		
+#ifdef LAKE_ECRYPTFS
+	if (cipher_code == ECRYPTFS_CIPHER_MODE_CBC) {
+		ecryptfs_printk(KERN_ERR,
+				"LAKE eCryptfs doesn't support CBC\n");
+		rc = -EINVAL;
+		goto out;
+	}
+#endif
+
 	if (!cipher_code) {
 		ecryptfs_printk(KERN_ERR,
 				"eCryptfs doesn't support cipher: %s\n",

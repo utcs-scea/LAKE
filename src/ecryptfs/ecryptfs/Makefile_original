@@ -2,15 +2,12 @@
 # Makefile for the Linux eCryptfs
 #
 
-obj-$(CONFIG_ECRYPT_FS) += ecryptfs.o
-
-ecryptfs-y := dentry.o file.o inode.o main.o super.o mmap.o read_write.o \
-	      crypto.o keystore.o kthread.o debug.o lake.o
-
-ecryptfs-$(CONFIG_ECRYPT_FS_MESSAGING) += messaging.o miscdev.o
-
 all:
+	cp Kbuild_original Kbuild
+	rm -f *.o
+	rm -f .*o.cmd
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
+	rm Kbuild
 	rm -f *.o
 	rm -f .*o.cmd
 

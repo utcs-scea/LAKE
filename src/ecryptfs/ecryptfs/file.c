@@ -421,7 +421,6 @@ const struct file_operations ecryptfs_dir_fops = {
 
 const struct file_operations ecryptfs_main_fops = {
 	.llseek = generic_file_llseek,
-	.read_iter = ecryptfs_read_update_atime,
 	.write_iter = generic_file_write_iter,
 	.unlocked_ioctl = ecryptfs_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
@@ -434,4 +433,12 @@ const struct file_operations ecryptfs_main_fops = {
 	.fsync = ecryptfs_fsync,
 	.fasync = ecryptfs_fasync,
 	.splice_read = generic_file_splice_read,
+
+#ifdef LAKE_ECRYPTFS
+	.write = ecryptfs_file_write,
+	.read_iter = lake_ecryptfs_read_update_atime,
+#else
+	.read_iter = ecryptfs_read_update_atime,
+#endif
 };
+
