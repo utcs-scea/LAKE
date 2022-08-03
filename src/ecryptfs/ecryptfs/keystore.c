@@ -1812,12 +1812,12 @@ decrypt_passphrase_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 	memcpy(crypt_stat->key, auth_tok->session_key.decrypted_key,
 	       auth_tok->session_key.decrypted_key_size);
 	crypt_stat->flags |= ECRYPTFS_KEY_VALID;
-	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(KERN_DEBUG, "FEK of size [%zd]:\n",
-				crypt_stat->key_size);
-		ecryptfs_dump_hex(crypt_stat->key,
-				  crypt_stat->key_size);
-	}
+	// if (unlikely(ecryptfs_verbosity > 0)) {
+	// 	ecryptfs_printk(KERN_DEBUG, "FEK of size [%zd]:\n",
+	// 			crypt_stat->key_size);
+	// 	ecryptfs_dump_hex(crypt_stat->key,
+	// 			  crypt_stat->key_size);
+	// }
 out:
 	skcipher_request_free(req);
 	return rc;
@@ -1951,11 +1951,11 @@ find_next_matching_auth_tok:
 	found_auth_tok = 0;
 	list_for_each_entry(auth_tok_list_item, &auth_tok_list, list) {
 		candidate_auth_tok = &auth_tok_list_item->auth_tok;
-		if (unlikely(ecryptfs_verbosity > 0)) {
-			ecryptfs_printk(KERN_DEBUG,
-					"Considering candidate auth tok:\n");
-			ecryptfs_dump_auth_tok(candidate_auth_tok);
-		}
+		// if (unlikely(ecryptfs_verbosity > 0)) {
+		// 	ecryptfs_printk(KERN_DEBUG,
+		// 			"Considering candidate auth tok:\n");
+		// 	ecryptfs_dump_auth_tok(candidate_auth_tok);
+		// }
 		rc = ecryptfs_get_auth_tok_sig(&candidate_auth_tok_sig,
 					       candidate_auth_tok);
 		if (rc) {
