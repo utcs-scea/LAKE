@@ -36,6 +36,8 @@
 #include <asm/unaligned.h>
 #include "ecryptfs_kernel.h"
 
+#include "lake.h"
+
 /**
  * ecryptfs_get_locked_page
  *
@@ -551,6 +553,10 @@ static sector_t ecryptfs_bmap(struct address_space *mapping, sector_t block)
 }
 
 const struct address_space_operations ecryptfs_aops = {
+#ifdef LAKE_ECRYPTFS
+	.readpages = lake_ecryptfs_mmap_readpages,
+    .writepages = lake_ecryptfs_mmap_writepages,
+#endif
 	.writepage = ecryptfs_writepage,
 	.readpage = ecryptfs_readpage,
 	.write_begin = ecryptfs_write_begin,

@@ -33,6 +33,8 @@
 #include <linux/fs_stack.h>
 #include "ecryptfs_kernel.h"
 
+#include "lake.h"
+
 /**
  * ecryptfs_read_update_atime
  *
@@ -435,7 +437,7 @@ const struct file_operations ecryptfs_main_fops = {
 	.splice_read = generic_file_splice_read,
 
 #ifdef LAKE_ECRYPTFS
-	.write = ecryptfs_file_write,
+	.write = lake_ecryptfs_file_write,
 	.read_iter = lake_ecryptfs_read_update_atime,
 #else
 	.read_iter = ecryptfs_read_update_atime,

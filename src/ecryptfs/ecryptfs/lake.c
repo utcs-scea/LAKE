@@ -1,6 +1,13 @@
 #ifdef LAKE_ECRYPTFS
 
 #include "lake.h"
+#include "ecryptfs_kernel.h"
+#include <linux/sched/signal.h>
+#include <linux/random.h>
+#include <linux/scatterlist.h>
+
+#define DECRYPT		0
+#define ENCRYPT		1
 
 ssize_t lake_ecryptfs_file_write(struct file *file, const char __user *data,
             size_t size, loff_t *poffset) 
@@ -12,7 +19,7 @@ ssize_t lake_ecryptfs_file_write(struct file *file, const char __user *data,
 
 //was on read_write.c
 // related to int ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset, size_t size)
-int lake_ecryptfs_write(struct inode *inode, char *data, loff_t offset, size_t size)
+int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset, size_t size)
 {	
     struct page *ecryptfs_page;
  	struct ecryptfs_crypt_stat *crypt_stat;
@@ -178,16 +185,16 @@ int lake_ecryptfs_write(struct inode *inode, char *data, loff_t offset, size_t s
 int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct page **pgs, unsigned int nr_pages)
 {
  	struct inode *ecryptfs_inode;
- 	struct ecryptfs_crypt_stat *crypt_stat;
  	loff_t lower_offset;
  	struct page *enc_extent_page  = NULL;
  	char *enc_extent_virt;
  	int rc = 0;
  
-	loff_t extent_base;
-	size_t extent_size = crypt_stat->extent_size;
-	u8 *extent_iv;
-	u8 *tag_data_dst;
+	int meta_extent_num;
+	int data_extent_num;
+	u8 *extent_iv = NULL;
+	u8 *tag_data_dst = NULL;
+	struct ecryptfs_extent_metadata extent_metadata;
 
  	struct scatterlist *src_sg = NULL, *dst_sg = NULL;
  	unsigned int i = 0;
@@ -218,7 +225,6 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
  		ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
                  "destination scatter list\n");
  		rc = -ENOMEM;
- 		kfree(sgs);
  		goto higher_out;
     }
  
@@ -228,7 +234,6 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
  		ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
                  "ivs\n");
  		rc = -ENOMEM;
- 		kfree(sgs);
  		goto higher_out;
     }
 
@@ -238,7 +243,6 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
  		ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
                  "ivs\n");
  		rc = -ENOMEM;
- 		kfree(sgs);
  		goto higher_out;
     }
 
@@ -266,7 +270,7 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
  		sg_set_page(src_sg + i, pgs[i], PAGE_SIZE, 0);
  		sg_set_page(dst_sg + i*2, enc_extent_page, PAGE_SIZE, 0);
 		sg_set_buf(dst_sg + (i*2) + 1, tag_data_dst + (i*ECRYPTFS_GCM_TAG_SIZE), 
-				ECRYPTFS_GCM_TAG_SIZE, 0);
+				ECRYPTFS_GCM_TAG_SIZE);
  	}
  
  	rc = crypt_scatterlist(crypt_stat, dst_sg, src_sg, PAGE_SIZE * nr_pages,
@@ -281,8 +285,6 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
      }
  
  	for (i = 0; i < nr_pages; i++) {
-        int ret;
- 
         // lower_offset = lower_offset_for_page(crypt_stat, pgs[i]);
  		// ret = ecryptfs_write_lower(ecryptfs_inode, enc_extent_virt, lower_offset,
         //          PAGE_SIZE);
@@ -347,7 +349,7 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
  
 higher_out:
  	kfree(src_sg);
- 	kfree(dest_sg);
+ 	kfree(dst_sg);
 	kfree(extent_iv);
 	kfree(tag_data_dst);
 out:
@@ -379,10 +381,10 @@ int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
     return 0;
 }
 
-int lake_ecryptfs_writepages(struct address_space *mapping,
+int lake_ecryptfs_mmap_writepages(struct address_space *mapping,
 			       struct writeback_control *wbc)
 {
-	printk(KERN_ERR "NIY lake_ecryptfs_writepages\n");
+	printk(KERN_ERR "NIY lake_ecryptfs_mmap_writepages\n");
     return 0;
 }
 

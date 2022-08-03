@@ -325,7 +325,7 @@ static void extent_crypt_complete(struct crypto_async_request *req, int rc)
  *
  * Returns the number of bytes encrypted or decrypted; negative value on error
  */
-static int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
+int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 			     struct scatterlist *dst_sg,
 			     struct scatterlist *src_sg, int size,
 			     unsigned char *iv, int op)

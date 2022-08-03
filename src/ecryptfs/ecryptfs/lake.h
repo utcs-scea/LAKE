@@ -16,7 +16,7 @@ ssize_t lake_ecryptfs_file_buffered_read(struct kiocb *iocb,
             struct iov_iter *iter, ssize_t written);
 int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages);
 
-int lake_ecryptfs_writepages(struct address_space *mapping,
+int lake_ecryptfs_mmap_writepages(struct address_space *mapping,
 			       struct writeback_control *wbc);
 int lake_ecryptfs_mmap_encrypt_pages(struct page **pgs, unsigned int nr_pages);
 int lake_ecryptfs_mmap_readpages(struct file *filp, struct address_space *mapping,
