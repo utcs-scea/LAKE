@@ -438,7 +438,8 @@ const struct file_operations ecryptfs_main_fops = {
 
 #ifdef LAKE_ECRYPTFS
 	.write = lake_ecryptfs_file_write,
-	.read_iter = lake_ecryptfs_read_update_atime,
+	//.read_iter = lake_ecryptfs_read_update_atime,
+	.read_iter = ecryptfs_read_update_atime,
 #else
 	.read_iter = ecryptfs_read_update_atime,
 #endif

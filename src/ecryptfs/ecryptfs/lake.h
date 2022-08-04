@@ -8,7 +8,7 @@
 ssize_t lake_ecryptfs_file_write(struct file *file, const char __user *data,
             size_t size, loff_t *poffset);
 int lake_ecryptfs_write(struct inode *inode, char *data, loff_t offset, size_t size);
-int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct page **pgs, unsigned int nr_pages);
+int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages);
 
 ssize_t lake_ecryptfs_read_update_atime(struct kiocb *iocb, struct iov_iter *to);
 ssize_t lake_ecryptfs_file_read_iter(struct kiocb *iocb, struct iov_iter *iter);

@@ -199,6 +199,8 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 		&ecryptfs_inode_to_private(page->mapping->host)->crypt_stat;
 	int rc = 0;
 
+	ecryptfs_printk(KERN_ERR, "ecryptfs_readpage\n");
+
 	if (!crypt_stat || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		rc = ecryptfs_read_lower_page_segment(page, page->index, 0,
 						      PAGE_SIZE,
@@ -553,10 +555,10 @@ static sector_t ecryptfs_bmap(struct address_space *mapping, sector_t block)
 }
 
 const struct address_space_operations ecryptfs_aops = {
-#ifdef LAKE_ECRYPTFS
-	.readpages = lake_ecryptfs_mmap_readpages,
-    .writepages = lake_ecryptfs_mmap_writepages,
-#endif
+//#ifdef LAKE_ECRYPTFS
+//	.readpages = lake_ecryptfs_mmap_readpages,
+//    .writepages = lake_ecryptfs_mmap_writepages,
+//#endif
 	.writepage = ecryptfs_writepage,
 	.readpage = ecryptfs_readpage,
 	.write_begin = ecryptfs_write_begin,

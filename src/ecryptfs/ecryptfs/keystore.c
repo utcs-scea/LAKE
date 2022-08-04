@@ -1739,14 +1739,14 @@ decrypt_passphrase_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 	struct skcipher_request *req = NULL;
 	int rc = 0;
 
-	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(
-			KERN_DEBUG, "Session key encryption key (size [%d]):\n",
-			auth_tok->token.password.session_key_encryption_key_bytes);
-		ecryptfs_dump_hex(
-			auth_tok->token.password.session_key_encryption_key,
-			auth_tok->token.password.session_key_encryption_key_bytes);
-	}
+	// if (unlikely(ecryptfs_verbosity > 0)) {
+	// 	ecryptfs_printk(
+	// 		KERN_DEBUG, "Session key encryption key (size [%d]):\n",
+	// 		auth_tok->token.password.session_key_encryption_key_bytes);
+	// 	ecryptfs_dump_hex(
+	// 		auth_tok->token.password.session_key_encryption_key,
+	// 		auth_tok->token.password.session_key_encryption_key_bytes);
+	// }
 	rc = ecryptfs_get_tfm_and_mutex_for_cipher_name(&tfm, &tfm_mutex,
 							crypt_stat->cipher);
 	if (unlikely(rc)) {

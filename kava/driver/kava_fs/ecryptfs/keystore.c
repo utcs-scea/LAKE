@@ -2271,10 +2271,10 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 		if (ecryptfs_verbosity > 0)
 			ecryptfs_dump_hex(session_key_encryption_key, 16);
 	}
-	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(KERN_DEBUG, "Session key encryption key:\n");
-		ecryptfs_dump_hex(session_key_encryption_key, 16);
-	}
+	// if (unlikely(ecryptfs_verbosity > 0)) {
+	// 	ecryptfs_printk(KERN_DEBUG, "Session key encryption key:\n");
+	// 	ecryptfs_dump_hex(session_key_encryption_key, 16);
+	// }
 	rc = virt_to_scatterlist(crypt_stat->key, key_rec->enc_key_size,
 				 src_sg, 2);
 	if (rc < 1 || rc > 2) {

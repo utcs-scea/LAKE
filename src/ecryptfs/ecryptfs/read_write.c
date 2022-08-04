@@ -181,6 +181,7 @@ int ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
 		flush_dcache_page(ecryptfs_page);
 		SetPageUptodate(ecryptfs_page);
 		unlock_page(ecryptfs_page);
+		
 		if (crypt_stat->flags & ECRYPTFS_ENCRYPTED)
 			rc = ecryptfs_encrypt_page(ecryptfs_page);
 		else

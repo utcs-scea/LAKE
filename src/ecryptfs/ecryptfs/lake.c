@@ -15,6 +15,7 @@
 ssize_t lake_ecryptfs_file_write(struct file *file, const char __user *data,
             size_t size, loff_t *poffset) 
 {
+	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_file_write\n");
     lake_ecryptfs_write(file_inode(file), (char *)data, *poffset, size);
     *poffset += size;
     return size;
@@ -23,7 +24,7 @@ ssize_t lake_ecryptfs_file_write(struct file *file, const char __user *data,
 //was on read_write.c
 // related to int ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset, size_t size)
 int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset, size_t size)
-{	
+{
     struct page *ecryptfs_page;
  	struct ecryptfs_crypt_stat *crypt_stat;
  	char *ecryptfs_page_virt;
@@ -32,11 +33,13 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
  	loff_t pos;
  	int rc = 0;
 
-    //lake
     struct address_space *mapping = ecryptfs_inode->i_mapping;
     struct page **pgs;
  	int nr_pgs = DIV_ROUND_UP(size, PAGE_SIZE);
- 	int i = 0;
+ 	int i = 0, j = 0;
+
+	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_write size %ld, %d pages\n", size, nr_pgs);
+
  	pgs = kmalloc(nr_pgs * sizeof(struct page *), GFP_KERNEL);
  	if (!pgs) {
  	    rc = -ENOMEM;
@@ -75,13 +78,33 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
  				num_bytes = total_remaining_zeros;
  		}
 
-        /* lake: the following change is only correct when overwriting the whole page.
+        /* the following change is only correct when overwriting the whole page.
         * TODO: use ecryptfs_get_locked_page when only modify part of the page.
         */
- 		//ecryptfs_page = ecryptfs_get_locked_page(ecryptfs_inode,
- 		//					 ecryptfs_page_idx);
- 		ecryptfs_page = page_cache_alloc(mapping);
- 		if (IS_ERR(ecryptfs_page)) {
+ 		//ecryptfs_page = ecryptfs_get_locked_page(ecryptfs_inode, ecryptfs_page_idx);
+ 		
+		// ecryptfs_page = find_get_page(mapping, ecryptfs_page_idx);
+		// if (!ecryptfs_page) {
+		// 	ecryptfs_printk(KERN_ERR, "[lake] page %ld NOT found, allocating..\n", ecryptfs_page_idx);
+		// 	ecryptfs_page = page_cache_alloc(mapping);
+		// 	rc = add_to_page_cache_lru(ecryptfs_page, mapping, ecryptfs_page_idx,
+ 		// 		mapping_gfp_constraint(mapping, GFP_KERNEL));
+		// 	if (rc) {
+		// 		put_page(ecryptfs_page);
+		// 		printk(KERN_ERR "%s: Error adding page to cache lru at "
+		// 			"index [%ld] from eCryptfs inode "
+		// 			"mapping; rc = [%d]\n", __func__,
+		// 			ecryptfs_page_idx, rc);
+		// 		goto out;
+		// 	}
+		// 	ClearPageError(ecryptfs_page);
+		// } else {
+		// 	ecryptfs_printk(KERN_ERR, "[lake] page %ld found!\n", ecryptfs_page_idx);
+		// }
+		
+		ecryptfs_page = grab_cache_page_write_begin(mapping, ecryptfs_page_idx, flags);
+
+		if (IS_ERR(ecryptfs_page)) {
  			rc = PTR_ERR(ecryptfs_page);
  			printk(KERN_ERR "%s: Error getting page at "
  			       "index [%ld] from eCryptfs inode "
@@ -89,20 +112,9 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
  			       ecryptfs_page_idx, rc);
  			goto out;
  		}
- 		rc = add_to_page_cache_lru(ecryptfs_page, mapping, ecryptfs_page_idx,
- 				mapping_gfp_constraint(mapping, GFP_KERNEL));
- 		if (rc) {
- 			put_page(ecryptfs_page);
- 			printk(KERN_ERR "%s: Error adding page to cache lru at "
- 			       "index [%ld] from eCryptfs inode "
- 			       "mapping; rc = [%d]\n", __func__,
- 			       ecryptfs_page_idx, rc);
- 			goto out;
- 		}
-         ClearPageError(ecryptfs_page);
- 
- 		ecryptfs_page_virt = kmap(ecryptfs_page);
-        //ecryptfs_page_virt = kmap_atomic(ecryptfs_page);
+
+ 		//ecryptfs_page_virt = kmap(ecryptfs_page);
+        ecryptfs_page_virt = kmap_atomic(ecryptfs_page);
 
  		/*
  		 * pos: where we're now writing, offset: where the request was
@@ -146,21 +158,16 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
                  goto out;
  		    }
  		}
-        //put_page(ecryptfs_page);
-        //if (rc) {
-        //    printk(KERN_ERR "%s: Error encrypting "
-        //            "page; rc = [%d]\n", __func__, rc);
-        //    goto out;
- 		//}
 
  		pos += num_bytes;
  	}
  
-    //lake
  	if (crypt_stat->flags & ECRYPTFS_ENCRYPTED) {
- 	    rc = lake_ecryptfs_encrypt_pages(crypt_stat, pgs, nr_pgs);
- 	    for (i = 0; i < nr_pgs; i++)
- 		    put_page(pgs[i]);
+ 	    //rc = lake_ecryptfs_encrypt_pages(pgs, nr_pgs);
+		ecryptfs_printk(KERN_ERR, "[lake] encrypting %d pages (nr_pgs: %d)\n", i, nr_pgs);
+		rc = lake_ecryptfs_encrypt_pages(pgs, i);
+ 	    //for (j = 0; j < i; j++)
+ 		//    put_page(pgs[j]);
  	    kfree(pgs);
  	}
  
@@ -184,32 +191,39 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
  	return rc;
 }
 
-// our own function, sort of related to crypt_extent_aead
-int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct page **pgs, unsigned int nr_pages)
+// our own function, sort of related to ecryptfs_encrypt_page and crypt_extent_aead
+int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 {
  	struct inode *ecryptfs_inode;
- 	loff_t lower_offset;
- 	struct page *enc_extent_page  = NULL;
+	struct ecryptfs_crypt_stat *crypt_stat;
+ 	struct ecryptfs_extent_metadata extent_metadata;
  	char *enc_extent_virt;
+	struct page *enc_extent_page = NULL;
+	loff_t extent_offset = 0;
+	loff_t lower_offset;
  	int rc = 0;
- 
-	int meta_extent_num;
 	int data_extent_num;
-	u8 *extent_iv = NULL;
-	u8 *tag_data_dst = NULL;
-	struct ecryptfs_extent_metadata extent_metadata;
-
+	int num_extents = 1;
+	int meta_extent_num;
+	int metadata_per_extent;
+	u8 *tag_data = NULL;
+	u8 *iv_data = NULL;
+ 
  	struct scatterlist *src_sg = NULL, *dst_sg = NULL;
  	unsigned int i = 0;
  	u32 sz = 0;
-	int metadata_per_extent = crypt_stat->extent_size / sizeof(extent_metadata);
-
+	
  	if (!nr_pages || !pgs || !pgs[0]) {
  		goto out;
  	}
 
 	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_encrypt_pages %d "
                  "pages\n", nr_pages);
+
+	ecryptfs_inode = pgs[0]->mapping->host;
+	crypt_stat =
+		&(ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat);
+	metadata_per_extent = crypt_stat->extent_size / sizeof(extent_metadata);
 
 	// source sgs
  	src_sg = (struct scatterlist *)kmalloc(
@@ -232,8 +246,8 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
     }
  
 	//ivs
-	extent_iv = (u8 *)kmalloc(nr_pages * ECRYPTFS_MAX_IV_BYTES, GFP_KERNEL);
- 	if (!extent_iv) {
+	iv_data = (u8 *)kmalloc(nr_pages * ECRYPTFS_MAX_IV_BYTES, GFP_KERNEL);
+ 	if (!iv_data) {
  		ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
                  "ivs\n");
  		rc = -ENOMEM;
@@ -241,8 +255,8 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
     }
 
 	//tags
-	tag_data_dst = (u8 *)kmalloc(nr_pages * ECRYPTFS_GCM_TAG_SIZE, GFP_KERNEL);
- 	if (!tag_data_dst) {
+	tag_data = (u8 *)kmalloc(nr_pages * ECRYPTFS_GCM_TAG_SIZE, GFP_KERNEL);
+ 	if (!tag_data) {
  		ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
                  "ivs\n");
  		rc = -ENOMEM;
@@ -251,12 +265,11 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
 
 	//generate ivs
 	for (i = 0; i < nr_pages; i++) {
-		get_random_bytes(extent_iv+(i*ECRYPTFS_MAX_IV_BYTES), ECRYPTFS_MAX_IV_BYTES);
+		get_random_bytes(iv_data+(i*ECRYPTFS_MAX_IV_BYTES), ECRYPTFS_MAX_IV_BYTES);
 	}
 
     sg_init_table(src_sg, nr_pages);
     sg_init_table(dst_sg, nr_pages*2);
-    ecryptfs_inode = pgs[0]->mapping->host;
  
  	for (i = 0; i < nr_pages; i++) {
  		enc_extent_page = alloc_page(GFP_USER);
@@ -271,13 +284,13 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
  		}
  
  		sg_set_page(src_sg + i, pgs[i], PAGE_SIZE, 0);
- 		sg_set_page(dst_sg + i*2, enc_extent_page, PAGE_SIZE, 0);
-		sg_set_buf(dst_sg + (i*2) + 1, tag_data_dst + (i*ECRYPTFS_GCM_TAG_SIZE), 
+ 		sg_set_page(dst_sg + (i*2), enc_extent_page, PAGE_SIZE, 0);
+		sg_set_buf(dst_sg + (i*2) + 1, tag_data + (i*ECRYPTFS_GCM_TAG_SIZE), 
 				ECRYPTFS_GCM_TAG_SIZE);
  	}
  
  	rc = crypt_scatterlist(crypt_stat, dst_sg, src_sg, PAGE_SIZE * nr_pages,
-             extent_iv, ENCRYPT);
+             iv_data, ENCRYPT);
      if (rc) {
          printk(KERN_ERR "%s: Error encrypting extents in scatter list; "
                  "rc = [%d]\n", __func__, rc);
@@ -288,25 +301,13 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
      }
  
  	for (i = 0; i < nr_pages; i++) {
-        // lower_offset = lower_offset_for_page(crypt_stat, pgs[i]);
- 		// ret = ecryptfs_write_lower(ecryptfs_inode, enc_extent_virt, lower_offset,
-        //          PAGE_SIZE);
- 		// kunmap(enc_extent_page);
- 		// __free_page(enc_extent_page);
- 
- 		// if (ret < 0) {
- 		// 	ecryptfs_printk(KERN_ERR, "Error attempting "
- 		// 			"to write lower page; rc = [%d]\n", ret);
- 		// 	rc = ret;
- 		// }
-
 		/*
 		* Lower offset must take into account the number of
 		* data extents, auth tag extents, and header size.
 		*/
 		lower_offset = ecryptfs_lower_header_size(crypt_stat);
-		//data_extent_num = page->index + 1;
-		data_extent_num = pgs[i]->index + 1;
+		data_extent_num = (pgs[i]->index * num_extents) + 1;
+		data_extent_num += extent_offset;
 		lower_offset += (data_extent_num - 1)
 			* crypt_stat->extent_size;
 		meta_extent_num = (data_extent_num
@@ -315,10 +316,13 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
 		lower_offset += meta_extent_num
 			* crypt_stat->extent_size;
 
+		// get the page we created previously
 		enc_extent_page = sg_page(dst_sg + (i*2));
+
 		enc_extent_virt = kmap(enc_extent_page);
 		rc = ecryptfs_write_lower(ecryptfs_inode,
-				enc_extent_virt,
+				enc_extent_virt + (extent_offset
+					* crypt_stat->extent_size),
 				lower_offset,
 				crypt_stat->extent_size);
 		kunmap(enc_extent_page);
@@ -328,9 +332,9 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
 			goto out;
 		}
 
-		memcpy(extent_metadata.iv_bytes, extent_iv+(i*ECRYPTFS_MAX_IV_BYTES),
+		memcpy(extent_metadata.iv_bytes, iv_data+(i*ECRYPTFS_MAX_IV_BYTES),
 			ECRYPTFS_MAX_IV_BYTES);
-		memcpy(extent_metadata.auth_tag_bytes, tag_data_dst+(i*ECRYPTFS_GCM_TAG_SIZE),
+		memcpy(extent_metadata.auth_tag_bytes, tag_data+(i*ECRYPTFS_GCM_TAG_SIZE),
 			ECRYPTFS_GCM_TAG_SIZE);
 
 		lower_offset = ecryptfs_lower_header_size(crypt_stat);
@@ -342,7 +346,6 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
 				(void *) &extent_metadata,
 				lower_offset,
 				sizeof(extent_metadata));
-				//ECRYPTFS_GCM_TAG_SIZE);
 		if (rc < 0) {
 			printk(KERN_ERR "Error attempting to write lower"
 					"page; rc = [%d]\n", rc);
@@ -350,11 +353,19 @@ int lake_ecryptfs_encrypt_pages(struct ecryptfs_crypt_stat *crypt_stat, struct p
 		}
  	}
  
+	rc = 0;
+	for (i = 0; i < nr_pages; i++) {
+		enc_extent_page = sg_page(dst_sg + (i*2));
+		if (enc_extent_page) {
+			__free_page(enc_extent_page);
+		}
+	}
+
 higher_out:
  	kfree(src_sg);
  	kfree(dst_sg);
-	kfree(extent_iv);
-	kfree(tag_data_dst);
+	kfree(iv_data);
+	kfree(tag_data);
 out:
  	return rc;
 }
@@ -444,6 +455,8 @@ ssize_t lake_ecryptfs_file_buffered_read(struct kiocb *iocb,
 	    goto out;
 	}
 
+	ecryptfs_printk(KERN_ERR, "[lake] reading %d pages\n", nr_pgs);
+
 	index = *ppos >> PAGE_SHIFT;
 	last_index = (*ppos + iter->count + PAGE_SIZE-1) >> PAGE_SHIFT;
 
@@ -459,6 +472,7 @@ find_page:
 
 		page = find_get_page(mapping, index);
 		if (!page) {
+			ecryptfs_printk(KERN_ERR, "[lake] page not found in cache..\n");
 			if (iocb->ki_flags & IOCB_NOWAIT)
 				goto would_block;
 			page_cache_sync_readahead(mapping,
@@ -484,6 +498,7 @@ no_cached_page:
 		 * Ok, it wasn't cached, so we need to create a new
 		 * page..
 		 */
+		ecryptfs_printk(KERN_ERR, "[lake] no_cached_page\n");
 		page = page_cache_alloc(mapping);
 		if (!page) {
 			error = -ENOMEM;
@@ -516,8 +531,10 @@ no_cached_page:
     /* Start the actual read. The read will unlock the page. */
     //pr_info("nr_pgs_no_cached = %x, nr_pgs_cached = %x\n", nr_pgs_no_cached, nr_pgs_cached);
     //error = mapping->a_ops->readpages(filp, mapping, pgs_no_cached, nr_pgs_no_cached);
-    if (nr_pgs_no_cached)
+    if (nr_pgs_no_cached) {
+		ecryptfs_printk(KERN_ERR, "[lake] calling to decrypt %d pages\n", nr_pgs_no_cached);
         error = lake_ecryptfs_decrypt_pages(pgs_no_cached, nr_pgs_no_cached);
+	}
 
     if (unlikely(error))
         goto readpage_error;
@@ -636,6 +653,7 @@ no_cached_page:
 
 readpage_error:
 	/* UHHUH! A synchronous read error occurred. Report it */
+	ecryptfs_printk(KERN_ERR, "[lake] readpage_error\n");
 	goto out;
 
 would_block:
@@ -681,16 +699,11 @@ int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
 	u8 *tag_data = NULL;
 	u8 *iv_data = NULL;
 
-	//crypt_extent_aead
-	//loff_t extent_base;
-	//char *extent_iv;
 	struct scatterlist *src_sg = NULL;
 	struct scatterlist *dst_sg = NULL;
-	//size_t extent_size;
-
     unsigned int i = 0;
 
-	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_decrypt_pages\n");
+	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_decrypt_pages %d pages\n", nr_pages);
 
     if (!nr_pages || !pgs || !pgs[0]) {
         goto out;
@@ -866,6 +879,9 @@ int lake_ecryptfs_mmap_writepages(struct address_space *mapping,
 	struct page **pgs;
 	int pg_idx;
 
+	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_mmap_writepages"
+		" %d pages\n", PAGEVEC_SIZE);
+
 	pgs = kmalloc(sizeof(struct page *) * PAGEVEC_SIZE, GFP_KERNEL);
 	if (!pgs) {
 		printk("[g-ecryptfs] Error: pgs alloc failed!\n");
@@ -1030,8 +1046,8 @@ int lake_ecryptfs_mmap_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 		goto out;
 	}
 
-	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_mmap_encrypt_pages %d "
-                 "pages\n", nr_pages);
+	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_mmap_encrypt_pages "
+                 "%d pages\n", nr_pages);
 
 	src_sg = (struct scatterlist *)kmalloc(
 		nr_pages * sizeof(struct scatterlist), GFP_KERNEL);
@@ -1074,6 +1090,7 @@ int lake_ecryptfs_mmap_encrypt_pages(struct page **pgs, unsigned int nr_pages)
  		goto higher_out;
     }
 
+	ecryptfs_printk(KERN_ERR, "[lake] generating IVs\n");
 	//generate ivs
 	for (i = 0; i < nr_pages; i++) {
 		get_random_bytes(extent_iv+(i*ECRYPTFS_MAX_IV_BYTES), ECRYPTFS_MAX_IV_BYTES);
@@ -1082,6 +1099,7 @@ int lake_ecryptfs_mmap_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 	sg_init_table(src_sg, nr_pages);
     sg_init_table(dst_sg, nr_pages*2);
 
+	ecryptfs_printk(KERN_ERR, "[lake] allocating pages\n");
 	for (i = 0; i < nr_pages; i++) {
 		enc_extent_page = alloc_page(GFP_USER);
 		if (!enc_extent_page) {
@@ -1101,6 +1119,7 @@ int lake_ecryptfs_mmap_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 				ECRYPTFS_GCM_TAG_SIZE);
 	}
 
+	ecryptfs_printk(KERN_ERR, "[lake] crypt_scatterlist\n");
 	rc = crypt_scatterlist(crypt_stat, dst_sg, src_sg, PAGE_SIZE * nr_pages,
             extent_iv, ENCRYPT);
     if (rc) {
@@ -1111,7 +1130,7 @@ int lake_ecryptfs_mmap_encrypt_pages(struct page **pgs, unsigned int nr_pages)
         }
         goto higher_out;
     }
-
+	ecryptfs_printk(KERN_ERR, "[lake] writing to pages\n");
 	for (i = 0; i < nr_pages; i++) {
 		// int ret;
 		// enc_extent_page = sg_page(sgd + i);
@@ -1169,7 +1188,6 @@ int lake_ecryptfs_mmap_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 				(void *) &extent_metadata,
 				lower_offset,
 				sizeof(extent_metadata));
-				//ECRYPTFS_GCM_TAG_SIZE);
 		if (rc < 0) {
 			printk(KERN_ERR "Error attempting to write lower"
 					"metadata page; rc = [%d]\n", rc);
@@ -1182,7 +1200,7 @@ int lake_ecryptfs_mmap_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 			unlock_page(enc_extent_page);
 		}
 	}
-
+	ecryptfs_printk(KERN_ERR, "[lake] done\n");
 higher_out:
 	kfree(dst_sg);
 	kfree(src_sg);
