@@ -421,9 +421,16 @@ const struct file_operations ecryptfs_dir_fops = {
 	.llseek = ecryptfs_dir_llseek,
 };
 
+static ssize_t ecryptfs_generic_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
+{
+	ecryptfs_printk(KERN_ERR, "ecryptfs_generic_file_write_iter\n");
+	return generic_file_write_iter(iocb, from);
+}
+
+
 const struct file_operations ecryptfs_main_fops = {
 	.llseek = generic_file_llseek,
-	.write_iter = generic_file_write_iter,
+	.write_iter = ecryptfs_generic_file_write_iter,
 	.unlocked_ioctl = ecryptfs_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = ecryptfs_compat_ioctl,

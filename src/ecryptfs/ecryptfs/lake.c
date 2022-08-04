@@ -18,6 +18,7 @@ ssize_t lake_ecryptfs_file_write(struct file *file, const char __user *data,
 	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_file_write\n");
     lake_ecryptfs_write(file_inode(file), (char *)data, *poffset, size);
     *poffset += size;
+	ecryptfs_printk(KERN_ERR, "lake_ecryptfs_file_write done\n");
     return size;
 }
 
@@ -102,7 +103,21 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
 		// 	ecryptfs_printk(KERN_ERR, "[lake] page %ld found!\n", ecryptfs_page_idx);
 		// }
 		
-		ecryptfs_page = grab_cache_page_write_begin(mapping, ecryptfs_page_idx, flags);
+		ecryptfs_page = grab_cache_page_write_begin(mapping, ecryptfs_page_idx, 0);
+
+		// ecryptfs_page = page_cache_alloc(mapping);
+		// rc = add_to_page_cache_lru(ecryptfs_page, mapping, ecryptfs_page_idx,
+ 		// 	mapping_gfp_constraint(mapping, GFP_KERNEL));
+		// if (rc) {
+		// 	put_page(ecryptfs_page);
+		// 	printk(KERN_ERR "%s: Error adding page to cache lru at "
+		// 		"index [%ld] from eCryptfs inode "
+		// 		"mapping; rc = [%d]\n", __func__,
+		// 		ecryptfs_page_idx, rc);
+		// 	goto out;
+		// }
+		// ClearPageError(ecryptfs_page);
+
 
 		if (IS_ERR(ecryptfs_page)) {
  			rc = PTR_ERR(ecryptfs_page);
@@ -113,8 +128,8 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
  			goto out;
  		}
 
- 		//ecryptfs_page_virt = kmap(ecryptfs_page);
-        ecryptfs_page_virt = kmap_atomic(ecryptfs_page);
+ 		ecryptfs_page_virt = kmap(ecryptfs_page);
+        //ecryptfs_page_virt = kmap_atomic(ecryptfs_page);
 
  		/*
  		 * pos: where we're now writing, offset: where the request was
@@ -166,16 +181,16 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
  	    //rc = lake_ecryptfs_encrypt_pages(pgs, nr_pgs);
 		ecryptfs_printk(KERN_ERR, "[lake] encrypting %d pages (nr_pgs: %d)\n", i, nr_pgs);
 		rc = lake_ecryptfs_encrypt_pages(pgs, i);
- 	    //for (j = 0; j < i; j++)
+		//for (j = 0; j < i; j++)
  		//    put_page(pgs[j]);
  	    kfree(pgs);
  	}
  
  	if (pos > ecryptfs_file_size) {
+		ecryptfs_printk(KERN_ERR, "[lake] writing size to inode %ld\n", offset + size);
  		i_size_write(ecryptfs_inode, (offset + size));
  		if (crypt_stat->flags & ECRYPTFS_ENCRYPTED) {
-             int rc2;
- 
+			int rc2;
  			rc2 = ecryptfs_write_inode_size_to_metadata(ecryptfs_inode);
  			if (rc2) {
  				printk(KERN_ERR	"Problem with "
@@ -188,6 +203,7 @@ int lake_ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
  		}
  	}
  out:
+	ecryptfs_printk(KERN_ERR, "[lake] write done\n");
  	return rc;
 }
 

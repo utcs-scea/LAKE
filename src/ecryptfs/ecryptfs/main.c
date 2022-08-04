@@ -292,6 +292,8 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 
 	*check_ruid = 0;
 
+	printk(KERN_ERR "parsing\n");
+
 	if (!options) {
 		rc = -EINVAL;
 		goto out;
@@ -852,7 +854,7 @@ static const struct attribute_group attr_group = {
 static int do_sysfs_registration(void)
 {
 	int rc;
-
+	printk(KERN_ERR "sysfs register\n");
 	ecryptfs_kobj = kobject_create_and_add("ecryptfs", fs_kobj);
 	if (!ecryptfs_kobj) {
 		printk(KERN_ERR "Unable to create ecryptfs kset\n");
@@ -878,7 +880,7 @@ static void do_sysfs_unregistration(void)
 static int __init ecryptfs_init(void)
 {
 	int rc;
-
+	printk(KERN_ERR "init\n");
 	if (ECRYPTFS_DEFAULT_EXTENT_SIZE > PAGE_SIZE) {
 		rc = -EINVAL;
 		ecryptfs_printk(KERN_ERR, "The eCryptfs extent size is "
@@ -896,6 +898,7 @@ static int __init ecryptfs_init(void)
 		       "Failed to allocate one or more kmem_cache objects\n");
 		goto out;
 	}
+	printk(KERN_ERR "init2\n");
 	rc = do_sysfs_registration();
 	if (rc) {
 		printk(KERN_ERR "sysfs registration failed\n");
@@ -907,6 +910,7 @@ static int __init ecryptfs_init(void)
 		       "rc = [%d]\n", __func__, rc);
 		goto out_do_sysfs_unregistration;
 	}
+	printk(KERN_ERR "init3\n");
 	rc = ecryptfs_init_messaging();
 	if (rc) {
 		printk(KERN_ERR "Failure occurred while attempting to "
@@ -914,12 +918,14 @@ static int __init ecryptfs_init(void)
 				"ecryptfsd\n");
 		goto out_destroy_kthread;
 	}
+	printk(KERN_ERR "init4\n");
 	rc = ecryptfs_init_crypto();
 	if (rc) {
 		printk(KERN_ERR "Failure whilst attempting to init crypto; "
 		       "rc = [%d]\n", rc);
 		goto out_release_messaging;
 	}
+	printk(KERN_ERR "init5\n");
 	rc = register_filesystem(&ecryptfs_fs_type);
 	if (rc) {
 		printk(KERN_ERR "Failed to register filesystem\n");
@@ -941,6 +947,7 @@ out_do_sysfs_unregistration:
 out_free_kmem_caches:
 	ecryptfs_free_kmem_caches();
 out:
+	printk(KERN_ERR "init done\n");
 	return rc;
 }
 
