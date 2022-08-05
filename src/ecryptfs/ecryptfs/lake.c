@@ -529,6 +529,12 @@ out:
  * 
  *********************************************/
 
+/**********************************************
+ * 
+ *   START OF READ_ITER
+ * 
+ *********************************************/
+
 ssize_t lake_ecryptfs_read_update_atime(struct kiocb *iocb, struct iov_iter *to)
 {
 	ssize_t rc;
@@ -1035,6 +1041,18 @@ out:
 
     return (rc >= 0 ? 0 : rc);
 }
+
+/**********************************************
+ * 
+ *   END OF READ_ITER
+ * 
+ *********************************************/
+
+/**********************************************
+ * 
+ *   START OF MMAP OPS
+ * 
+ *********************************************/
 
 
 int lake_ecryptfs_mmap_writepages(struct address_space *mapping,
