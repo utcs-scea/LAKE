@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/mount.h>
+#include <linux/delay.h>
 #include "ecryptfs_kernel.h"
 
 struct ecryptfs_open_req {
@@ -135,6 +136,9 @@ int ecryptfs_privileged_open(struct file **lower_file,
 	struct ecryptfs_open_req req;
 	int flags = O_LARGEFILE;
 	int rc = 0;
+
+	ecryptfs_printk(KERN_ERR, "ecryptfs_privileged_open\n");
+	usleep_range(10000, 20000);
 
 	init_completion(&req.done);
 	req.lower_file = lower_file;

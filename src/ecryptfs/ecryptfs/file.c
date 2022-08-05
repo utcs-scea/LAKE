@@ -31,6 +31,7 @@
 #include <linux/security.h>
 #include <linux/compat.h>
 #include <linux/fs_stack.h>
+#include <linux/delay.h>
 #include "ecryptfs_kernel.h"
 
 #include "lake.h"
@@ -51,6 +52,9 @@ static ssize_t ecryptfs_read_update_atime(struct kiocb *iocb,
 	ssize_t rc;
 	struct path *path;
 	struct file *file = iocb->ki_filp;
+
+	ecryptfs_printk(KERN_ERR, "ecryptfs_read_update_atime\n");
+	usleep_range(10000, 20000);
 
 	rc = generic_file_read_iter(iocb, to);
 	if (rc >= 0) {
@@ -147,6 +151,9 @@ static int read_or_initialize_metadata(struct dentry *dentry)
 	struct ecryptfs_crypt_stat *crypt_stat;
 	int rc;
 
+	ecryptfs_printk(KERN_ERR, "read_or_initialize_metadata\n");
+	usleep_range(10000, 20000);
+
 	crypt_stat = &ecryptfs_inode_to_private(inode)->crypt_stat;
 	mount_crypt_stat = &ecryptfs_superblock_to_private(
 						inode->i_sb)->mount_crypt_stat;
@@ -212,6 +219,9 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 	/* Private value of ecryptfs_dentry allocated in
 	 * ecryptfs_lookup() */
 	struct ecryptfs_file_info *file_info;
+
+	ecryptfs_printk(KERN_ERR, "ecryptfs_open\n");
+	usleep_range(10000, 20000);
 
 	/* Released in ecryptfs_release or end of function if failure */
 	file_info = kmem_cache_zalloc(ecryptfs_file_info_cache, GFP_KERNEL);
@@ -307,6 +317,9 @@ static int ecryptfs_flush(struct file *file, fl_owner_t td)
 {
 	struct file *lower_file = ecryptfs_file_to_lower(file);
 
+	ecryptfs_printk(KERN_ERR, "ecryptfs_flush\n");
+	usleep_range(10000, 20000);
+
 	if (lower_file->f_op->flush) {
 		filemap_write_and_wait(file->f_mapping);
 		return lower_file->f_op->flush(lower_file, td);
@@ -340,6 +353,9 @@ static int
 ecryptfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	int rc;
+
+	ecryptfs_printk(KERN_ERR, "ecryptfs_fsync\n");
+	usleep_range(10000, 20000);
 
 	rc = file_write_and_wait(file);
 	if (rc)
@@ -430,7 +446,6 @@ static ssize_t ecryptfs_generic_file_write_iter(struct kiocb *iocb, struct iov_i
 
 const struct file_operations ecryptfs_main_fops = {
 	.llseek = generic_file_llseek,
-	.write_iter = ecryptfs_generic_file_write_iter,
 	.unlocked_ioctl = ecryptfs_unlocked_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = ecryptfs_compat_ioctl,
@@ -444,10 +459,11 @@ const struct file_operations ecryptfs_main_fops = {
 	.splice_read = generic_file_splice_read,
 
 #ifdef LAKE_ECRYPTFS
-	.write = lake_ecryptfs_file_write,
-	//.read_iter = lake_ecryptfs_read_update_atime,
+	//.write = lake_ecryptfs_file_write,
+	.write_iter = lake_generic_file_write_iter,
 	.read_iter = ecryptfs_read_update_atime,
 #else
+	.write_iter = ecryptfs_generic_file_write_iter,
 	.read_iter = ecryptfs_read_update_atime,
 #endif
 };

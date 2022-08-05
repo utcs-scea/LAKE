@@ -420,8 +420,9 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 	//		     crypto_skcipher_decrypt(req);
 	
 	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
-		if (op == DECRYPT)
-			size += ECRYPTFS_GCM_TAG_SIZE;
+		//XXX
+		//if (op == DECRYPT)
+		//	size += ECRYPTFS_GCM_TAG_SIZE;
 		aead_request_set_crypt(aead_req, src_sg, dst_sg, size, iv);
 		// ignore AD
 		aead_request_set_ad(aead_req, 0);
@@ -585,6 +586,8 @@ static int crypt_extent_aead(struct ecryptfs_crypt_stat *crypt_stat,
 		extent_offset * extent_size);
 	sg_set_buf(&dst_sg[1], tag_data_dst, ARRAY_SIZE(tag_data_dst));
 
+	if (op == DECRYPT)
+		extent_size += ECRYPTFS_GCM_TAG_SIZE;
 	rc = crypt_scatterlist(crypt_stat, &dst_sg[0], &src_sg[0], extent_size,
 				extent_iv, op);
 

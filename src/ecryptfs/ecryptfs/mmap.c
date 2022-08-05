@@ -34,6 +34,7 @@
 #include <linux/slab.h>
 #include <linux/xattr.h>
 #include <asm/unaligned.h>
+#include <linux/delay.h>
 #include "ecryptfs_kernel.h"
 
 #include "lake.h"
@@ -68,6 +69,8 @@ static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 {
 	int rc;
 	ecryptfs_printk(KERN_ERR, "ecryptfs_writepage\n");
+	usleep_range(10000, 20000);
+
 	rc = ecryptfs_encrypt_page(page);
 	if (rc) {
 		ecryptfs_printk(KERN_WARNING, "Error encrypting "
@@ -200,6 +203,7 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 	int rc = 0;
 
 	ecryptfs_printk(KERN_ERR, "ecryptfs_readpage\n");
+	usleep_range(10000, 20000);
 
 	if (!crypt_stat || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		rc = ecryptfs_read_lower_page_segment(page, page->index, 0,
@@ -219,6 +223,8 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 			}
 
 		} else {
+			ecryptfs_printk(KERN_ERR, "reading page ..\n");
+			usleep_range(10000, 20000);
 			rc = ecryptfs_read_lower_page_segment(
 				page, page->index, 0, PAGE_SIZE,
 				page->mapping->host);
@@ -227,14 +233,20 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 				       "[%d]\n", rc);
 				goto out;
 			}
+			ecryptfs_printk(KERN_ERR, "done\n");
+			usleep_range(10000, 20000);
 		}
 	} else {
+		ecryptfs_printk(KERN_ERR, "decrypting page ..\n");
+		usleep_range(10000, 20000);
 		rc = ecryptfs_decrypt_page(page);
 		if (rc) {
 			ecryptfs_printk(KERN_ERR, "Error decrypting page; "
 					"rc = [%d]\n", rc);
 			goto out;
 		}
+		ecryptfs_printk(KERN_ERR, "done\n");
+		usleep_range(10000, 20000);
 	}
 out:
 	if (rc)
@@ -250,7 +262,7 @@ out:
 /**
  * Called with lower inode mutex held.
  */
-static int fill_zeros_to_end_of_page(struct page *page, unsigned int to)
+int fill_zeros_to_end_of_page(struct page *page, unsigned int to)
 {
 	struct inode *inode = page->mapping->host;
 	int end_byte_in_page;
@@ -279,7 +291,7 @@ out:
  *
  * Returns zero on success; non-zero otherwise
  */
-static int ecryptfs_write_begin(struct file *file,
+int ecryptfs_write_begin(struct file *file,
 			struct address_space *mapping,
 			loff_t pos, unsigned len, unsigned flags,
 			struct page **pagep, void **fsdata)
@@ -290,6 +302,8 @@ static int ecryptfs_write_begin(struct file *file,
 	int rc = 0;
 
 	ecryptfs_printk(KERN_ERR, "ecryptfs_write_begin\n");
+	usleep_range(10000, 20000);
+
 	page = grab_cache_page_write_begin(mapping, index, flags);
 	if (!page)
 		return -ENOMEM;
@@ -518,12 +532,14 @@ static int ecryptfs_write_end(struct file *file,
 			"zeros in page with index = [0x%.16lx]\n", index);
 		goto out;
 	}
+
 	rc = ecryptfs_encrypt_page(page);
 	if (rc) {
 		ecryptfs_printk(KERN_WARNING, "Error encrypting page (upper "
 				"index [0x%.16lx])\n", index);
 		goto out;
 	}
+
 	if (pos + copied > i_size_read(ecryptfs_inode)) {
 		i_size_write(ecryptfs_inode, pos + copied);
 		ecryptfs_printk(KERN_DEBUG, "Expanded file size to "
