@@ -23,13 +23,16 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 
+#include "gcm_cuda.h"
+
+static char *cubin_path = "gcm_kernels.cubin";
+module_param(cubin_path, charp, 0444);
+MODULE_PARM_DESC(cubin_path, "The path to gcm_kernels.cubin");
 
 //tfm ctx
 struct crypto_gcm_ctx {
-	//XXX
-	// lets store the CUDA ptrs here
+	struct AES_GCM_engine_ctx cuda_ctx;
 };
-
 
 static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
 			     unsigned int keylen)
