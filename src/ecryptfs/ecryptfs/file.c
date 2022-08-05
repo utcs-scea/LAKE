@@ -443,7 +443,6 @@ static ssize_t ecryptfs_generic_file_write_iter(struct kiocb *iocb, struct iov_i
 	return generic_file_write_iter(iocb, from);
 }
 
-
 const struct file_operations ecryptfs_main_fops = {
 	.llseek = generic_file_llseek,
 	.unlocked_ioctl = ecryptfs_unlocked_ioctl,
@@ -467,4 +466,3 @@ const struct file_operations ecryptfs_main_fops = {
 	.read_iter = ecryptfs_read_update_atime,
 #endif
 };
-

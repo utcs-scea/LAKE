@@ -302,7 +302,6 @@ int ecryptfs_write_begin(struct file *file,
 	int rc = 0;
 
 	ecryptfs_printk(KERN_ERR, "ecryptfs_write_begin\n");
-	usleep_range(10000, 20000);
 
 	page = grab_cache_page_write_begin(mapping, index, flags);
 	if (!page)
