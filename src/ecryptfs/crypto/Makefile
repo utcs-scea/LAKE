@@ -8,3 +8,7 @@ all:
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
+
+.PHONY: test_user
+test_user:
+	nvcc test_user.c gcm_cuda.c -lcuda -o test_user

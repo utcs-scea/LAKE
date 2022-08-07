@@ -13,7 +13,7 @@
 #include <crypto/internal/skcipher.h>
 #include <crypto/internal/hash.h>
 #include <crypto/null.h>
-#include <crypto/scatterwalk.h>
+#include <crypto/scatterlist.h>
 #include <crypto/gcm.h>
 #include <crypto/hash.h>
 #include "internal.h"
@@ -40,8 +40,12 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(aead);
 	int err = 0;
 
-	//TODO set key
+	if (keylen != AESGCM_KEYLEN) {
+		printk(KERN_ERR "Wrong key size.. need %u, got %u\n", AESGCM_KEYLEN, keylen);
+		goto out;
+	}
 
+	lake_AES_GCM_setkey(&ctx->cuda_ctx, key);
 out:
 	return err;
 }
@@ -67,11 +71,32 @@ static int crypto_gcm_setauthsize(struct crypto_aead *tfm,
 
 static int crypto_gcm_encrypt(struct aead_request *req)
 {
-	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
-	
 	// when we get here, all fields in req were set by aead_request_set_crypt
 	// ->src, ->dst, ->cryptlen, ->iv
+	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
+	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
+	int count = 0;	
+	void* buf;
+	unsigned int len;
+	struct scatterlist *src = req->src; 
+	CUdeviceptr src, dst;
 
+	//TODO: figure out total # of pages
+	u32 npages;
+	lake_AES_GCM_alloc_pages(&ctx->cuda_ctx, &src, npages*PAGE_SIZE);
+	lake_AES_GCM_alloc_pages(&ctx->cuda_ctx, &dst, npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+	while(src) {
+		buf = sg_virt(src);	
+		len = src->length;
+		printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
+		src = sg_next(src);
+		//copy to device
+		lake_AES_GCM_copy_to_device(&ctx->cuda_ctx, src, count, PAGE_SIZE);
+	}
+
+	void lake_AES_GCM_encrypt(&ctx->cuda_ctx, dst, src, npages*PAGE_SIZE);
+
+	cuCtxSynchronize();
 	return 0;
 }
 
@@ -99,7 +124,8 @@ static int crypto_gcm_init_tfm(struct crypto_aead *tfm)
 	align &= ~(crypto_tfm_ctx_alignment() - 1);
 	crypto_aead_set_reqsize(tfm, align);
 
-	//TODO: init everything in ctx
+	lake_AES_GCM_init(&ctx->cuda_ctx);
+	lake_init_fns(&ctx->cuda_ctx, cubin_path);
 
 	return 0;
 }
@@ -107,8 +133,7 @@ static int crypto_gcm_init_tfm(struct crypto_aead *tfm)
 static void crypto_gcm_exit_tfm(struct crypto_aead *tfm)
 {
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
-
-	//TODO: clean everything in crypto_gcm_ctx
+	lake_AES_GCM_destroy(&ctx->cuda_ctx);
 }
 
 static void crypto_gcm_free(struct aead_instance *inst)
@@ -189,13 +214,6 @@ static struct crypto_template crypto_gcm_tmpl = {
 static int __init crypto_gcm_module_init(void)
 {
 	int err;
-
-	// gcm_zeroes = kzalloc(sizeof(*gcm_zeroes), GFP_KERNEL);
-	// if (!gcm_zeroes)
-	// 	return -ENOMEM;
-
-	// sg_init_one(&gcm_zeroes->sg, gcm_zeroes->buf, sizeof(gcm_zeroes->buf));
-
 	err = crypto_register_template(&crypto_gcm_tmpl);
 	if (err)
 		goto out_undo_gcm;
@@ -205,13 +223,11 @@ static int __init crypto_gcm_module_init(void)
 out_undo_gcm:
 	crypto_unregister_template(&crypto_gcm_tmpl);
 out:
-	//kfree(gcm_zeroes);
 	return err;
 }
 
 static void __exit crypto_gcm_module_exit(void)
 {
-	//kfree(gcm_zeroes);
 	crypto_unregister_template(&crypto_gcm_tmpl);
 }
 

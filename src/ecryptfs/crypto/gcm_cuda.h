@@ -1,12 +1,39 @@
 #ifndef __GCM_H__
 #define __GCM_H__
 
+#ifdef __KERNEL__
+#else
+#include <stdio.h>
+#endif
+
 #include <cuda.h>
+
+#ifdef __KERNEL__
+#define PRINT(...) do { printk(KERN_ERR __VA_ARGS__); } while (0)
+#else
+#define PRINT(...) do { printf(__VA_ARGS__); } while (0)
+#endif
 
 typedef unsigned long long int u64;
 typedef unsigned int u32;
 typedef unsigned short u16;
 typedef unsigned char u8;
+
+static inline void gpuAssert(CUresult code, const char *file, int line)
+{
+   if (code != CUDA_SUCCESS) 
+   {
+#ifdef __KERNEL__
+        printk(KERN_ERR "GPUassert error: %d %s %d\n", code, file, line);
+#else
+        const char* errs = 0;
+        cuGetErrorString(code, &errs);
+        fprintf(stderr,"GPUassert: %s %s %d\n", errs, file, line);
+        exit(code);
+#endif
+   }
+}
+#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 
 #define Nb 4
 #define Nk 8
@@ -24,8 +51,12 @@ typedef unsigned char u8;
 #define AES_MACLEN 12u
 #define AES_GCM_STEP 64u
 
-const int kBaseThreadBits = 8;
-const int kBaseThreadNum  = 1 << kBaseThreadBits;
+//const int annoying_gcc_one = 1;
+//int kBaseThreadBits = 8;
+//int kBaseThreadNum  = annoying_gcc_one << kBaseThreadBits;
+
+#define kBaseThreadBits 8
+#define kBaseThreadNum (1<< kBaseThreadBits)
 
 #define crypto_aead_aes256gcm_NPUBBYTES 12U
 #define crypto_aead_aes256gcm_ABYTES 16U
@@ -65,13 +96,19 @@ struct AES_GCM_engine_ctx {
     CUfunction key_expansion_kernel;
     CUfunction setup_table_kernel;
     CUfunction encrypt_oneblock_kernel;
+    CUfunction next_nonce_kernel;
     CUstream *g_stream;
 };
 
-void lake_AES_GCM_encrypt(struct AES_GCM_engine_ctx* d_engine, u8* d_dst, u8* d_src, u32 size);
-void lake_AES_GCM_decrypt(struct AES_GCM_engine_ctx* d_engine, u8* d_dst, u8* d_src, u32 size);
+void lake_AES_GCM_alloc_pages(CUdeviceptr* src, u32 size);
+void lake_AES_GCM_copy_to_device(CUdeviceptr src, u8* buf, u32 size);
+
+void lake_AES_GCM_encrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size);
+void lake_AES_GCM_decrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size);
 void lake_AES_GCM_init(struct AES_GCM_engine_ctx* d_engine);
+int  lake_AES_GCM_init_fns(struct AES_GCM_engine_ctx *d_engine, char *cubin_path);
 void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, u8* key);
+void lake_AES_GCM_destroy(struct AES_GCM_engine_ctx* d_engine);
 
 #ifdef __CUDACC__
 #define ENDIAN_SELECTOR 0x00000123

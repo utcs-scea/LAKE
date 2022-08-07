@@ -1,4 +1,4 @@
-#include "gcm.h"
+#include "gcm_cuda.h"
 
 // This function produces Nb(Nr+1) round keys. The round keys are used in each round to decrypt the states.
 __device__ void KeyExpansion(uint8_t* sbox, uint8_t* Rcon, uint8_t* RoundKey,
