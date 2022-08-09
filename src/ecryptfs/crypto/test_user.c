@@ -29,12 +29,19 @@ int main(int argc, char** argv) {
     lake_AES_GCM_setkey(&ctx, key);
 
     u8 input[n*PAGE_SIZE];
+    for (int i = 0 ; i < AESGCM_KEYLEN ; i++)
+        input[i] = i % 255;
 
-    CUdeviceptr src, dst;
+    CUdeviceptr src, dst, dec;
     lake_AES_GCM_alloc_pages(&src, n*PAGE_SIZE);
     lake_AES_GCM_alloc_pages(&dst, n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
     
     lake_AES_GCM_encrypt(&ctx, src, dst, n*PAGE_SIZE);
+
+    lake_AES_GCM_alloc_pages(&dec, n*(PAGE_SIZE));
+
+    
+
 }
 
 

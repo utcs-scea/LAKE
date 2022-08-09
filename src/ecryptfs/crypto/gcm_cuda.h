@@ -102,7 +102,7 @@ struct AES_GCM_engine_ctx {
 
 void lake_AES_GCM_alloc_pages(CUdeviceptr* src, u32 size);
 void lake_AES_GCM_copy_to_device(CUdeviceptr src, u8* buf, u32 size);
-
+void lake_AES_GCM_copy_from_device(u8* buf, CUdeviceptr src, u32 size);
 void lake_AES_GCM_encrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size);
 void lake_AES_GCM_decrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size);
 void lake_AES_GCM_init(struct AES_GCM_engine_ctx* d_engine);

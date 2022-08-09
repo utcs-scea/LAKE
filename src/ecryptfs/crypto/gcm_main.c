@@ -79,24 +79,36 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 	void* buf;
 	unsigned int len;
 	struct scatterlist *src = req->src; 
-	CUdeviceptr src, dst;
-
-	//TODO: figure out total # of pages
+	CUdeviceptr d_src, d_dst;
+	char *pages_buf;
 	u32 npages;
-	lake_AES_GCM_alloc_pages(&ctx->cuda_ctx, &src, npages*PAGE_SIZE);
-	lake_AES_GCM_alloc_pages(&ctx->cuda_ctx, &dst, npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+
+	npages = sg_nents(src);
+	printk(KERN_ERR "encrypt: processing %d pages\n", npages);
+
+	lake_AES_GCM_alloc_pages(&ctx->cuda_ctx, &d_src, npages*PAGE_SIZE);
+	lake_AES_GCM_alloc_pages(&ctx->cuda_ctx, &d_dst, npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+
+	//TODO: switch between these
+	//pages_buf = (char *)kava_alloc(nbytes);
+	pages_buf = vmalloc(npages*PAGE_SIZE);
+
 	while(src) {
 		buf = sg_virt(src);	
 		len = src->length;
 		printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
+		memcpy(pages_buf+(count*PAGE_SIZE), buf, PAGE_SIZE);
 		src = sg_next(src);
-		//copy to device
-		lake_AES_GCM_copy_to_device(&ctx->cuda_ctx, src, count, PAGE_SIZE);
+		count++;
 	}
-
-	void lake_AES_GCM_encrypt(&ctx->cuda_ctx, dst, src, npages*PAGE_SIZE);
+	lake_AES_GCM_copy_to_device(d_dst, pages_buf, npages*PAGE_SIZE);
+	lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
+	//copy cipher back
+	lake_AES_GCM_copy_from_device(pages_buf, d_dst, npages*PAGE_SIZE);
+	//TODO: copy MAC
 
 	cuCtxSynchronize();
+	vfree(pages_buf);
 	return 0;
 }
 

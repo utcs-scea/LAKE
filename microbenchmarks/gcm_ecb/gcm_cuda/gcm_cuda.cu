@@ -438,7 +438,9 @@ __global__ void AES_GCM_xcrypt_kernel(uint8_t* dst, uint8_t* sbox, uint8_t* roun
     for (int i = 0; i < 12; i++) {
       buffer[i] = nonce[i];
     }
-    put_be32(buffer + 12, (uint32_t)tid + 2);
+    //put_be32(buffer + 12, (uint32_t)tid + 2);
+    //linux does __be32 counter = cpu_to_be32(1);, lets do the same
+    put_be32(buffer + 12, (uint32_t)1);
     Cipher(sbox, (state_t*)buffer, roundkey);
 #pragma unroll
     for (int i = 0; i < AES_BLOCKLEN; i++) {

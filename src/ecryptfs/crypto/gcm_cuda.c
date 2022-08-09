@@ -129,10 +129,6 @@ static void lake_AES_GCM_xcrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr
 }
 
 static void lake_AES_GCM_compute_mac(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr dst, CUdeviceptr src, u32 size) {
-    //dim3 numBlocks_1(AES_GCM_STEP);
-    //dim3 dimBlocks_1(AES_GCM_STEP);
-    //AES_GCM_mac_kernel<<<numBlocks_1, dimBlocks_1>>>(d_engine.gf_last4, d_engine.HL_sqr_long, 
-    //d_engine.HH_sqr_long, AES_GCM_STEP * AES_GCM_STEP, src, size / 16, d_engine.buffer1);
     int sq_step = AES_GCM_STEP * AES_GCM_STEP;
     u32 num_block = size / 16;
     void *args[] = { &d_engine->gf_last4, &d_engine->HL_sqr_long,
@@ -140,31 +136,18 @@ static void lake_AES_GCM_compute_mac(struct AES_GCM_engine_ctx* d_engine, CUdevi
     cuLaunchKernel(d_engine->mac_kernel, AES_GCM_STEP, 1, 1, 
             AES_GCM_STEP, 1, 1, 0, 0, args, 0);
 
-    //dim3 numBlocks_2(AES_GCM_STEP / 8);
-    //dim3 dimBlocks_2(8);
-    //AES_GCM_mac_kernel<<<numBlocks_2, dimBlocks_2>>>(d_engine.gf_last4, d_engine.HL_long, 
-    //d_engine.HH_long, AES_GCM_STEP,
-    //d_engine.buffer1, AES_GCM_STEP * AES_GCM_STEP, d_engine.buffer2);
     int nparts = AES_GCM_STEP;
     void *args2[] = { &d_engine->gf_last4, &d_engine->HL_long,
         &d_engine->HH_long, &nparts, &d_engine->buffer1, &sq_step, &d_engine->buffer2 };
     cuLaunchKernel(d_engine->mac_kernel, AES_GCM_STEP / 8, 1, 1, 
             8, 1, 1, 0, 0, args2, 0);
 
-    //dim3 numBlocks_3(1);
-    //dim3 dimBlocks_3(1);
-    //AES_GCM_mac_kernel<<<numBlocks_3, dimBlocks_3>>>(d_engine.gf_last4, d_engine.HL, d_engine.HH,
-    //  1, d_engine.buffer2, AES_GCM_STEP, dst);
     int one = 1;
     void *args3[] = { &d_engine->gf_last4, &d_engine->HL,
         &d_engine->HH, &one, &d_engine->buffer2, &nparts, &dst };
     cuLaunchKernel(d_engine->mac_kernel, 1, 1, 1, 
             1, 1, 1, 0, 0, args3, 0);
 
-    //dim3 numBlocks_4(1);
-    //dim3 dimBlocks_4(1);
-    //AES_GCM_mac_final_kernel<<<numBlocks_4, dimBlocks_4>>>(d_engine.gf_last4, d_engine.HL, 
-    //    d_engine.HH, d_engine.sbox, d_engine.aes_roundkey, nonce, dst, size, dst);
     void *args4[] = { &d_engine->gf_last4, &d_engine->HL,
         &d_engine->HH, &d_engine->sbox, &d_engine->aes_roundkey, &d_engine->nonce_device,
         &dst, &size, &src };
@@ -172,10 +155,11 @@ static void lake_AES_GCM_compute_mac(struct AES_GCM_engine_ctx* d_engine, CUdevi
             1, 1, 1, 0, 0, args4, 0);
 }
 
+//TODO: set IV
 void lake_AES_GCM_encrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
     //assert(size % AES_BLOCKLEN == 0);
     lake_AES_GCM_xcrypt(d_engine, d_dst, d_src, size);
-    lake_AES_GCM_compute_mac(d_engine, d_dst, d_src, size);
+    lake_AES_GCM_compute_mac(d_engine, d_dst+size, d_src, size);
 }
 
 void lake_AES_GCM_alloc_pages(CUdeviceptr* src, u32 size) {
@@ -186,10 +170,14 @@ void lake_AES_GCM_copy_to_device(CUdeviceptr dst, u8* buf, u32 size) {
     cuMemcpyHtoDAsync(dst, buf, size, 0);
 }
 
+void lake_AES_GCM_copy_from_device(u8* buf, CUdeviceptr src, u32 size) {
+    cuMemcpyDtoHAsync(buf, src, size, 0);
+}
+
 void lake_AES_GCM_decrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
     //assert(size % AES_BLOCKLEN == 0);
-    lake_AES_GCM_compute_mac(d_engine, d_dst, d_src, size);
     // TODO verify mac for i in crypto_aead_aes256gcm_ABYTES: (dst == src[size])
+    lake_AES_GCM_compute_mac(d_engine, d_dst, d_src, size);
     lake_AES_GCM_xcrypt(d_engine, d_dst, d_src, size);
 }
 
@@ -255,36 +243,3 @@ int lake_AES_GCM_init_fns(struct AES_GCM_engine_ctx *d_engine, char *cubin_path)
     }
 }
 
-
-// void gcm_setup() {
-//     srand(0);
-//     for (int i = 0 ; i < AESGCM_KEYLEN ; i++) {
-//         gcm_key[i] = i%255;
-//     }
-//     AES_GCM_init(gcm_key);
-
-//     gpuErrchk(cuMemAlloc(&d_gcm_cypher, max_batch*multiplier*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES)));
-//     gpuErrchk(cuMemAlloc(&d_gcm_input,  max_batch*multiplier*PAGE_SIZE));
-
-//     gpuErrchk(cudaMemcpy(d_gcm_input, pages, max_batch*multiplier*PAGE_SIZE, cudaMemcpyHostToDevice));
-// }
-
-// void gcm_encrypt(uint64_t block_size) {    
-//     uint64_t sz = block_size*PAGE_SIZE;
-//     for (int i = 0 ; i < multiplier ; i++) {
-//         AES_GCM_encrypt(
-//             d_gcm_cypher+ i*sz, //dst
-//             d_gcm_input+ i*(sz+crypto_aead_aes256gcm_ABYTES), //src
-//             sz);
-//     }
-// }
-
-// void gcm_decrypt(uint64_t block_size) {    
-//     uint64_t sz = block_size*PAGE_SIZE;
-//     for (int i = 0 ; i < multiplier ; i++) {
-//         AES_GCM_decrypt(
-//             d_gcm_input+ i*sz, //dst
-//             d_gcm_cypher+ i*(sz+crypto_aead_aes256gcm_ABYTES),
-//             sz);
-//     }
-// }
