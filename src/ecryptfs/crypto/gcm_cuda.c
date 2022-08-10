@@ -225,48 +225,48 @@ int lake_AES_GCM_init_fns(struct AES_GCM_engine_ctx *d_engine, char *cubin_path)
         return -ENODEV;
     }
 
-    // res = cuCtxCreate(&d_engine->context, 0, d_engine->device);
-    // if (res != CUDA_SUCCESS) {
-    //     PRINT("[lake] Error: create GPU context\n");
-    //     return -EBUSY;
-    // }
+    res = cuCtxCreate(&d_engine->context, 0, d_engine->device);
+    if (res != CUDA_SUCCESS) {
+        PRINT("[lake] Error: create GPU context\n");
+        return -EBUSY;
+    }
 
-    // res = cuModuleLoad(&d_engine->module, cubin_path);
-    // if (res != CUDA_SUCCESS) {
-    //     PRINT("[lake] Error: load AES-ECB CUDA module (%d)\n", res);
-    //     return -ENOENT;
-    // }
+    res = cuModuleLoad(&d_engine->module, cubin_path);
+    if (res != CUDA_SUCCESS) {
+        PRINT("[lake] Error: load AES-ECB CUDA module (%d)\n", res);
+        return -ENOENT;
+    }
 
-    // res = cuModuleGetFunction(&d_engine->xcrypt_kernel, d_engine->module, "_Z21AES_GCM_xcrypt_kernelPhS_S_S_S_j");
-    // if (res != CUDA_SUCCESS) {
-    //     PRINT("[lake] Error: load encrypt kernel\n");
-    //     return -ENOSYS;
-    // }
-    // res = cuModuleGetFunction(&d_engine->mac_kernel, d_engine->module, "_Z18AES_GCM_mac_kernelPmS_S_iPhjS0_");
-    // if (res != CUDA_SUCCESS) {
-    //     PRINT("[lake] Error: load decrypt kernel\n");
-    //     return -ENOSYS;
-    // }
-    // res = cuModuleGetFunction(&d_engine->final_mac_kernel, d_engine->module, "_Z24AES_GCM_mac_final_kernelPmS_S_PhS0_S0_S0_jS0_");
-    // if (res != CUDA_SUCCESS) {
-    //     PRINT("[lake] Error: load decrypt kernel\n");
-    //     return -ENOSYS;
-    // }
-    // res = cuModuleGetFunction(&d_engine->key_expansion_kernel, d_engine->module, "_Z24AES_key_expansion_kernelPhS_S_S_");
-    // if (res != CUDA_SUCCESS) {
-    //     PRINT("[lake] Error: load decrypt kernel\n");
-    //     return -ENOSYS;
-    // }
-    // res = cuModuleGetFunction(&d_engine->setup_table_kernel, d_engine->module, "_Z34AES_GCM_setup_gf_mult_table_kernelPmPhS_S_S_S_S_S_");
-    // if (res != CUDA_SUCCESS) {
-    //     PRINT("[lake] Error: load decrypt kernel\n");
-    //     return -ENOSYS;
-    // }
-    // res = cuModuleGetFunction(&d_engine->encrypt_oneblock_kernel, d_engine->module, "_Z28AES_encrypt_one_block_kernelPhS_S_");
-    // if (res != CUDA_SUCCESS) {
-    //     PRINT("[lake] Error: load decrypt kernel\n");
-    //     return -ENOSYS;
-    // }
+    res = cuModuleGetFunction(&d_engine->xcrypt_kernel, d_engine->module, "_Z21AES_GCM_xcrypt_kernelPhS_S_S_S_j");
+    if (res != CUDA_SUCCESS) {
+        PRINT("[lake] Error: load encrypt kernel\n");
+        return -ENOSYS;
+    }
+    res = cuModuleGetFunction(&d_engine->mac_kernel, d_engine->module, "_Z18AES_GCM_mac_kernelPmS_S_iPhjS0_");
+    if (res != CUDA_SUCCESS) {
+        PRINT("[lake] Error: load decrypt kernel\n");
+        return -ENOSYS;
+    }
+    res = cuModuleGetFunction(&d_engine->final_mac_kernel, d_engine->module, "_Z24AES_GCM_mac_final_kernelPmS_S_PhS0_S0_S0_jS0_");
+    if (res != CUDA_SUCCESS) {
+        PRINT("[lake] Error: load decrypt kernel\n");
+        return -ENOSYS;
+    }
+    res = cuModuleGetFunction(&d_engine->key_expansion_kernel, d_engine->module, "_Z24AES_key_expansion_kernelPhS_S_S_");
+    if (res != CUDA_SUCCESS) {
+        PRINT("[lake] Error: load decrypt kernel\n");
+        return -ENOSYS;
+    }
+    res = cuModuleGetFunction(&d_engine->setup_table_kernel, d_engine->module, "_Z34AES_GCM_setup_gf_mult_table_kernelPmPhS_S_S_S_S_S_");
+    if (res != CUDA_SUCCESS) {
+        PRINT("[lake] Error: load decrypt kernel\n");
+        return -ENOSYS;
+    }
+    res = cuModuleGetFunction(&d_engine->encrypt_oneblock_kernel, d_engine->module, "_Z28AES_encrypt_one_block_kernelPhS_S_");
+    if (res != CUDA_SUCCESS) {
+        PRINT("[lake] Error: load decrypt kernel\n");
+        return -ENOSYS;
+    }
     return 0;
 }
 
