@@ -1,3 +1,0 @@
-all:
-	cd ../xxhash/gpu ; make ; cd -
-	cp ../xxhash/gpu/xxhash.cubin .
