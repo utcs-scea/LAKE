@@ -1,0 +1,4 @@
+KAVA_ROOT = /home/hfingler/hf-HACK/kava
+ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include
+obj-m += test_kernel.o
+test_kernel-objs := test_kernel_crypto.o

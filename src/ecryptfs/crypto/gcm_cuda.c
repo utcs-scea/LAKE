@@ -79,51 +79,70 @@ void lake_AES_GCM_init(struct AES_GCM_engine_ctx* d_engine) {
 }
 
 void lake_AES_GCM_destroy(struct AES_GCM_engine_ctx* d_engine) {
+    gpuErrchk(cuMemFree(d_engine->sbox));
+    gpuErrchk(cuMemFree(d_engine->rsbox));
+    gpuErrchk(cuMemFree(d_engine->Rcon));
+    gpuErrchk(cuMemFree(d_engine->key));
+    gpuErrchk(cuMemFree(d_engine->aes_roundkey));
+    gpuErrchk(cuMemFree(d_engine->gcm_h));
 
+    gpuErrchk(cuMemFree(d_engine->HL));
+    gpuErrchk(cuMemFree(d_engine->HH));
+    gpuErrchk(cuMemFree(d_engine->HL_long));
+    gpuErrchk(cuMemFree(d_engine->HH_long ));
+    gpuErrchk(cuMemFree(d_engine->HL_sqr_long));
+    gpuErrchk(cuMemFree(d_engine->HH_sqr_long));
+    gpuErrchk(cuMemFree(d_engine->gf_last4));
+    gpuErrchk(cuMemFree(d_engine->nonce_device));
+    
+    gpuErrchk(cuMemFree(d_engine->buffer1));
+    gpuErrchk(cuMemFree(d_engine->buffer2));
 }
 
-void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, u8* key) {
+void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, const u8* key) {
     u8* nonce_host;
     int i = 0;
 
-    nonce_host = malloc(crypto_aead_aes256gcm_NPUBBYTES);
-    for(i=0 ; i<crypto_aead_aes256gcm_NPUBBYTES ; i++)
-        nonce_host[i] = i;
-
-    gpuErrchk(cuMemcpyHtoD(d_engine->key, key, AESGCM_KEYLEN));
-
-    //AES_key_expansion_kernel<<<numBlocks, dimBlocks>>>(d_engine.sbox, d_engine.Rcon, d_engine.key, d_engine.aes_roundkey);
     void *args[] = { &d_engine->sbox, &d_engine->Rcon, &d_engine->key, &d_engine->aes_roundkey};
-    cuLaunchKernel(d_engine->key_expansion_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args, 0);
-
-    //gpuErrchk(cudaMemset(d_engine.gcm_h, 0, 16));
-    //AES_encrypt_one_block_kernel<<<numBlocks, dimBlocks>>>(d_engine.sbox, d_engine.aes_roundkey, d_engine.gcm_h);
     void *args2[] = { &d_engine->sbox, &d_engine->aes_roundkey, &d_engine->gcm_h};
-    cuLaunchKernel(d_engine->encrypt_oneblock_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args2, 0);
-
-    //cudaMemcpy(d_engine.gf_last4, gf_last4_host, BLOCK_SIZE, cudaMemcpyHostToDevice);
-    cuMemcpyHtoD(d_engine->gf_last4, gf_last4_host, AESGCM_BLOCK_SIZE);
-
-    //AES_GCM_setup_gf_mult_table_kernel<<<numBlocks, dimBlocks>>>(d_engine.gf_last4, d_engine.gcm_h,
-    //    d_engine.HL, d_engine.HH, d_engine.HL_long, d_engine.HH_long, d_engine.HL_sqr_long, d_engine.HH_sqr_long);
     void *args3[] = { &d_engine->gf_last4, &d_engine->gcm_h,
         &d_engine->HL, &d_engine->HH, &d_engine->HL_long,
         &d_engine->HH_long, &d_engine->HL_sqr_long, &d_engine->HH_sqr_long};
-    cuLaunchKernel(d_engine->setup_table_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args3, 0);
+
+#ifdef __KERNEL__
+    nonce_host = vmalloc(16);
+#else
+    nonce_host = malloc(16);
+#endif
+    
+    for(i = 0 ; i < 12 ; i++)
+        nonce_host[i] = i;
 
     gpuErrchk(cuMemAlloc((CUdeviceptr*)&d_engine->nonce_device, 12));
-    cuMemcpyHtoD(d_engine->nonce_device, nonce_host, crypto_aead_aes256gcm_NPUBBYTES);
+    gpuErrchk(cuMemcpyHtoD(d_engine->nonce_device, nonce_host, crypto_aead_aes256gcm_NPUBBYTES));
+    gpuErrchk(cuMemcpyHtoD(d_engine->key, key, AESGCM_KEYLEN));
 
+    for(i = 0 ; i < 16 ; i++)
+        nonce_host[i] = 0;
+    gpuErrchk(cuMemcpyHtoD(d_engine->gcm_h, nonce_host, 16));
+
+    cuLaunchKernel(d_engine->key_expansion_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args, 0);
+    cuLaunchKernel(d_engine->encrypt_oneblock_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args2, 0);
+    cuMemcpyHtoD(d_engine->gf_last4, gf_last4_host, AESGCM_BLOCK_SIZE);
+    cuLaunchKernel(d_engine->setup_table_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args3, 0);
     gpuErrchk(cuCtxSynchronize());
+
+    #ifdef __KERNEL__
+        vfree(nonce_host);
+    #else
+        free(nonce_host);
+    #endif
 }
 
-static void lake_AES_GCM_xcrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr src, u32 size) {
+static void lake_AES_GCM_xcrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
     int num_block = (size / 16 + kBaseThreadNum-1) / kBaseThreadNum;
-    //dim3 numBlocks(num_block);
-    //dim3 dimBlocks(kBaseThreadNum);
-    //AES_GCM_xcrypt_kernel<<<numBlocks, dimBlocks>>>(dst, d_engine.sbox, d_engine.aes_roundkey, nonce, src, size);
     void *args[] = { &d_dst, &d_engine->sbox, &d_engine->aes_roundkey,
-        &d_engine->nonce_device, &src, &size };
+        &d_engine->nonce_device, &d_src, &size };
     cuLaunchKernel(d_engine->xcrypt_kernel, num_block, 1, 1, 
             kBaseThreadNum, 1, 1, 0, 0, args, 0);
 }
@@ -131,26 +150,27 @@ static void lake_AES_GCM_xcrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr
 static void lake_AES_GCM_compute_mac(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr dst, CUdeviceptr src, u32 size) {
     int sq_step = AES_GCM_STEP * AES_GCM_STEP;
     u32 num_block = size / 16;
+    int nparts = AES_GCM_STEP;
+    int one = 1;
     void *args[] = { &d_engine->gf_last4, &d_engine->HL_sqr_long,
         &d_engine->HH_sqr_long, &sq_step, &src, &num_block, &d_engine->buffer1};
-    cuLaunchKernel(d_engine->mac_kernel, AES_GCM_STEP, 1, 1, 
-            AES_GCM_STEP, 1, 1, 0, 0, args, 0);
 
-    int nparts = AES_GCM_STEP;
     void *args2[] = { &d_engine->gf_last4, &d_engine->HL_long,
         &d_engine->HH_long, &nparts, &d_engine->buffer1, &sq_step, &d_engine->buffer2 };
-    cuLaunchKernel(d_engine->mac_kernel, AES_GCM_STEP / 8, 1, 1, 
-            8, 1, 1, 0, 0, args2, 0);
 
-    int one = 1;
     void *args3[] = { &d_engine->gf_last4, &d_engine->HL,
         &d_engine->HH, &one, &d_engine->buffer2, &nparts, &dst };
-    cuLaunchKernel(d_engine->mac_kernel, 1, 1, 1, 
-            1, 1, 1, 0, 0, args3, 0);
 
     void *args4[] = { &d_engine->gf_last4, &d_engine->HL,
         &d_engine->HH, &d_engine->sbox, &d_engine->aes_roundkey, &d_engine->nonce_device,
         &dst, &size, &src };
+
+    cuLaunchKernel(d_engine->mac_kernel, AES_GCM_STEP, 1, 1, 
+            AES_GCM_STEP, 1, 1, 0, 0, args, 0);
+    cuLaunchKernel(d_engine->mac_kernel, AES_GCM_STEP / 8, 1, 1, 
+            8, 1, 1, 0, 0, args2, 0);
+    cuLaunchKernel(d_engine->mac_kernel, 1, 1, 1, 
+            1, 1, 1, 0, 0, args3, 0);
     cuLaunchKernel(d_engine->final_mac_kernel, 1, 1, 1, 
             1, 1, 1, 0, 0, args4, 0);
 }
@@ -176,15 +196,15 @@ void lake_AES_GCM_copy_from_device(u8* buf, CUdeviceptr src, u32 size) {
 
 void lake_AES_GCM_decrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
     //assert(size % AES_BLOCKLEN == 0);
-    // TODO verify mac for i in crypto_aead_aes256gcm_ABYTES: (dst == src[size])
     lake_AES_GCM_compute_mac(d_engine, d_dst, d_src, size);
+    // TODO verify mac for i in crypto_aead_aes256gcm_ABYTES: (dst == src[size])
     lake_AES_GCM_xcrypt(d_engine, d_dst, d_src, size);
 }
 
 static volatile char dev_initialized = 0;
 
 int lake_AES_GCM_init_fns(struct AES_GCM_engine_ctx *d_engine, char *cubin_path) {
-    int res;
+    int res=0;
 
     if (!dev_initialized) {
         cuInit(0);
@@ -201,45 +221,52 @@ int lake_AES_GCM_init_fns(struct AES_GCM_engine_ctx *d_engine, char *cubin_path)
 
     res = cuCtxCreate(&d_engine->context, 0, d_engine->device);
     if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: create GPU context\n");
-        return -EBUSY;
+        PRINT("[lake] Error: creating ctx\n");
+        return -ENODEV;
     }
 
-    res = cuModuleLoad(&d_engine->module, cubin_path);
-    if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: load AES-ECB CUDA module (%d)\n", res);
-        return -ENOENT;
-    }
+    // res = cuCtxCreate(&d_engine->context, 0, d_engine->device);
+    // if (res != CUDA_SUCCESS) {
+    //     PRINT("[lake] Error: create GPU context\n");
+    //     return -EBUSY;
+    // }
 
-    res = cuModuleGetFunction(&d_engine->xcrypt_kernel, d_engine->module, "_Z21AES_GCM_xcrypt_kernelPhS_S_S_S_j");
-    if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: load encrypt kernel\n");
-        return -ENOSYS;
-    }
-    res = cuModuleGetFunction(&d_engine->mac_kernel, d_engine->module, "_Z18AES_GCM_mac_kernelPmS_S_iPhjS0_");
-    if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: load decrypt kernel\n");
-        return -ENOSYS;
-    }
-    res = cuModuleGetFunction(&d_engine->final_mac_kernel, d_engine->module, "_Z24AES_GCM_mac_final_kernelPmS_S_PhS0_S0_S0_jS0_");
-    if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: load decrypt kernel\n");
-        return -ENOSYS;
-    }
-    res = cuModuleGetFunction(&d_engine->key_expansion_kernel, d_engine->module, "_Z24AES_key_expansion_kernelPhS_S_S_");
-    if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: load decrypt kernel\n");
-        return -ENOSYS;
-    }
-    res = cuModuleGetFunction(&d_engine->setup_table_kernel, d_engine->module, "_Z34AES_GCM_setup_gf_mult_table_kernelPmPhS_S_S_S_S_S_");
-    if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: load decrypt kernel\n");
-        return -ENOSYS;
-    }
-    res = cuModuleGetFunction(&d_engine->encrypt_oneblock_kernel, d_engine->module, "_Z28AES_encrypt_one_block_kernelPhS_S_");
-    if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: load decrypt kernel\n");
-        return -ENOSYS;
-    }
+    // res = cuModuleLoad(&d_engine->module, cubin_path);
+    // if (res != CUDA_SUCCESS) {
+    //     PRINT("[lake] Error: load AES-ECB CUDA module (%d)\n", res);
+    //     return -ENOENT;
+    // }
+
+    // res = cuModuleGetFunction(&d_engine->xcrypt_kernel, d_engine->module, "_Z21AES_GCM_xcrypt_kernelPhS_S_S_S_j");
+    // if (res != CUDA_SUCCESS) {
+    //     PRINT("[lake] Error: load encrypt kernel\n");
+    //     return -ENOSYS;
+    // }
+    // res = cuModuleGetFunction(&d_engine->mac_kernel, d_engine->module, "_Z18AES_GCM_mac_kernelPmS_S_iPhjS0_");
+    // if (res != CUDA_SUCCESS) {
+    //     PRINT("[lake] Error: load decrypt kernel\n");
+    //     return -ENOSYS;
+    // }
+    // res = cuModuleGetFunction(&d_engine->final_mac_kernel, d_engine->module, "_Z24AES_GCM_mac_final_kernelPmS_S_PhS0_S0_S0_jS0_");
+    // if (res != CUDA_SUCCESS) {
+    //     PRINT("[lake] Error: load decrypt kernel\n");
+    //     return -ENOSYS;
+    // }
+    // res = cuModuleGetFunction(&d_engine->key_expansion_kernel, d_engine->module, "_Z24AES_key_expansion_kernelPhS_S_S_");
+    // if (res != CUDA_SUCCESS) {
+    //     PRINT("[lake] Error: load decrypt kernel\n");
+    //     return -ENOSYS;
+    // }
+    // res = cuModuleGetFunction(&d_engine->setup_table_kernel, d_engine->module, "_Z34AES_GCM_setup_gf_mult_table_kernelPmPhS_S_S_S_S_S_");
+    // if (res != CUDA_SUCCESS) {
+    //     PRINT("[lake] Error: load decrypt kernel\n");
+    //     return -ENOSYS;
+    // }
+    // res = cuModuleGetFunction(&d_engine->encrypt_oneblock_kernel, d_engine->module, "_Z28AES_encrypt_one_block_kernelPhS_S_");
+    // if (res != CUDA_SUCCESS) {
+    //     PRINT("[lake] Error: load decrypt kernel\n");
+    //     return -ENOSYS;
+    // }
+    return 0;
 }
 

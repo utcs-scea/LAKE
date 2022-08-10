@@ -2,6 +2,8 @@
 #define __GCM_H__
 
 #ifdef __KERNEL__
+#include <linux/kernel.h>
+#include <linux/module.h>
 #else
 #include <stdio.h>
 #endif
@@ -107,7 +109,7 @@ void lake_AES_GCM_encrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst
 void lake_AES_GCM_decrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size);
 void lake_AES_GCM_init(struct AES_GCM_engine_ctx* d_engine);
 int  lake_AES_GCM_init_fns(struct AES_GCM_engine_ctx *d_engine, char *cubin_path);
-void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, u8* key);
+void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, const u8* key);
 void lake_AES_GCM_destroy(struct AES_GCM_engine_ctx* d_engine);
 
 #ifdef __CUDACC__

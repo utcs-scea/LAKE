@@ -13,7 +13,7 @@
 #include <crypto/internal/skcipher.h>
 #include <crypto/internal/hash.h>
 #include <crypto/null.h>
-#include <crypto/scatterlist.h>
+#include <linux/scatterlist.h>
 #include <crypto/gcm.h>
 #include <crypto/hash.h>
 #include "internal.h"
@@ -22,6 +22,9 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
+#include <linux/delay.h>
+#include <linux/fs.h> 
+#include <asm/uaccess.h>
 
 #include "gcm_cuda.h"
 
@@ -54,14 +57,14 @@ static int crypto_gcm_setauthsize(struct crypto_aead *tfm,
 				  unsigned int authsize)
 {
 	switch (authsize) {
+	case 16:
+		break;
 	case 4:
 	case 8:
 	case 12:
 	case 13:
 	case 14:
 	case 15:
-	case 16:
-		break;
 	default:
 		return -EINVAL;
 	}
@@ -75,37 +78,53 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 	// ->src, ->dst, ->cryptlen, ->iv
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
-	int count = 0;	
+	int count = 0, count_dst = 0;
 	void* buf;
 	unsigned int len;
-	struct scatterlist *src = req->src; 
+	struct scatterlist *src_sg = req->src; 
+	struct scatterlist *dst_sg = req->dst; 
 	CUdeviceptr d_src, d_dst;
 	char *pages_buf;
-	u32 npages;
+	int npages;
 
-	npages = sg_nents(src);
+	npages = sg_nents(src_sg);
+	if (sg_nents(dst_sg) != 2*npages) {
+		printk(KERN_ERR "encrypt: error, wrong number of ents on sgs. src: %d, dst: %d\n", npages, sg_nents(dst_sg));
+		return -1;
+	}
+
 	printk(KERN_ERR "encrypt: processing %d pages\n", npages);
-
-	lake_AES_GCM_alloc_pages(&ctx->cuda_ctx, &d_src, npages*PAGE_SIZE);
-	lake_AES_GCM_alloc_pages(&ctx->cuda_ctx, &d_dst, npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
-
+	lake_AES_GCM_alloc_pages(&d_src, npages*PAGE_SIZE);
+	lake_AES_GCM_alloc_pages(&d_dst, npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
 	//TODO: switch between these
 	//pages_buf = (char *)kava_alloc(nbytes);
 	pages_buf = vmalloc(npages*PAGE_SIZE);
 
-	while(src) {
-		buf = sg_virt(src);	
-		len = src->length;
+	while(src_sg) {
+		buf = sg_virt(src_sg);	
+		len = src_sg->length;
 		printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
 		memcpy(pages_buf+(count*PAGE_SIZE), buf, PAGE_SIZE);
-		src = sg_next(src);
+		src_sg = sg_next(src_sg);
 		count++;
 	}
-	lake_AES_GCM_copy_to_device(d_dst, pages_buf, npages*PAGE_SIZE);
+	//TODO: copy IVs, set enc to use it. it's currently constant and set at setkey
+	lake_AES_GCM_copy_to_device(d_src, pages_buf, npages*PAGE_SIZE);
 	lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
 	//copy cipher back
 	lake_AES_GCM_copy_from_device(pages_buf, d_dst, npages*PAGE_SIZE);
 	//TODO: copy MAC
+
+	while(dst_sg) {
+		// cipher sg
+		buf = sg_virt(dst_sg);	
+		memcpy(buf, pages_buf+(count_dst * (PAGE_SIZE+crypto_aead_aes256gcm_ABYTES)), PAGE_SIZE);
+		// MAC sg
+		dst_sg = sg_next(dst_sg);
+		buf = sg_virt(dst_sg);
+		memcpy(buf, pages_buf+((count_dst*PAGE_SIZE) + PAGE_SIZE), crypto_aead_aes256gcm_ABYTES);
+		dst_sg = sg_next(dst_sg);
+	}
 
 	cuCtxSynchronize();
 	vfree(pages_buf);
@@ -115,15 +134,54 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 static int crypto_gcm_decrypt(struct aead_request *req)
 {
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
+	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
+	int count = 0, count_dst = 0;
+	void* buf;
+	unsigned int len;
+	struct scatterlist *src_sg = req->src; 
+	struct scatterlist *dst_sg = req->dst; 
+	CUdeviceptr d_src, d_dst;
+	char *pages_buf;
+	int npages;
 
-	unsigned int authsize = crypto_aead_authsize(tfm);
-	unsigned int cryptlen = req->cryptlen;
-	
-	// when we get here, all fields in req were set by aead_request_set_crypt
-	// ->src, ->dst, ->cryptlen, ->iv
+	npages = sg_nents(src_sg);
+	if (2*sg_nents(dst_sg) != npages) {
+		printk(KERN_ERR "encrypt: error, wrong number of ents on sgs. src: %d, dst: %d\n", npages, sg_nents(dst_sg));
+		return -1;
+	}
 
-	// gctx->src = sg_next(pctx->src);
+	printk(KERN_ERR "decrypt: processing %d pages\n", npages);
+	lake_AES_GCM_alloc_pages(&d_src, npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+	lake_AES_GCM_alloc_pages(&d_dst, npages*PAGE_SIZE);
+	//TODO: switch between these
+	//pages_buf = (char *)kava_alloc(nbytes);
+	pages_buf = vmalloc(npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
 
+	while(src_sg) {
+		buf = sg_virt(src_sg);	
+		len = src_sg->length;
+		printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
+		memcpy(pages_buf+(count*PAGE_SIZE), buf, PAGE_SIZE);
+		src_sg = sg_next(src_sg);
+		//TODO: copy MACs
+		src_sg = sg_next(src_sg);
+		count++;
+	}
+	lake_AES_GCM_copy_to_device(d_src, pages_buf, npages*PAGE_SIZE);
+	//TODO: copy MACs too
+	lake_AES_GCM_decrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
+	//copy cipher back
+	lake_AES_GCM_copy_from_device(pages_buf, d_dst, npages*PAGE_SIZE);
+
+	while(dst_sg) {
+		// plain sg
+		buf = sg_virt(dst_sg);	
+		memcpy(buf, pages_buf+(count_dst*PAGE_SIZE), PAGE_SIZE);
+		dst_sg = sg_next(dst_sg);
+	}
+
+	cuCtxSynchronize();
+	vfree(pages_buf);
 	return 0;
 }
 
@@ -132,12 +190,18 @@ static int crypto_gcm_init_tfm(struct crypto_aead *tfm)
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
 	unsigned long align;
 
+	printk(KERN_ERR "crypto_gcm_init_tfm\n");
+
 	align = crypto_aead_alignmask(tfm);
 	align &= ~(crypto_tfm_ctx_alignment() - 1);
 	crypto_aead_set_reqsize(tfm, align);
 
+	lake_AES_GCM_init_fns(&ctx->cuda_ctx, cubin_path);
 	lake_AES_GCM_init(&ctx->cuda_ctx);
-	lake_init_fns(&ctx->cuda_ctx, cubin_path);
+
+	lake_AES_GCM_destroy(&ctx->cuda_ctx);
+
+	return -1;
 
 	return 0;
 }
@@ -156,19 +220,19 @@ static void crypto_gcm_free(struct aead_instance *inst)
 static int crypto_gcm_create_common(struct crypto_template *tmpl,
 				    struct rtattr **tb)
 {
-	//struct gcm_instance_ctx *ctx;
 	struct aead_instance *inst;
 	int err;
+
+	printk(KERN_ERR "crypto_gcm_create_common\n");
 
 	err = -ENOMEM;
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
 	if (!inst)
-		goto out_put_ghash;
+		goto out_err;
 
-	//ctx = aead_instance_ctx(inst);
-	
-	//inst->alg.base.cra_flags = (ghash->base.cra_flags |
-	//			    ctr->base.cra_flags) & CRYPTO_ALG_ASYNC;
+	snprintf(inst->alg.base.cra_name, CRYPTO_MAX_ALG_NAME, "lake_gcm(aes)");
+	snprintf(inst->alg.base.cra_driver_name, CRYPTO_MAX_ALG_NAME, "lake(gcm_cuda,aes)");
+
 	inst->alg.base.cra_flags = CRYPTO_ALG_ASYNC;
 	//inst->alg.base.cra_priority = (ghash->base.cra_priority +
 	//			       ctr->base.cra_priority) / 2;
@@ -180,7 +244,7 @@ static int crypto_gcm_create_common(struct crypto_template *tmpl,
 	inst->alg.base.cra_alignmask = 0;
 	inst->alg.base.cra_ctxsize = sizeof(struct crypto_gcm_ctx);
 	inst->alg.ivsize = GCM_AES_IV_SIZE;
-	
+
 	//XXX
 	//inst->alg.chunksize = crypto_skcipher_alg_chunksize(ctr);
 	inst->alg.chunksize = 1;
@@ -196,29 +260,27 @@ static int crypto_gcm_create_common(struct crypto_template *tmpl,
 	inst->free = crypto_gcm_free;
 
 	err = aead_register_instance(tmpl, inst);
-	if (err)
-		goto err_free_inst;
-
-out_put_ghash:
-	//crypto_mod_put(ghash_alg);
+	if (err) {
+		printk(KERN_ERR "error aead_register_instance %d\n", err);
+		goto out_err;
+	}
+	printk(KERN_ERR "all good in crypto_gcm_create_common %d\n", err);
 	return err;
-
-//out_put_ctr:
-	//crypto_drop_skcipher(&ctx->ctr);
-//err_drop_ghash:
-	//crypto_drop_ahash(&ctx->ghash);
-err_free_inst:
+out_err:
+	printk(KERN_ERR "error in crypto_gcm_create_common %d\n", err);
 	kfree(inst);
-	goto out_put_ghash;
+	return err;
 }
 
 static int crypto_gcm_create(struct crypto_template *tmpl, struct rtattr **tb)
 {
+	printk(KERN_ERR "crypto_gcm_create\n");
+	usleep_range(50, 100);
 	return crypto_gcm_create_common(tmpl, tb);
 }
 
 static struct crypto_template crypto_gcm_tmpl = {
-	.name = "gcm_cuda",
+	.name = "lake_gcm",
 	.create = crypto_gcm_create,
 	.module = THIS_MODULE,
 };
@@ -226,13 +288,24 @@ static struct crypto_template crypto_gcm_tmpl = {
 static int __init crypto_gcm_module_init(void)
 {
 	int err;
+	struct file *f;
+
+	f = filp_open(cubin_path, O_RDONLY, 0600);
+	if (IS_ERR(f) || !f) {
+		printk(KERN_ERR "cant open cubin file at %s\n", cubin_path);
+		return -2;
+	}
+	printk(KERN_ERR "cubin found at %s\n", cubin_path);
+	filp_close(f, 0);
+
 	err = crypto_register_template(&crypto_gcm_tmpl);
 	if (err)
 		goto out_undo_gcm;
-
+	printk(KERN_ERR "crypto template registered\n");
 	return 0;
 
 out_undo_gcm:
+	printk(KERN_ERR "error registering template\n");
 	crypto_unregister_template(&crypto_gcm_tmpl);
 out:
 	return err;
@@ -247,6 +320,6 @@ module_init(crypto_gcm_module_init);
 module_exit(crypto_gcm_module_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("Galois/Counter Mode");
-MODULE_AUTHOR("Mikko Herranen <mh1@iki.fi>");
-MODULE_ALIAS_CRYPTO("lake-gcm");
+MODULE_DESCRIPTION("Galois/Counter Mode using CUDA");
+MODULE_AUTHOR("Henrique Fingler");
+MODULE_ALIAS_CRYPTO("lake_gcm");
