@@ -511,7 +511,6 @@ higher_out:
 	kfree(tag_data);
 out:
 	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_encrypt_pages done\n");
-	usleep_range(10000, 20000);
 
  	return rc;
 }
@@ -549,7 +548,6 @@ ssize_t lake_ecryptfs_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 	ssize_t retval = 0;
 
 	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_file_read_iter\n");
-	usleep_range(10000, 20000);
 
     if (!count) {
         goto out; /* skip atime */
@@ -1005,7 +1003,7 @@ int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
 
 	printk(KERN_ERR "lake_ecryptfs_decrypt_pages: sgs set, calling crypt\n");
 
-    rc = crypt_scatterlist(crypt_stat, dst_sg, src_sg, nr_pages * (PAGE_SIZE+ECRYPTFS_GCM_TAG_SIZE),
+    rc = crypt_scatterlist(crypt_stat, dst_sg, src_sg, nr_pages * PAGE_SIZE,
             iv_data, DECRYPT);
 
 	if (rc == -74) {

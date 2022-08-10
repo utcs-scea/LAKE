@@ -132,6 +132,7 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 		//buf = sg_virt(dst_sg);
 		//memcpy(buf, pages_buf+((count_dst*PAGE_SIZE) + PAGE_SIZE), crypto_aead_aes256gcm_ABYTES);
 		dst_sg = sg_next(dst_sg);
+		count_dst++;
 	}
 
 	lake_AES_GCM_free(d_src);
@@ -155,7 +156,7 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 
 	npages = sg_nents(src_sg);
 	if (2*sg_nents(dst_sg) != npages) {
-		printk(KERN_ERR "encrypt: error, wrong number of ents on sgs. src: %d, dst: %d\n", npages, sg_nents(dst_sg));
+		printk(KERN_ERR "decrypt: error, wrong number of ents on sgs. src: %d, dst: %d\n", npages, sg_nents(dst_sg));
 		return -1;
 	}
 
