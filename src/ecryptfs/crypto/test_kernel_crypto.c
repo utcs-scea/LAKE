@@ -41,18 +41,12 @@ static int ecryptfs_test_init(void)
     u8 key[32];
     int i, j;
     struct scatterlist *src_sg=0, *dst_sg=0, *dec_sg=0;
-    char *full_alg_name;
-
-    printk(KERN_ERR "loading\n");
 
     aead_tfm = crypto_alloc_aead("lake_gcm(aes)", 0, 0);
     if (IS_ERR(aead_tfm)) {
         printk(KERN_ERR "err crypto_alloc_aead %ld\n", PTR_ERR(aead_tfm));
         return -2;
     }
-
-    printk(KERN_ERR "found it\n");
-    return -1;
 
     crypto_aead_set_flags(aead_tfm, CRYPTO_TFM_REQ_WEAK_KEY);
 
@@ -72,7 +66,7 @@ static int ecryptfs_test_init(void)
     rc = crypto_aead_setkey(aead_tfm, key, 32);
     if (rc) {
         printk(KERN_ERR "err setkey\n");
-        return -1;
+        //return -1;
     }
 
     rc = crypto_aead_setauthsize(aead_tfm, 16);
@@ -121,6 +115,7 @@ static int ecryptfs_test_init(void)
 
     rc = crypto_aead_encrypt(aead_req);
     if (rc == -EINPROGRESS || rc == -EBUSY) {
+        printk(KERN_DEBUG "waiting..\n");
 		struct extent_crypt_result *ecr;
 		ecr = aead_req->base.data;
 		wait_for_completion(&ecr->completion);
@@ -130,16 +125,17 @@ static int ecryptfs_test_init(void)
 	printk(KERN_DEBUG "encryption done.\n");
 
     //rc = crypto_aead_decrypt(aead_req);
-
 out:
-    kfree(full_alg_name);
     vfree(src_bufs);
     vfree(dst_bufs);
     vfree(dec_bufs);
-    vfree(src_sg);
-    vfree(dst_sg);
-    vfree(dec_sg);
+    kfree(src_sg);
+    kfree(dst_sg);
+    kfree(dec_sg);
     
+    aead_request_free(aead_req);
+    crypto_free_aead(aead_tfm);
+
     return 0;
 }
 

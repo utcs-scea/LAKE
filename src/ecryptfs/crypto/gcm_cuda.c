@@ -186,6 +186,10 @@ void lake_AES_GCM_alloc_pages(CUdeviceptr* src, u32 size) {
     gpuErrchk(cuMemAlloc(src, size));
 }
 
+void lake_AES_GCM_free(CUdeviceptr src) {
+    cuMemFree(src);
+}
+
 void lake_AES_GCM_copy_to_device(CUdeviceptr dst, u8* buf, u32 size) {
     cuMemcpyHtoDAsync(dst, buf, size, 0);
 }

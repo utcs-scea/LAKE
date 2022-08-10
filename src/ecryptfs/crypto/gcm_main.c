@@ -110,7 +110,7 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 	}
 	//TODO: copy IVs, set enc to use it. it's currently constant and set at setkey
 	lake_AES_GCM_copy_to_device(d_src, pages_buf, npages*PAGE_SIZE);
-	lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
+	//lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
 	//copy cipher back
 	lake_AES_GCM_copy_from_device(pages_buf, d_dst, npages*PAGE_SIZE);
 	//TODO: copy MAC
@@ -127,6 +127,8 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 	}
 
 	cuCtxSynchronize();
+	lake_AES_GCM_free(d_src);
+	lake_AES_GCM_free(d_dst);
 	vfree(pages_buf);
 	return 0;
 }
@@ -190,18 +192,12 @@ static int crypto_gcm_init_tfm(struct crypto_aead *tfm)
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
 	unsigned long align;
 
-	printk(KERN_ERR "crypto_gcm_init_tfm\n");
-
 	align = crypto_aead_alignmask(tfm);
 	align &= ~(crypto_tfm_ctx_alignment() - 1);
 	crypto_aead_set_reqsize(tfm, align);
 
 	lake_AES_GCM_init_fns(&ctx->cuda_ctx, cubin_path);
 	lake_AES_GCM_init(&ctx->cuda_ctx);
-
-	lake_AES_GCM_destroy(&ctx->cuda_ctx);
-
-	return -1;
 
 	return 0;
 }
