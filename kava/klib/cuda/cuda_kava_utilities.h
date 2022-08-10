@@ -36,7 +36,7 @@ kava_utility void kava_parse_function_args(const char *name, int *func_argc,
             case 'P':
                 func_arg_size[(*func_argc)] = sizeof(CUdeviceptr);
                 func_arg_is_handle[(*func_argc)++] = 1;
-                pr_info("case P, next: %c at %d\n", name[i+1], i);
+                //pr_info("case P, next: %c at %d\n", name[i+1], i);
                 if (i + 1 < strlen(name) &&
                         (name[i+1] == 'f' || name[i+1] == 'i' || name[i+1] == 'j' ||
                          name[i+1] == 'l' || name[i+1] == 'h' || name[i+1] == 'c' || 

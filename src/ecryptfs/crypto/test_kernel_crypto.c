@@ -107,6 +107,7 @@ static int ecryptfs_test_init(void)
         sg_set_buf(&src_sg[i], src_bufs[i], PAGE_SIZE);
         sg_set_buf(&dst_sg[i*2], dst_bufs[i*2], PAGE_SIZE);
         sg_set_buf(&dst_sg[(i*2)+1], dst_bufs[(i*2)+1], PAGE_SIZE);
+        sg_set_buf(&dec_sg[i], dec_bufs[i], PAGE_SIZE);
     }
 
     //TODO: set IV (last arg)
@@ -122,9 +123,41 @@ static int ecryptfs_test_init(void)
 		rc = ecr->rc;
 		reinit_completion(&ecr->completion);
 	}
-	printk(KERN_DEBUG "encryption done.\n");
+	printk(KERN_DEBUG "Encryption done.\n");
 
-    //rc = crypto_aead_decrypt(aead_req);
+    //start decryption
+    aead_request_free(aead_req);
+    aead_req = aead_request_alloc(aead_tfm, GFP_NOFS);
+    if (!aead_req) {
+        printk(KERN_ERR "err aead_request_alloc\n");
+        return -1;
+    }
+    aead_request_set_crypt(aead_req, dst_sg, dec_sg, n*PAGE_SIZE, NULL);
+    aead_request_set_ad(aead_req, 0);
+
+    rc = crypto_aead_decrypt(aead_req);
+    if (rc == -EINPROGRESS || rc == -EBUSY) {
+        printk(KERN_DEBUG "waiting..\n");
+		struct extent_crypt_result *ecr;
+		ecr = aead_req->base.data;
+		wait_for_completion(&ecr->completion);
+		rc = ecr->rc;
+		reinit_completion(&ecr->completion);
+	}
+    printk(KERN_DEBUG "Decryption done.\n");
+    aead_request_free(aead_req);
+
+    for (i=0 ; i < n ; i++) {
+        for (j=0 ; j < PAGE_SIZE ; j++) {
+            if(src_bufs[i][j] != dec_bufs[i][j]) {
+                printk(KERN_DEBUG "Error in src vs. dec: %d != %d at idx %d/%d\n", 
+                    src_bufs[i][j], dec_bufs[i][j], i, j);
+                return -EFAULT;
+            }
+        }
+    }
+
+    printk(KERN_DEBUG "Test passed!\n");
 out:
     vfree(src_bufs);
     vfree(dst_bufs);
@@ -132,11 +165,9 @@ out:
     kfree(src_sg);
     kfree(dst_sg);
     kfree(dec_sg);
-    
-    aead_request_free(aead_req);
     crypto_free_aead(aead_tfm);
-
-    return 0;
+    //return an error so the module is unloaded
+    return -EAGAIN;
 }
 
 static void ecryptfs_test_exit(void)

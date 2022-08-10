@@ -103,17 +103,18 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 	while(src_sg) {
 		buf = sg_virt(src_sg);	
 		len = src_sg->length;
-		printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
+		//printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
 		memcpy(pages_buf+(count*PAGE_SIZE), buf, PAGE_SIZE);
 		src_sg = sg_next(src_sg);
 		count++;
 	}
 	//TODO: copy IVs, set enc to use it. it's currently constant and set at setkey
 	lake_AES_GCM_copy_to_device(d_src, pages_buf, npages*PAGE_SIZE);
-	//lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
+	lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
 	//copy cipher back
 	lake_AES_GCM_copy_from_device(pages_buf, d_dst, npages*PAGE_SIZE);
 	//TODO: copy MAC
+	cuCtxSynchronize();
 
 	while(dst_sg) {
 		// cipher sg
@@ -126,7 +127,6 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 		dst_sg = sg_next(dst_sg);
 	}
 
-	cuCtxSynchronize();
 	lake_AES_GCM_free(d_src);
 	lake_AES_GCM_free(d_dst);
 	vfree(pages_buf);
@@ -158,11 +158,16 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 	//TODO: switch between these
 	//pages_buf = (char *)kava_alloc(nbytes);
 	pages_buf = vmalloc(npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+	if(!pages_buf) {
+		printk(KERN_ERR "decrypt: error allocating %d bytes\n", 
+			npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+		return -1;
+	}
 
 	while(src_sg) {
 		buf = sg_virt(src_sg);	
 		len = src_sg->length;
-		printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
+		//printk(KERN_ERR "decrypt: processing sg input #%d w/ size %u\n", count, len);
 		memcpy(pages_buf+(count*PAGE_SIZE), buf, PAGE_SIZE);
 		src_sg = sg_next(src_sg);
 		//TODO: copy MACs
@@ -174,15 +179,14 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 	lake_AES_GCM_decrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
 	//copy cipher back
 	lake_AES_GCM_copy_from_device(pages_buf, d_dst, npages*PAGE_SIZE);
-
+	cuCtxSynchronize();
 	while(dst_sg) {
 		// plain sg
-		buf = sg_virt(dst_sg);	
+		buf = sg_virt(dst_sg);
 		memcpy(buf, pages_buf+(count_dst*PAGE_SIZE), PAGE_SIZE);
 		dst_sg = sg_next(dst_sg);
+		count_dst++;
 	}
-
-	cuCtxSynchronize();
 	vfree(pages_buf);
 	return 0;
 }
@@ -218,8 +222,6 @@ static int crypto_gcm_create_common(struct crypto_template *tmpl,
 {
 	struct aead_instance *inst;
 	int err;
-
-	printk(KERN_ERR "crypto_gcm_create_common\n");
 
 	err = -ENOMEM;
 	inst = kzalloc(sizeof(*inst), GFP_KERNEL);
@@ -260,7 +262,6 @@ static int crypto_gcm_create_common(struct crypto_template *tmpl,
 		printk(KERN_ERR "error aead_register_instance %d\n", err);
 		goto out_err;
 	}
-	printk(KERN_ERR "all good in crypto_gcm_create_common %d\n", err);
 	return err;
 out_err:
 	printk(KERN_ERR "error in crypto_gcm_create_common %d\n", err);
@@ -270,7 +271,6 @@ out_err:
 
 static int crypto_gcm_create(struct crypto_template *tmpl, struct rtattr **tb)
 {
-	printk(KERN_ERR "crypto_gcm_create\n");
 	usleep_range(50, 100);
 	return crypto_gcm_create_common(tmpl, tb);
 }
@@ -297,7 +297,7 @@ static int __init crypto_gcm_module_init(void)
 	err = crypto_register_template(&crypto_gcm_tmpl);
 	if (err)
 		goto out_undo_gcm;
-	printk(KERN_ERR "crypto template registered\n");
+	printk(KERN_ERR "lake_gcm crypto template registered.\n");
 	return 0;
 
 out_undo_gcm:
