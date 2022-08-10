@@ -218,7 +218,8 @@ void ecryptfs_destroy_crypt_stat(struct ecryptfs_crypt_stat *crypt_stat)
 	int cipher_mode_code = ecryptfs_code_for_cipher_mode_string(
 		crypt_stat->cipher_mode);
 
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM 
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		crypto_free_aead(crypt_stat->aead_tfm);
 	} else {
 		crypto_free_skcipher(crypt_stat->tfm);
@@ -338,8 +339,9 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 		crypt_stat->cipher_mode);
 
 	BUG_ON(!crypt_stat 
-		   || (cipher_mode_code != ECRYPTFS_CIPHER_MODE_GCM && !crypt_stat->tfm)
+		   || (cipher_mode_code == ECRYPTFS_CIPHER_MODE_CBC && !crypt_stat->tfm)
 	       || (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM && !crypt_stat->aead_tfm)
+		   || (cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE && !crypt_stat->aead_tfm)
 		   || !(crypt_stat->flags & ECRYPTFS_STRUCT_INITIALIZED));
 	if (unlikely(ecryptfs_verbosity > 0)) {
 		ecryptfs_printk(KERN_DEBUG, "crypt_scatterlist key size [%zd]; key:\n",
@@ -347,11 +349,11 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 		//ecryptfs_dump_hex(crypt_stat->key,
 		//		  crypt_stat->key_size);
 	}
-
 	init_completion(&ecr.completion);
 
 	mutex_lock(&crypt_stat->cs_tfm_mutex);
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		aead_req = aead_request_alloc(crypt_stat->aead_tfm, GFP_NOFS);
 	} else {
 		ablk_req = skcipher_request_alloc(crypt_stat->tfm, GFP_NOFS);
@@ -365,7 +367,8 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 	}
 
 	//skcipher_request_set_callback(req,
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		aead_request_set_callback(aead_req,
 			CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
 			extent_crypt_complete, &ecr);
@@ -377,7 +380,8 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 
 	/* Consider doing this once, when the file is opened */
 	if (!(crypt_stat->flags & ECRYPTFS_KEY_SET)) {	
-		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+				|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 			rc = crypto_aead_setkey(
 					crypt_stat->aead_tfm,
 					crypt_stat->key,
@@ -401,7 +405,8 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 
 		ecryptfs_printk(KERN_DEBUG, "callback and key set\n");
 
-		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+				|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 			rc = crypto_aead_setauthsize(crypt_stat->aead_tfm, ECRYPTFS_GCM_TAG_SIZE);
 			if (rc) {
 				ecryptfs_printk(KERN_ERR,
@@ -419,7 +424,8 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 	//rc = op == ENCRYPT ? crypto_skcipher_encrypt(req) :
 	//		     crypto_skcipher_decrypt(req);
 	
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		//XXX
 		//if (op == DECRYPT)
 		//	size += ECRYPTFS_GCM_TAG_SIZE;
@@ -431,7 +437,8 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 	}
 	ecryptfs_printk(KERN_DEBUG, "all good, going into enc/dec\n");
 
-	if(cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if(cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		if (op == ENCRYPT)
 			rc = crypto_aead_encrypt(aead_req);
 		else 
@@ -447,7 +454,8 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 	if (rc == -EINPROGRESS || rc == -EBUSY) {
 		//struct extent_crypt_result *ecr = req->base.data;
 		struct extent_crypt_result *ecr;
-		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM)
+		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+				|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE)
 			ecr = aead_req->base.data;
 		else
 			ecr = ablk_req->base.data;
@@ -668,7 +676,8 @@ int ecryptfs_encrypt_page(struct page *page)
 		goto out;
 	}
 
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		/* Make sure iv_data and tag_data are not the same pointer */
 		tag_data = kmalloc(num_extents * ECRYPTFS_GCM_TAG_SIZE,
 				GFP_KERNEL);
@@ -695,7 +704,8 @@ int ecryptfs_encrypt_page(struct page *page)
 	     extent_offset++) {
 		//rc = crypt_extent(crypt_stat, enc_extent_page, page,
 		//		  extent_offset, ENCRYPT);
-		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+				|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 			rc = crypt_extent_aead(crypt_stat, enc_extent_page,
 					       page, tag_data, iv_data,
 					       extent_offset, ENCRYPT);
@@ -722,7 +732,8 @@ int ecryptfs_encrypt_page(struct page *page)
 	// 		rc);
 	// 	goto out;
 
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		for (extent_offset = 0; extent_offset < num_extents;
 			extent_offset++) {
 
@@ -854,7 +865,8 @@ int ecryptfs_decrypt_page(struct page *page)
 	cipher_mode_code = ecryptfs_code_for_cipher_mode_string(
 		crypt_stat->cipher_mode);
 
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		/* Make sure iv_data and tag_data are not the same pointer */
 		tag_data = kmalloc(num_extents * ECRYPTFS_GCM_TAG_SIZE,
 				GFP_KERNEL);
@@ -947,7 +959,8 @@ int ecryptfs_decrypt_page(struct page *page)
 	     extent_offset < (PAGE_SIZE / crypt_stat->extent_size);
 	     extent_offset++) {
 		//rc = crypt_extent(crypt_stat, page, page,
-		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+				|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 			rc = crypt_extent_aead(crypt_stat, page, page,
 				  tag_data, iv_data, extent_offset, DECRYPT);
 		} else {
@@ -997,11 +1010,15 @@ int ecryptfs_init_crypt_ctx(struct ecryptfs_crypt_stat *crypt_stat)
 	cipher_mode_code = ecryptfs_code_for_cipher_mode_string(
 		crypt_stat->cipher_mode);
 
-	if (cipher_mode_code != ECRYPTFS_CIPHER_MODE_GCM && crypt_stat->tfm) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_CBC && crypt_stat->tfm) {
 		rc = 0;
 		goto out_unlock;
 	}
 	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM && crypt_stat->aead_tfm) {
+		rc = 0;
+		goto out_unlock;
+	}
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE && crypt_stat->aead_tfm) {
 		rc = 0;
 		goto out_unlock;
 	}
@@ -1013,7 +1030,8 @@ int ecryptfs_init_crypt_ctx(struct ecryptfs_crypt_stat *crypt_stat)
 		goto out_unlock;
 
 	//crypt_stat->tfm = crypto_alloc_skcipher(full_alg_name, 0, 0);
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		crypt_stat->aead_tfm = crypto_alloc_aead(full_alg_name, 0, 0);
 		if (IS_ERR(crypt_stat->aead_tfm)) {
 			rc = PTR_ERR(crypt_stat->aead_tfm);
@@ -1036,7 +1054,8 @@ int ecryptfs_init_crypt_ctx(struct ecryptfs_crypt_stat *crypt_stat)
 	}
 	
 	//crypto_skcipher_set_flags(crypt_stat->tfm, CRYPTO_TFM_REQ_WEAK_KEY);
-	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
+			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 		crypto_aead_set_flags(crypt_stat->aead_tfm, CRYPTO_TFM_REQ_WEAK_KEY);
 	} else {
 		crypto_skcipher_set_flags(crypt_stat->tfm, CRYPTO_TFM_REQ_WEAK_KEY);
@@ -1380,7 +1399,8 @@ struct ecryptfs_cipher_mode_code_str_map_elem {
 static struct ecryptfs_cipher_mode_code_str_map_elem
 ecryptfs_cipher_mode_code_str_map[] = {
 	{"cbc", ECRYPTFS_CIPHER_MODE_CBC},
-	{"gcm", ECRYPTFS_CIPHER_MODE_GCM}
+	{"gcm", ECRYPTFS_CIPHER_MODE_GCM},
+	{"lake_gcm", ECRYPTFS_CIPHER_MODE_LAKE}
 };
 
 /**

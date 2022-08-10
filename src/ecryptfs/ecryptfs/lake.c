@@ -339,13 +339,18 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
  	unsigned int i = 0;
  	u32 sz = 0;
 	
+	ecryptfs_inode = pgs[0]->mapping->host;
+	crypt_stat =
+		&(ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat);
+	BUG_ON(!(crypt_stat->flags & ECRYPTFS_ENCRYPTED));
+	
 	int cipher_mode_code = ecryptfs_code_for_cipher_mode_string(
 		crypt_stat->cipher_mode);
 
 	// if using linux GCM, use the original function
 	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
 		for (i = 0 ; i < nr_pages ; i++) {
-			ecryptfs_encrypt_page(pages[j]);
+			ecryptfs_encrypt_page(pgs[i]);
 		}
 		return 0;
 	}
@@ -374,7 +379,7 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
  
 	// dst sgs
     dst_sg = (struct scatterlist *)kmalloc(
- 		nr_pages * sizeof(struct scatterlist), GFP_KERNEL);
+ 		2 * nr_pages * sizeof(struct scatterlist), GFP_KERNEL);
  	if (!dst_sg) {
  		ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
                  "destination scatter list\n");
@@ -400,21 +405,12 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
  		goto higher_out;
     }
 
-	//src_tag_data
-	src_tag_data = (u8 *)kmalloc(nr_pages * ECRYPTFS_GCM_TAG_SIZE, GFP_KERNEL);
- 	if (!src_tag_data) {
- 		ecryptfs_printk(KERN_ERR, "[lake] Error allocating memory for "
-                 "ivs\n");
- 		rc = -ENOMEM;
- 		goto higher_out;
-    }
-	
 	//generate ivs
 	for (i = 0; i < nr_pages; i++) {
 		get_random_bytes(iv_data+(i*ECRYPTFS_MAX_IV_BYTES), ECRYPTFS_MAX_IV_BYTES);
 	}
 
-    sg_init_table(src_sg, nr_pages*2);
+    sg_init_table(src_sg, nr_pages);
     sg_init_table(dst_sg, nr_pages*2);
  
  	for (i = 0; i < nr_pages; i++) {
@@ -429,9 +425,7 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
  			goto higher_out;
  		}
  
- 		sg_set_page(src_sg + (i*2), pgs[i], PAGE_SIZE, 0);
-		sg_set_buf(src_sg + (i*2) + 1, src_tag_data + (i*ECRYPTFS_GCM_TAG_SIZE), 
-				ECRYPTFS_GCM_TAG_SIZE);
+ 		sg_set_page(src_sg + i, pgs[i], PAGE_SIZE, 0);
  		sg_set_page(dst_sg + (i*2), enc_extent_page, PAGE_SIZE, 0);
 		sg_set_buf(dst_sg + (i*2) + 1, tag_data + (i*ECRYPTFS_GCM_TAG_SIZE), 
 				ECRYPTFS_GCM_TAG_SIZE);
@@ -515,7 +509,6 @@ higher_out:
  	kfree(dst_sg);
 	kfree(iv_data);
 	kfree(tag_data);
-	kfree(src_tag_data);
 out:
 	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_encrypt_pages done\n");
 	usleep_range(10000, 20000);

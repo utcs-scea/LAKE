@@ -703,7 +703,8 @@ upper_size_to_lower_size(struct ecryptfs_crypt_stat *crypt_stat,
 			num_extents++;
 		//lower_size += (num_extents * crypt_stat->extent_size);
 
-		if (mode_code == ECRYPTFS_CIPHER_MODE_GCM) {
+		if (mode_code == ECRYPTFS_CIPHER_MODE_GCM
+				|| mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 			lower_size +=
 				(num_extents +
 				((num_extents + metadata_per_extent - 1)

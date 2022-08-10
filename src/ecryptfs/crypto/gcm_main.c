@@ -101,13 +101,16 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 	pages_buf = vmalloc(npages*PAGE_SIZE);
 
 	while(src_sg) {
-		buf = sg_virt(src_sg);	
+		buf = sg_virt(src_sg);
 		len = src_sg->length;
 		//printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
+		printk(KERN_ERR "memcpy..\n");
 		memcpy(pages_buf+(count*PAGE_SIZE), buf, PAGE_SIZE);
+		printk(KERN_ERR "ok\n");
 		src_sg = sg_next(src_sg);
 		count++;
 	}
+	printk(KERN_ERR "src sg done\n");
 	//TODO: copy IVs, set enc to use it. it's currently constant and set at setkey
 	lake_AES_GCM_copy_to_device(d_src, pages_buf, npages*PAGE_SIZE);
 	lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
@@ -118,12 +121,16 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 
 	while(dst_sg) {
 		// cipher sg
-		buf = sg_virt(dst_sg);	
-		memcpy(buf, pages_buf+(count_dst * (PAGE_SIZE+crypto_aead_aes256gcm_ABYTES)), PAGE_SIZE);
+		buf = sg_virt(dst_sg);
+		printk(KERN_ERR "memcpy dst\n");
+		//memcpy(buf, pages_buf+(count_dst * (PAGE_SIZE+crypto_aead_aes256gcm_ABYTES)), PAGE_SIZE);
+		memcpy(buf, pages_buf+(count_dst * PAGE_SIZE), PAGE_SIZE);
+		printk(KERN_ERR "ok\n");
 		// MAC sg
 		dst_sg = sg_next(dst_sg);
-		buf = sg_virt(dst_sg);
-		memcpy(buf, pages_buf+((count_dst*PAGE_SIZE) + PAGE_SIZE), crypto_aead_aes256gcm_ABYTES);
+		//TODO copy MAC
+		//buf = sg_virt(dst_sg);
+		//memcpy(buf, pages_buf+((count_dst*PAGE_SIZE) + PAGE_SIZE), crypto_aead_aes256gcm_ABYTES);
 		dst_sg = sg_next(dst_sg);
 	}
 
