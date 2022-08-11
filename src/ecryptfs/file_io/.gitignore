@@ -1,0 +1,4 @@
+dist/
+build/
+fs_bench
+*.swp

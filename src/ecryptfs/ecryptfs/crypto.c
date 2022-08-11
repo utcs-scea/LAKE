@@ -344,8 +344,6 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 		   || (cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE && !crypt_stat->aead_tfm)
 		   || !(crypt_stat->flags & ECRYPTFS_STRUCT_INITIALIZED));
 	if (unlikely(ecryptfs_verbosity > 0)) {
-		ecryptfs_printk(KERN_DEBUG, "crypt_scatterlist key size [%zd]; key:\n",
-				crypt_stat->key_size);
 		//ecryptfs_dump_hex(crypt_stat->key,
 		//		  crypt_stat->key_size);
 	}
@@ -358,7 +356,6 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 	} else {
 		ablk_req = skcipher_request_alloc(crypt_stat->tfm, GFP_NOFS);
 	}
-	ecryptfs_printk(KERN_DEBUG, "request allocated\n");
 
 	if (!aead_req && !ablk_req) {
 		mutex_unlock(&crypt_stat->cs_tfm_mutex);
@@ -403,8 +400,6 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 		}
 		crypt_stat->flags |= ECRYPTFS_KEY_SET;
 
-		ecryptfs_printk(KERN_DEBUG, "callback and key set\n");
-
 		if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
 				|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
 			rc = crypto_aead_setauthsize(crypt_stat->aead_tfm, ECRYPTFS_GCM_TAG_SIZE);
@@ -435,7 +430,6 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 	} else {
 		skcipher_request_set_crypt(ablk_req, src_sg, dst_sg, size, iv);
 	}
-	ecryptfs_printk(KERN_DEBUG, "all good, going into enc/dec\n");
 
 	if(cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
 			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
@@ -464,7 +458,6 @@ int crypt_scatterlist(struct ecryptfs_crypt_stat *crypt_stat,
 		rc = ecr->rc;
 		reinit_completion(&ecr->completion);
 	}
-	ecryptfs_printk(KERN_DEBUG, "done!\n");
 out:
 	skcipher_request_free(ablk_req);
 	aead_request_free(aead_req);
@@ -600,7 +593,7 @@ static int crypt_extent_aead(struct ecryptfs_crypt_stat *crypt_stat,
 				extent_iv, op);
 
 	if (rc == -74) {
-		printk(KERN_ERR "Decryption auth failed, ignoring for now..\n");
+		ecryptfs_printk(KERN_ERR, "Decryption auth failed, ignoring for now..\n");
 		rc = 0;
 	}
 
@@ -657,6 +650,8 @@ int ecryptfs_encrypt_page(struct page *page)
 	u8 cipher_mode_code;
 	u8 *tag_data = NULL;
 	u8 *iv_data = NULL;
+
+	ecryptfs_printk(KERN_ERR, "ok if not using lake_gcm else problem\n");
 
 	ecryptfs_inode = page->mapping->host;
 	crypt_stat =

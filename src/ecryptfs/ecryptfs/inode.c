@@ -754,7 +754,6 @@ static int truncate_upper(struct dentry *dentry, struct iattr *ia,
 	/* Switch on growing or shrinking file */
 	if (ia->ia_size > i_size) {
 		char zero[] = { 0x00 };
-
 		lower_ia->ia_valid &= ~ATTR_SIZE;
 		/* Write a single 0 at the last position of the file;
 		 * this triggers code that will fill in 0's throughout
@@ -857,7 +856,6 @@ int ecryptfs_truncate(struct dentry *dentry, loff_t new_length)
 	struct iattr lower_ia = { .ia_valid = 0 };
 	int rc;
 
-	ecryptfs_printk(KERN_ERR, "ecryptfs_truncate\n");
 	rc = ecryptfs_inode_newsize_ok(d_inode(dentry), new_length);
 	if (rc)
 		return rc;

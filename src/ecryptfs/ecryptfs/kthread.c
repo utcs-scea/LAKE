@@ -138,7 +138,6 @@ int ecryptfs_privileged_open(struct file **lower_file,
 	int rc = 0;
 
 	ecryptfs_printk(KERN_ERR, "ecryptfs_privileged_open\n");
-	usleep_range(10000, 20000);
 
 	init_completion(&req.done);
 	req.lower_file = lower_file;

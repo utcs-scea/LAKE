@@ -62,8 +62,8 @@ static int lake_write_middle(struct file *file,
 	int rc;
 	ecryptfs_printk(KERN_ERR, "ecryptfs_write_middle\n");
 
-	ecryptfs_printk(KERN_DEBUG, "Calling fill_zeros_to_end_of_page"
-			"(page w/ index = [0x%.16lx], to = [%d])\n", index, to);
+	//ecryptfs_printk(KERN_DEBUG, "Calling fill_zeros_to_end_of_page"
+	//		"(page w/ index = [0x%.16lx], to = [%d])\n", index, to);
 	if (!(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		rc = ecryptfs_write_lower_page_segment(ecryptfs_inode, page, 0,
 						       to);
@@ -108,7 +108,6 @@ static ssize_t lake_generic_perform_write(struct file *file,
 	int count = 0, j;
 	struct page **pages;
 
-	ecryptfs_printk(KERN_ERR, "guessing %d ios\n", n_ios);
 	io_args = kmalloc(n_ios * sizeof(struct write_end_args), GFP_KERNEL);
 	pages = kmalloc(n_ios * sizeof(struct page*), GFP_KERNEL);
 
@@ -144,7 +143,6 @@ again:
 			break;
 		}
 	
-		ecryptfs_printk(KERN_ERR, "calling begin\n");
 		//status = a_ops->write_begin(file, mapping, pos, bytes, flags,
 		status = ecryptfs_write_begin(file, mapping, pos, bytes, flags,
 						&page, &fsdata);
@@ -162,7 +160,6 @@ again:
 		//if (unlikely(status < 0))
 		//	break;
 
-		ecryptfs_printk(KERN_ERR, "calling middle\n");
 		//call middle, then save arguments
 		status = lake_write_middle(file, mapping, pos, bytes, copied,
 						page, fsdata);
@@ -171,6 +168,12 @@ again:
 		io_args[count].copied = copied;
 		pages[count] = page;
 		count++;
+		//XXX: this is bad for concurrency and needs to eventually be fixed
+		//originally it's begin (lock), encrypt, end (unlock), but since
+		//we are batching the encrypt part, we need to unlock here
+		//bc the next begin might want to lock the previous, causing
+		//a deadlock
+		unlock_page(page);
 
 		copied = status;
 
@@ -193,19 +196,15 @@ again:
 		pos += copied;
 		written += copied;
 
-		ecryptfs_printk(KERN_ERR, "iov_iter_count  %ld\n", iov_iter_count(i));
 		//balance_dirty_pages_ratelimited(mapping);
 	} while (iov_iter_count(i));
 
-	ecryptfs_printk(KERN_ERR, "encrypting pages\n");
 	//at this point we still need to encrypt and end IOs
+	//this will lock every page again
 	lake_ecryptfs_encrypt_pages(pages, count);
 
-	//for (j = 0 ; j < count ; j++) {
-	//	ecryptfs_encrypt_page(pages[0]);
-	//}
-
 	for (j = 0 ; j < count ; j++) {
+		//unlocks pages sequentially
 		lake_write_end(file, mapping, io_args[j].pos,
 				io_args[j].bytes, io_args[j].copied,
 				pages[j], 0);
@@ -305,6 +304,8 @@ ssize_t lake_generic_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	struct inode *inode = file->f_mapping->host;
 	ssize_t ret;
 
+	ecryptfs_printk(KERN_ERR, "lake_generic_file_write_iter\n");
+
 	inode_lock(inode);
 	ret = generic_write_checks(iocb, from);
 	if (ret > 0)
@@ -339,6 +340,12 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
  	unsigned int i = 0;
  	u32 sz = 0;
 	
+	ecryptfs_printk(KERN_ERR, "attemping to lock pages\n");
+	for (i = 0; i < nr_pages; i++) {
+		lock_page(pgs[i]);
+	}
+	ecryptfs_printk(KERN_ERR, "locked %d pages\n", nr_pages);
+
 	ecryptfs_inode = pgs[0]->mapping->host;
 	crypt_stat =
 		&(ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat);
@@ -592,7 +599,7 @@ ssize_t lake_ecryptfs_file_buffered_read(struct kiocb *iocb,
 	//loff_t isize = i_size_read(inode);
     size_t real_count = iter->count;
 
-	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_file_buffered_read\n");
+	//ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_file_buffered_read\n");
 
     if (unlikely(*ppos >= i_size_read(inode))) {
         return 0;
@@ -630,7 +637,7 @@ find_page:
 
 		page = find_get_page(mapping, index);
 		if (!page) {
-			ecryptfs_printk(KERN_ERR, "[lake] page not found in cache..\n");
+			//ecryptfs_printk(KERN_ERR, "[lake] page not found in cache..\n");
 			if (iocb->ki_flags & IOCB_NOWAIT)
 				goto would_block;
 			page_cache_sync_readahead(mapping,
@@ -656,7 +663,7 @@ no_cached_page:
 		 * Ok, it wasn't cached, so we need to create a new
 		 * page..
 		 */
-		ecryptfs_printk(KERN_ERR, "[lake] no_cached_page\n");
+		//ecryptfs_printk(KERN_ERR, "[lake] no_cached_page\n");
 		page = page_cache_alloc(mapping);
 		if (!page) {
 			error = -ENOMEM;
@@ -696,7 +703,7 @@ no_cached_page:
 		ecryptfs_printk(KERN_ERR, "[lake] calling to decrypt %d pages\n", nr_pgs_no_cached);
         error = lake_ecryptfs_decrypt_pages(pgs_no_cached, nr_pgs_no_cached);
 		if (unlikely(error)) {
-			ecryptfs_printk(KERN_ERR, "[lake] error decrypting pages\n");
+			ecryptfs_printk(KERN_ERR, "!!!!! [lake] error decrypting pages\n");
 			goto readpage_error;
 		}
 	}
@@ -1001,13 +1008,11 @@ int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
 		sg_set_page(&dst_sg[i], pgs[i], PAGE_SIZE, 0);
     }
 
-	printk(KERN_ERR "lake_ecryptfs_decrypt_pages: sgs set, calling crypt\n");
-
     rc = crypt_scatterlist(crypt_stat, dst_sg, src_sg, nr_pages * PAGE_SIZE,
             iv_data, DECRYPT);
 
 	if (rc == -74) {
-		printk(KERN_ERR "Decryption auth failed, ignoring for now..\n");
+		ecryptfs_printk(KERN_ERR, "Decryption auth failed, ignoring for now..\n");
 		rc = 0;
 	}
 
@@ -1017,7 +1022,6 @@ int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
 		goto out;
 	}
 
-	// i dont know why we do this
     for (i = 0; i < nr_pages; i++) {
         SetPageUptodate(pgs[i]);
         if (PageLocked(pgs[i]))
@@ -1434,7 +1438,6 @@ int lake_ecryptfs_mmap_readpages(struct file *filp, struct address_space *mappin
 // 	int j = 0;
 
 // 	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_write size %ld, %d pages\n", size, nr_pgs);
-// 	usleep_range(10000, 20000);
 
 //  	pgs = kmalloc(nr_pgs * sizeof(struct page *), GFP_KERNEL);
 //  	if (!pgs) {
@@ -1587,7 +1590,6 @@ int lake_ecryptfs_mmap_readpages(struct file *filp, struct address_space *mappin
 //  	}
 //  out:
 // 	ecryptfs_printk(KERN_ERR, "[lake] write done\n");
-// 	usleep_range(1000, 2000);
 //  	return rc;
 // }
 

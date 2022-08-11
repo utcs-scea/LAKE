@@ -68,8 +68,7 @@ struct page *ecryptfs_get_locked_page(struct inode *inode, loff_t index)
 static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 {
 	int rc;
-	ecryptfs_printk(KERN_ERR, "ecryptfs_writepage\n");
-	usleep_range(10000, 20000);
+	ecryptfs_printk(KERN_ERR, "~~~~ecryptfs_writepage\n");
 
 	rc = ecryptfs_encrypt_page(page);
 	if (rc) {
@@ -202,8 +201,7 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 		&ecryptfs_inode_to_private(page->mapping->host)->crypt_stat;
 	int rc = 0;
 
-	ecryptfs_printk(KERN_ERR, "ecryptfs_readpage\n");
-	usleep_range(10000, 20000);
+	ecryptfs_printk(KERN_ERR, "~~~~ecryptfs_readpage\n");
 
 	if (!crypt_stat || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		rc = ecryptfs_read_lower_page_segment(page, page->index, 0,
@@ -223,8 +221,6 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 			}
 
 		} else {
-			ecryptfs_printk(KERN_ERR, "reading page ..\n");
-			usleep_range(10000, 20000);
 			rc = ecryptfs_read_lower_page_segment(
 				page, page->index, 0, PAGE_SIZE,
 				page->mapping->host);
@@ -233,20 +229,14 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 				       "[%d]\n", rc);
 				goto out;
 			}
-			ecryptfs_printk(KERN_ERR, "done\n");
-			usleep_range(10000, 20000);
 		}
 	} else {
-		ecryptfs_printk(KERN_ERR, "decrypting page ..\n");
-		usleep_range(10000, 20000);
 		rc = ecryptfs_decrypt_page(page);
 		if (rc) {
 			ecryptfs_printk(KERN_ERR, "Error decrypting page; "
 					"rc = [%d]\n", rc);
 			goto out;
 		}
-		ecryptfs_printk(KERN_ERR, "done\n");
-		usleep_range(10000, 20000);
 	}
 out:
 	if (rc)
@@ -301,7 +291,7 @@ int ecryptfs_write_begin(struct file *file,
 	loff_t prev_page_end_size;
 	int rc = 0;
 
-	ecryptfs_printk(KERN_ERR, "ecryptfs_write_begin\n");
+	ecryptfs_printk(KERN_ERR, "!!! ecryptfs_write_begin get/lock idx %ld\n", index);
 
 	page = grab_cache_page_write_begin(mapping, index, flags);
 	if (!page)
@@ -505,8 +495,8 @@ static int ecryptfs_write_end(struct file *file,
 	int rc;
 	ecryptfs_printk(KERN_ERR, "ecryptfs_write_end\n");
 
-	ecryptfs_printk(KERN_DEBUG, "Calling fill_zeros_to_end_of_page"
-			"(page w/ index = [0x%.16lx], to = [%d])\n", index, to);
+	//ecryptfs_printk(KERN_DEBUG, "Calling fill_zeros_to_end_of_page"
+	//		"(page w/ index = [0x%.16lx], to = [%d])\n", index, to);
 	if (!(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		rc = ecryptfs_write_lower_page_segment(ecryptfs_inode, page, 0,
 						       to);
