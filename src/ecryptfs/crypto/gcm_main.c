@@ -32,10 +32,34 @@ static char *cubin_path = "gcm_kernels.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to gcm_kernels.cubin");
 
+static int aesni_fraction = 0;
+module_param(aesni_fraction, int, 0444);
+MODULE_PARM_DESC(aesni_fraction, "Fraction of the file to be encrypted using AES-NI (out of 100), default 0");
+
 //tfm ctx
 struct crypto_gcm_ctx {
 	struct AES_GCM_engine_ctx cuda_ctx;
+	struct crypto_aead *aesni_tfm;
 };
+
+struct extent_crypt_result {
+	struct completion completion;
+	int rc;
+};
+
+static int get_aesni_fraction(int n) {
+	return n*aesni_fraction/100;
+}
+
+static void extent_crypt_complete(struct crypto_async_request *req, int rc)
+{
+	struct extent_crypt_result *ecr = req->data;
+	if (rc == -EINPROGRESS)
+		return;
+	ecr->rc = rc;
+	printk(KERN_ERR "completing.. \n");
+	complete(&ecr->completion);
+}
 
 static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
 			     unsigned int keylen)
@@ -49,6 +73,15 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
 	}
 
 	lake_AES_GCM_setkey(&ctx->cuda_ctx, key);
+
+	if(aesni_fraction > 0) {
+		err = crypto_aead_setkey(ctx->aesni_tfm, key, 32);
+		if (err) {
+			printk(KERN_ERR "err setkey\n");
+			return err;
+		}
+	}
+
 out:
 	return err;
 }
@@ -78,14 +111,18 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 	// ->src, ->dst, ->cryptlen, ->iv
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
-	int count = 0, count_dst = 0;
+	struct aead_request **aead_req = NULL;
+	int count_dst = 0, lake_count = 0;
 	void* buf;
-	unsigned int len;
-	struct scatterlist *src_sg = req->src; 
-	struct scatterlist *dst_sg = req->dst; 
+	//unsigned int len;
+	struct scatterlist *src_sg = req->src;
+	struct scatterlist *dst_sg = req->dst;
 	CUdeviceptr d_src, d_dst;
-	char *pages_buf;
-	int npages;
+	char *pages_buf, *bad_iv;
+	int npages, i;
+	int *rcs;
+	int aesni_n, lake_n;
+	struct extent_crypt_result *ecrs;
 
 	npages = sg_nents(src_sg);
 	if (sg_nents(dst_sg) != 2*npages) {
@@ -93,51 +130,94 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 		return -1;
 	}
 
-	printk(KERN_ERR "encrypt: processing %d pages\n", npages);
-	lake_AES_GCM_alloc_pages(&d_src, npages*PAGE_SIZE);
-	lake_AES_GCM_alloc_pages(&d_dst, npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
-	//TODO: switch between these
-	//pages_buf = (char *)kava_alloc(nbytes);
-	pages_buf = vmalloc(npages*PAGE_SIZE);
+	aesni_n = get_aesni_fraction(npages);
+	lake_n = npages - aesni_n;
+	printk(KERN_ERR "encrypt: processing %d pages. %d on aesni" 
+		" %d on gpu\n", npages, aesni_n, lake_n);
 
-	while(src_sg) {
-		buf = sg_virt(src_sg);
-		len = src_sg->length;
-		//printk(KERN_ERR "encrypt: processing sg input #%d w/ size %u\n", count, len);
-		printk(KERN_ERR "memcpy..\n");
-		memcpy(pages_buf+(count*PAGE_SIZE), buf, PAGE_SIZE);
-		printk(KERN_ERR "ok\n");
-		src_sg = sg_next(src_sg);
-		count++;
-	}
-	printk(KERN_ERR "src sg done\n");
-	//TODO: copy IVs, set enc to use it. it's currently constant and set at setkey
-	lake_AES_GCM_copy_to_device(d_src, pages_buf, npages*PAGE_SIZE);
-	lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
-	//copy cipher back
-	lake_AES_GCM_copy_from_device(pages_buf, d_dst, npages*PAGE_SIZE);
-	//TODO: copy MAC
-	cuCtxSynchronize();
+	if (lake_n > 0) {
+		lake_AES_GCM_alloc_pages(&d_src, lake_n*PAGE_SIZE);
+		lake_AES_GCM_alloc_pages(&d_dst, lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+		//TODO: switch between these
+		//pages_buf = (char *)kava_alloc(nbytes);
+		pages_buf = vmalloc(lake_n*PAGE_SIZE);
 
-	while(dst_sg) {
-		// cipher sg
-		buf = sg_virt(dst_sg);
-		printk(KERN_ERR "memcpy dst\n");
-		//memcpy(buf, pages_buf+(count_dst * (PAGE_SIZE+crypto_aead_aes256gcm_ABYTES)), PAGE_SIZE);
-		memcpy(buf, pages_buf+(count_dst * PAGE_SIZE), PAGE_SIZE);
-		printk(KERN_ERR "ok\n");
-		// MAC sg
-		dst_sg = sg_next(dst_sg);
-		//TODO copy MAC
-		//buf = sg_virt(dst_sg);
-		//memcpy(buf, pages_buf+((count_dst*PAGE_SIZE) + PAGE_SIZE), crypto_aead_aes256gcm_ABYTES);
-		dst_sg = sg_next(dst_sg);
-		count_dst++;
+		for(i = aesni_n ; i < npages ; i++) {
+			buf = sg_virt(&src_sg[i]);
+			memcpy(pages_buf+(lake_count*PAGE_SIZE), buf, PAGE_SIZE);
+			lake_count++;	
+		}
+
+		//TODO: copy IVs, set enc to use it. it's currently constant and set at setkey
+		lake_AES_GCM_copy_to_device(d_src, pages_buf, lake_count*PAGE_SIZE);
+		lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, lake_count*PAGE_SIZE);
 	}
 
-	lake_AES_GCM_free(d_src);
-	lake_AES_GCM_free(d_dst);
-	vfree(pages_buf);
+	if (aesni_n > 0) {
+		// GPU is doing work, lets do AESNI now
+		// GCM can't do multiple blocks in one request..
+		aead_req = vmalloc(aesni_n * sizeof(struct aead_request*));
+		//ignore iv for now
+		bad_iv = vmalloc(12);
+		ecrs = vmalloc(aesni_n * sizeof(struct extent_crypt_result));
+		rcs = vmalloc(aesni_n * sizeof(int));
+
+		for(i = 0 ; i < 12 ; i++)
+			bad_iv[i] = i;
+
+		for(i = 0 ; i < aesni_n ;i++) {
+			aead_req[i] = aead_request_alloc(ctx->aesni_tfm, GFP_NOFS);
+			if (!aead_req[i]) {
+				printk(KERN_ERR "err aead_request_alloc\n");
+				return -1;
+			}
+			init_completion(&ecrs[i].completion);
+			aead_request_set_callback(aead_req[i],
+					CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+					extent_crypt_complete, &ecrs[i]);
+			//TODO: use req->iv
+			aead_request_set_crypt(aead_req[i], &src_sg[i], &dst_sg[i*2], PAGE_SIZE, bad_iv);
+			aead_request_set_ad(aead_req[i], 0);
+			rcs[i] = crypto_aead_encrypt(aead_req[i]);
+		}
+	}
+
+	if (lake_n > 0) {
+		//copy cipher back
+		lake_AES_GCM_copy_from_device(pages_buf, d_dst, lake_count*PAGE_SIZE);
+		//TODO: copy back MACs
+		cuCtxSynchronize();
+
+		for(i = aesni_n ; i < npages ; i++) {
+			// cipher sg
+			buf = sg_virt(&dst_sg[i*2]);
+			memcpy(buf, pages_buf+(count_dst * PAGE_SIZE), PAGE_SIZE);
+			//TODO: copy MAC
+			//memcpy(buf, pages_buf+((count_dst*PAGE_SIZE) + PAGE_SIZE), crypto_aead_aes256gcm_ABYTES);
+			count_dst++;
+		}
+
+		lake_AES_GCM_free(d_src);
+		lake_AES_GCM_free(d_dst);
+		vfree(pages_buf);
+	}
+
+	if (aesni_n > 0) {
+		for(i = 0 ; i < aesni_n ; i++) {
+			if (rcs[i] != 0 && rcs[i] != -EINPROGRESS && rcs[i] != -EBUSY) {
+				printk(KERN_ERR "err crypto_aead_encrypt %d\n", rcs[i]);
+				return -1;
+			} else if (rcs[i] == -EINPROGRESS || rcs[i] == -EBUSY) {
+				printk(KERN_ERR "waiting for enc req %d\n", i);
+				wait_for_completion(&ecrs[i].completion);
+			}	
+			aead_request_free(aead_req[i]);
+		}
+		vfree(rcs);
+		vfree(aead_req);
+		vfree(bad_iv);
+		vfree(ecrs);
+	}
 	return 0;
 }
 
@@ -145,57 +225,115 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 {
 	struct crypto_aead *tfm = crypto_aead_reqtfm(req);
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
-	int count = 0, count_dst = 0;
+	struct aead_request **aead_req = NULL;
+	int count_dst = 0, lake_count = 0;
 	void* buf;
-	unsigned int len;
 	struct scatterlist *src_sg = req->src; 
 	struct scatterlist *dst_sg = req->dst; 
 	CUdeviceptr d_src, d_dst;
-	char *pages_buf;
-	int npages;
+	char *pages_buf, *bad_iv;
+	int npages, i;
+	int *rcs;
+	int aesni_n, lake_n;
+	struct extent_crypt_result *ecrs;
 
 	npages = sg_nents(src_sg);
 	if (2*sg_nents(dst_sg) != npages) {
 		printk(KERN_ERR "decrypt: error, wrong number of ents on sgs. src: %d, dst: %d\n", npages, sg_nents(dst_sg));
 		return -1;
 	}
+	npages = npages/2;
 
-	printk(KERN_ERR "decrypt: processing %d pages\n", npages);
-	lake_AES_GCM_alloc_pages(&d_src, npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
-	lake_AES_GCM_alloc_pages(&d_dst, npages*PAGE_SIZE);
-	//TODO: switch between these
-	//pages_buf = (char *)kava_alloc(nbytes);
-	pages_buf = vmalloc(npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
-	if(!pages_buf) {
-		printk(KERN_ERR "decrypt: error allocating %d bytes\n", 
-			npages*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
-		return -1;
+	aesni_n = get_aesni_fraction(npages);
+	lake_n = npages - aesni_n;
+	printk(KERN_ERR "decrypt: processing %d pages. %d on aesni" 
+		"%d on gpu\n", npages, aesni_n, lake_n);
+
+	if (lake_n > 0) {
+		lake_AES_GCM_alloc_pages(&d_src, lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+		lake_AES_GCM_alloc_pages(&d_dst, lake_n*PAGE_SIZE);
+		//TODO: switch between these
+		//pages_buf = (char *)kava_alloc(nbytes);
+		pages_buf = vmalloc(lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+		if(!pages_buf) {
+			printk(KERN_ERR "decrypt: error allocating %ld bytes\n", 
+				lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+			return -1;
+		}
+
+		for(i = aesni_n ; i < npages ; i++) {
+			buf = sg_virt(&src_sg[i*2]);	
+			memcpy(pages_buf+(lake_count*PAGE_SIZE), buf, PAGE_SIZE);
+			//TODO: copy MACs sg_virt(&src_sg[i*2+1]);	
+			lake_count++; 
+		}
+
+		lake_AES_GCM_copy_to_device(d_src, pages_buf, lake_n*PAGE_SIZE);
+		//TODO: copy MACs too
+		lake_AES_GCM_decrypt(&ctx->cuda_ctx, d_dst, d_src, lake_n*PAGE_SIZE);
 	}
 
-	while(src_sg) {
-		buf = sg_virt(src_sg);	
-		len = src_sg->length;
-		//printk(KERN_ERR "decrypt: processing sg input #%d w/ size %u\n", count, len);
-		memcpy(pages_buf+(count*PAGE_SIZE), buf, PAGE_SIZE);
-		src_sg = sg_next(src_sg);
-		//TODO: copy MACs
-		src_sg = sg_next(src_sg);
-		count++;
+	if (aesni_n > 0) {
+		// GPU is doing work, lets do AESNI now
+		// GCM can't do multiple blocks in one request..
+		aead_req = vmalloc(aesni_n * sizeof(struct aead_request*));
+		//ignore iv for now
+		bad_iv = vmalloc(12);
+		ecrs = vmalloc(aesni_n * sizeof(struct extent_crypt_result));
+		rcs = vmalloc(aesni_n * sizeof(int));
+
+		for(i = 0 ; i < 12 ; i++)
+			bad_iv[i] = i;
+
+		for(i = 0 ; i < aesni_n ;i++) {
+			aead_req[i] = aead_request_alloc(ctx->aesni_tfm, GFP_NOFS);
+			if (!aead_req[i]) {
+				printk(KERN_ERR "err aead_request_alloc\n");
+				return -1;
+			}
+			init_completion(&ecrs[i].completion);
+			aead_request_set_callback(aead_req[i],
+					CRYPTO_TFM_REQ_MAY_BACKLOG | CRYPTO_TFM_REQ_MAY_SLEEP,
+					extent_crypt_complete, &ecrs[i]);
+			//TODO: use req->iv
+			aead_request_set_crypt(aead_req[i], &src_sg[i*2], &dst_sg[i], PAGE_SIZE+crypto_aead_aes256gcm_ABYTES, bad_iv);
+			aead_request_set_ad(aead_req[i], 0);
+			rcs[i] = crypto_aead_decrypt(aead_req[i]);
+		}
 	}
-	lake_AES_GCM_copy_to_device(d_src, pages_buf, npages*PAGE_SIZE);
-	//TODO: copy MACs too
-	lake_AES_GCM_decrypt(&ctx->cuda_ctx, d_dst, d_src, npages*PAGE_SIZE);
-	//copy cipher back
-	lake_AES_GCM_copy_from_device(pages_buf, d_dst, npages*PAGE_SIZE);
-	cuCtxSynchronize();
-	while(dst_sg) {
-		// plain sg
-		buf = sg_virt(dst_sg);
-		memcpy(buf, pages_buf+(count_dst*PAGE_SIZE), PAGE_SIZE);
-		dst_sg = sg_next(dst_sg);
-		count_dst++;
+
+	if (lake_n > 0) {
+		//copy cipher back
+		lake_AES_GCM_copy_from_device(pages_buf, d_dst, lake_n*PAGE_SIZE);
+		cuCtxSynchronize();
+
+		for(i = aesni_n ; i < npages ; i++) {
+			// plain sg
+			buf = sg_virt(&dst_sg[i]);
+			memcpy(buf, pages_buf+(count_dst * PAGE_SIZE), PAGE_SIZE);
+			count_dst++;
+		}
+		vfree(pages_buf);
+		lake_AES_GCM_free(d_src);
+		lake_AES_GCM_free(d_dst);
 	}
-	vfree(pages_buf);
+	
+	if (aesni_n > 0) {
+		for(i = 0 ; i < aesni_n ; i++) {
+			if (rcs[i] != 0 && rcs[i] != -EINPROGRESS && rcs[i] != -EBUSY) {
+				printk(KERN_ERR "err crypto_aead_encrypt %d\n", rcs[i]);
+				return -1;
+			} else if (rcs[i] == -EINPROGRESS || rcs[i] == -EBUSY) {
+				printk(KERN_ERR "waiting for enc req %d\n", i);
+				wait_for_completion(&ecrs[i].completion);
+			}	
+			aead_request_free(aead_req[i]);
+		}
+		vfree(rcs);
+		vfree(aead_req);
+		vfree(bad_iv);
+		vfree(ecrs);
+	}
 	return 0;
 }
 
@@ -211,6 +349,19 @@ static int crypto_gcm_init_tfm(struct crypto_aead *tfm)
 	lake_AES_GCM_init_fns(&ctx->cuda_ctx, cubin_path);
 	lake_AES_GCM_init(&ctx->cuda_ctx);
 
+	if (aesni_fraction > 100)
+		aesni_fraction = 100;
+	if (aesni_fraction < 0)
+		aesni_fraction = 0;
+
+	if (aesni_fraction > 0) {
+		ctx->aesni_tfm = crypto_alloc_aead("generic-gcm-aesni", 0, 0);
+		if (IS_ERR(ctx->aesni_tfm)) {
+			printk(KERN_ERR "Error allocating generic-gcm-aesni %ld\n", PTR_ERR(ctx->aesni_tfm));
+			return -ENOENT;
+		}
+	}
+
 	return 0;
 }
 
@@ -218,6 +369,10 @@ static void crypto_gcm_exit_tfm(struct crypto_aead *tfm)
 {
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
 	lake_AES_GCM_destroy(&ctx->cuda_ctx);
+
+	if (aesni_fraction > 0) {
+		crypto_free_aead(ctx->aesni_tfm);
+	}
 }
 
 static void crypto_gcm_free(struct aead_instance *inst)
@@ -311,7 +466,6 @@ static int __init crypto_gcm_module_init(void)
 out_undo_gcm:
 	printk(KERN_ERR "error registering template\n");
 	crypto_unregister_template(&crypto_gcm_tmpl);
-out:
 	return err;
 }
 
