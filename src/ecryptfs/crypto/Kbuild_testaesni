@@ -1,3 +1,2 @@
-KAVA_ROOT = /home/hfingler/hf-HACK/kava
 obj-m += test_aesni.o
 test_aesni-objs := test_kernel_aesni.o

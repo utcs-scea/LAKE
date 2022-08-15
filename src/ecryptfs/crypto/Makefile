@@ -1,4 +1,4 @@
-KAVA_ROOT = /home/hfingler/hf-HACK/kava
+KAVA_ROOT = $(src)/../../../kava
 ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include
 obj-$(CONFIG_ECRYPT_FS) += lake_gcm.o
 
