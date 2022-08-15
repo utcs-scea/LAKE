@@ -4,7 +4,7 @@ obj-$(CONFIG_ECRYPT_FS) += lake_gcm.o
 
 lake_gcm-y := gcm_main.o gcm_cuda.o 
 
-all: test_kernel test_aesni
+all: test_kernel test_aesni gcm_kernels.cubin
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 
 clean:
@@ -19,3 +19,6 @@ test_kernel:
 
 test_aesni:
 	make -f Makefile_testaesni
+
+gcm_kernels.cubin:
+	make -f Makefile_cubin
