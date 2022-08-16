@@ -2,6 +2,7 @@
 import re, os, sys
 from subprocess import run
 from time import sleep
+import os.path
 
 final = "Final average results:"
 read_pat = "Read Sequential\s*(\S*)"
@@ -15,6 +16,22 @@ fileio_dir   = os.path.join(src_dir, "file_io")
 
 with open(os.path.join(this_path, "test.env")) as f:
     mnt_dir = f.readline()
+
+#full check
+if os.geteuid() != 0:
+    exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
+    
+if not os.path.isfile(os.path.join(ecryptfs_dir, "ecryptfs.ko")):
+    print(f"ecryptfs.ko not found. run make in {ecryptfs_dir}")
+    sys.exit(1)
+
+if not os.path.isfile(os.path.join(ecryptfs_dir, "lake_ecryptfs.ko")):
+    print(f"lake_ecryptfs.ko not found. run make in {ecryptfs_dir}")
+    sys.exit(1)
+
+if not os.path.isfile(os.path.join(fileio_dir, "fs_bench")):
+    print(f"fs_bench not found. run make in {fileio_dir}")
+    sys.exit(1)
 
 def load_ecryptfs(modname="ecryptfs.ko"):
     p = os.path.join(ecryptfs_dir, modname)
@@ -54,14 +71,34 @@ def umount(path):
     run(f"sudo rm -rf {path}_enc", shell=True)
     run(f"sudo rm -rf {path}_plain", shell=True)
 
+def set_readhead(bsize):
+    #spray and pray
+    run(f"echo {bsize} | sudo tee /sys/block/vda/queue/read_ahead_kb", shell=True)
+    run(f"echo {bsize} | sudo tee /sys/block/sda/queue/read_ahead_kb", shell=True)
+
+def to_bytes(sz):
+    sz = sz.strip()
+    mag = 1
+    if "m" in sz or "M" in sz:
+        mag = 1024*1024
+    elif "k" in sz or "K" in sz:
+        mag = 1024
+    raw = sz[:-1]
+    return int(raw)*mag
+
 def reset():
     run("sudo rmmod ecryptfs.ko", shell=True)
     run("sudo rmmod lake_ecryptfs.ko", shell=True)
     run("sudo rmmod lake_gcm", shell=True)
     run("sudo modprobe -r aesni_intel", shell=True)
     run("echo 4096 | sudo tee /sys/block/vda/queue/read_ahead_kb", shell=True)
+    run("echo 4096 | sudo tee /sys/block/sda3/queue/read_ahead_kb", shell=True)
 
 def run_benchmark(p, sz):
+    bsize = sz.split()[-1]
+    bsize = to_bytes(bsize)
+    set_readhead(bsize)
+
     b = os.path.join(fileio_dir, "fs_bench")
     out = run(f"sudo {b} {p} {sz}", shell=True, capture_output=True, text=True)
     #print(f"running:  {b} {p} {sz}")
@@ -100,15 +137,15 @@ tests = {
 sizes = {
     "4K": "1 256k 4k",
     "8K": "1 512k 8k",
-    "16K": "1 1m 16k",
-    "32K": "1 2m 32k",
-    "64K": "1 4m 64k",
-    "128K": "1 8m 128k",
-    "256K": "1 16m 256k",
-    "512K": "1 32m 512k",
-    "1M": "1 64m 1m",
-    "2M": "1 128m 2m",
-    "4M": "1 256m 4m",
+    # "16K": "1 1m 16k",
+    # "32K": "1 2m 32k",
+    # "64K": "1 4m 64k",
+    # "128K": "1 8m 128k",
+    # "256K": "1 16m 256k",
+    # "512K": "1 32m 512k",
+    # "1M": "1 64m 1m",
+    # "2M": "1 128m 2m",
+    # "4M": "1 256m 4m",
 }
 
 results = {}
@@ -141,4 +178,4 @@ for name, args in tests.items():
 print("," + ",".join(sizes.keys()))
 for name in tests.keys():
     print(f"{name}_rd, {','.join(results[name]['rd'])}")
-    print(f"{name}_rd, {','.join(results[name]['wt'])}")
+    print(f"{name}_wt, {','.join(results[name]['wt'])}")
