@@ -53,7 +53,7 @@ static ssize_t ecryptfs_read_update_atime(struct kiocb *iocb,
 	struct path *path;
 	struct file *file = iocb->ki_filp;
 
-	ecryptfs_printk(KERN_ERR, "ecryptfs_read_update_atime\n");
+	//ecryptfs_printk(KERN_ERR, "ecryptfs_read_update_atime\n");
 
 	rc = generic_file_read_iter(iocb, to);
 	if (rc >= 0) {
@@ -150,7 +150,7 @@ static int read_or_initialize_metadata(struct dentry *dentry)
 	struct ecryptfs_crypt_stat *crypt_stat;
 	int rc;
 
-	ecryptfs_printk(KERN_ERR, "read_or_initialize_metadata\n");
+	//ecryptfs_printk(KERN_ERR, "read_or_initialize_metadata\n");
 
 	crypt_stat = &ecryptfs_inode_to_private(inode)->crypt_stat;
 	mount_crypt_stat = &ecryptfs_superblock_to_private(
@@ -218,7 +218,7 @@ static int ecryptfs_open(struct inode *inode, struct file *file)
 	 * ecryptfs_lookup() */
 	struct ecryptfs_file_info *file_info;
 
-	ecryptfs_printk(KERN_ERR, "ecryptfs_open\n");
+	//ecryptfs_printk(KERN_ERR, "ecryptfs_open\n");
 
 	/* Released in ecryptfs_release or end of function if failure */
 	file_info = kmem_cache_zalloc(ecryptfs_file_info_cache, GFP_KERNEL);
@@ -314,7 +314,7 @@ static int ecryptfs_flush(struct file *file, fl_owner_t td)
 {
 	struct file *lower_file = ecryptfs_file_to_lower(file);
 
-	ecryptfs_printk(KERN_ERR, "ecryptfs_flush\n");
+	//ecryptfs_printk(KERN_ERR, "ecryptfs_flush\n");
 
 	if (lower_file->f_op->flush) {
 		filemap_write_and_wait(file->f_mapping);
@@ -350,7 +350,7 @@ ecryptfs_fsync(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	int rc;
 
-	ecryptfs_printk(KERN_ERR, "ecryptfs_fsync\n");
+	//ecryptfs_printk(KERN_ERR, "ecryptfs_fsync\n");
 
 	rc = file_write_and_wait(file);
 	if (rc)
@@ -434,7 +434,7 @@ const struct file_operations ecryptfs_dir_fops = {
 
 static ssize_t ecryptfs_generic_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
-	ecryptfs_printk(KERN_ERR, "ecryptfs_generic_file_write_iter\n");
+	//ecryptfs_printk(KERN_ERR, "ecryptfs_generic_file_write_iter\n");
 	return generic_file_write_iter(iocb, from);
 }
 

@@ -68,7 +68,7 @@ struct page *ecryptfs_get_locked_page(struct inode *inode, loff_t index)
 static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 {
 	int rc;
-	ecryptfs_printk(KERN_ERR, "~~~~ecryptfs_writepage\n");
+	//ecryptfs_printk(KERN_ERR, "~~~~ecryptfs_writepage\n");
 
 	rc = ecryptfs_encrypt_page(page);
 	if (rc) {
@@ -201,7 +201,7 @@ static int ecryptfs_readpage(struct file *file, struct page *page)
 		&ecryptfs_inode_to_private(page->mapping->host)->crypt_stat;
 	int rc = 0;
 
-	ecryptfs_printk(KERN_ERR, "~~~~ecryptfs_readpage\n");
+	//ecryptfs_printk(KERN_ERR, "~~~~ecryptfs_readpage\n");
 
 	if (!crypt_stat || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		rc = ecryptfs_read_lower_page_segment(page, page->index, 0,
@@ -243,8 +243,7 @@ out:
 		ClearPageUptodate(page);
 	else
 		SetPageUptodate(page);
-	ecryptfs_printk(KERN_DEBUG, "Unlocking page with index = [0x%.16lx]\n",
-			page->index);
+	//ecryptfs_printk(KERN_DEBUG, "Unlocking page with index = [0x%.16lx]\n", page->index);
 	unlock_page(page);
 	return rc;
 }
@@ -291,7 +290,7 @@ int ecryptfs_write_begin(struct file *file,
 	loff_t prev_page_end_size;
 	int rc = 0;
 
-	ecryptfs_printk(KERN_ERR, "!!! ecryptfs_write_begin get/lock idx %ld\n", index);
+	//ecryptfs_printk(KERN_ERR, "!!! ecryptfs_write_begin get/lock idx %ld\n", index);
 
 	page = grab_cache_page_write_begin(mapping, index, flags);
 	if (!page)
@@ -493,7 +492,7 @@ static int ecryptfs_write_end(struct file *file,
 	struct ecryptfs_crypt_stat *crypt_stat =
 		&ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat;
 	int rc;
-	ecryptfs_printk(KERN_ERR, "ecryptfs_write_end\n");
+	//ecryptfs_printk(KERN_ERR, "ecryptfs_write_end\n");
 
 	//ecryptfs_printk(KERN_DEBUG, "Calling fill_zeros_to_end_of_page"
 	//		"(page w/ index = [0x%.16lx], to = [%d])\n", index, to);

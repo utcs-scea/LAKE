@@ -20,7 +20,7 @@ with open(os.path.join(this_path, "test.env")) as f:
 #full check
 if os.geteuid() != 0:
     exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
-    
+
 if not os.path.isfile(os.path.join(ecryptfs_dir, "ecryptfs.ko")):
     print(f"ecryptfs.ko not found. run make in {ecryptfs_dir}")
     sys.exit(1)
@@ -31,6 +31,10 @@ if not os.path.isfile(os.path.join(ecryptfs_dir, "lake_ecryptfs.ko")):
 
 if not os.path.isfile(os.path.join(fileio_dir, "fs_bench")):
     print(f"fs_bench not found. run make in {fileio_dir}")
+    sys.exit(1)
+
+if not os.path.isfile(os.path.join(crypto_dir, "lake_gcm.ko")):
+    print(f"lake_gcm.ko not found. run make in {crypto_dir}")
     sys.exit(1)
 
 def load_ecryptfs(modname="ecryptfs.ko"):
@@ -46,11 +50,22 @@ def load_lake_ecryptfs():
 def load_cpu_crypto():
     run("sudo modprobe -r aesni_intel", shell=True)
 
+def load_aesni_crypto():
+    run("sudo modprobe aesni_intel", shell=True)
+
+def load_lake_crypto():
+    run("sudo modprobe aesni_intel", shell=True)
+    p = os.path.join(crypto_dir, "lake_gcm.ko")
+    r = run(f"sudo insmod {p}", shell=True)
+    if r.returncode < 0: 
+        print(f"Error {r.returncode} inserting mod {p}")
+        sys.exit(1)
+
 def mount_gcm(path, cipher="gcm"):
     os.makedirs(f"{path}_enc", exist_ok=True)
     os.makedirs(f"{path}_plain", exist_ok=True)
     cmd = ("sudo mount -t ecryptfs -o key=passphrase:passphrase_passwd=111,"
-        "ecryptfs_cipher_mode={cipher},no_sig_cache,verbose,"
+        "ecryptfs_cipher_mode={cipher},no_sig_cache," #verbose,"
         "ecryptfs_cipher=aes,ecryptfs_key_bytes=32,ecryptfs_passthrough=n,ecryptfs_enable_filename_crypto=n"
         " {path}_enc {path}_plain")
     cmd = cmd.format(cipher=cipher, path=path, this=this_path)
@@ -87,8 +102,8 @@ def to_bytes(sz):
     return int(raw)*mag
 
 def reset():
-    run("sudo rmmod ecryptfs.ko", shell=True)
-    run("sudo rmmod lake_ecryptfs.ko", shell=True)
+    run("sudo rmmod ecryptfs", shell=True)
+    run("sudo rmmod lake_ecryptfs", shell=True)
     run("sudo rmmod lake_gcm", shell=True)
     run("sudo modprobe -r aesni_intel", shell=True)
     run("echo 4096 | sudo tee /sys/block/vda/queue/read_ahead_kb", shell=True)
@@ -126,26 +141,38 @@ def parse_out(out):
     return rd, wt
 
 tests = {
-    "cpu": {
-        "cryptomod_fn": load_cpu_crypto,
-        "fsmod_fn": load_ecryptfs,
-        "mount_fn": mount_gcm,
-        "mount_basepath": os.path.join(mnt_dir, "cpu")
+    # "cpu": {
+    #     "cryptomod_fn": load_cpu_crypto,
+    #     "fsmod_fn": load_ecryptfs,
+    #     "mount_fn": mount_gcm,
+    #     "mount_basepath": os.path.join(mnt_dir, "cpu")
+    # },
+    # "aesni": {
+    #     "cryptomod_fn": load_aesni_crypto,
+    #     "fsmod_fn": load_ecryptfs,
+    #     "mount_fn": mount_gcm,
+    #     "mount_basepath": os.path.join(mnt_dir, "cpu")
+    # }
+    "lake": {
+        "cryptomod_fn": load_lake_crypto,
+        "fsmod_fn": load_lake_ecryptfs,
+        "mount_fn": mount_lakegcm,
+        "mount_basepath": os.path.join(mnt_dir, "lake")
     }
 }
 
 sizes = {
-    "4K": "1 256k 4k",
-    "8K": "1 512k 8k",
-    # "16K": "1 1m 16k",
-    # "32K": "1 2m 32k",
-    # "64K": "1 4m 64k",
-    # "128K": "1 8m 128k",
-    # "256K": "1 16m 256k",
-    # "512K": "1 32m 512k",
-    # "1M": "1 64m 1m",
-    # "2M": "1 128m 2m",
-    # "4M": "1 256m 4m",
+    "4K": "1 1m 4k",
+    # "8K": "2 2m 8k",
+    # "16K": "2 4m 16k",
+    # "32K": "2 8m 32k",
+    # "64K": "2 16m 64k",
+    # "128K": "2 32m 128k",
+    # "256K": "2 64m 256k",
+    # "512K": "2 128m 512k",
+    # "1M": "2 256m 1m",
+    # "2M": "2 512m 2m",
+    # "4M": "2 1024m 4m",
 }
 
 results = {}
@@ -159,21 +186,23 @@ for name, args in tests.items():
         args["cryptomod_fn"]()
         #load ecryptfs
         args["fsmod_fn"]()
-        print("loaded")
+        sleep(0.5)
         #mount enc and plain dir
         args["mount_fn"](args["mount_basepath"])
         print("mounted")
-
+        sleep(1)
+        
         out = run_benchmark(args["mount_basepath"]+"_plain", sz)
         rd, wt = parse_out(out)        
 
         results[name]["rd"].append(rd)
         results[name]["wt"].append(wt)
 
-        sleep(1)
+        sleep(0.5)
         umount(args["mount_basepath"])
-        sleep(1)
-
+        sleep(0.5)
+        reset()
+        sleep(0.5)
 
 print("," + ",".join(sizes.keys()))
 for name in tests.keys():

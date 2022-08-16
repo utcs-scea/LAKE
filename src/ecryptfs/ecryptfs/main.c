@@ -43,7 +43,7 @@
 /**
  * Module parameter that defines the ecryptfs_verbosity level.
  */
-int ecryptfs_verbosity = 1;
+int ecryptfs_verbosity = 0;
 
 module_param(ecryptfs_verbosity, int, 0);
 MODULE_PARM_DESC(ecryptfs_verbosity,
@@ -291,8 +291,6 @@ static int ecryptfs_parse_options(struct ecryptfs_sb_info *sbi, char *options,
 	u8 cipher_code;
 
 	*check_ruid = 0;
-
-	printk(KERN_ERR "parsing\n");
 
 	if (!options) {
 		rc = -EINVAL;
@@ -880,7 +878,6 @@ static void do_sysfs_unregistration(void)
 static int __init ecryptfs_init(void)
 {
 	int rc;
-	printk(KERN_ERR "init\n");
 	if (ECRYPTFS_DEFAULT_EXTENT_SIZE > PAGE_SIZE) {
 		rc = -EINVAL;
 		ecryptfs_printk(KERN_ERR, "The eCryptfs extent size is "
@@ -898,7 +895,6 @@ static int __init ecryptfs_init(void)
 		       "Failed to allocate one or more kmem_cache objects\n");
 		goto out;
 	}
-	printk(KERN_ERR "init2\n");
 	rc = do_sysfs_registration();
 	if (rc) {
 		printk(KERN_ERR "sysfs registration failed\n");
@@ -910,7 +906,6 @@ static int __init ecryptfs_init(void)
 		       "rc = [%d]\n", __func__, rc);
 		goto out_do_sysfs_unregistration;
 	}
-	printk(KERN_ERR "init3\n");
 	rc = ecryptfs_init_messaging();
 	if (rc) {
 		printk(KERN_ERR "Failure occurred while attempting to "
@@ -918,14 +913,12 @@ static int __init ecryptfs_init(void)
 				"ecryptfsd\n");
 		goto out_destroy_kthread;
 	}
-	printk(KERN_ERR "init4\n");
 	rc = ecryptfs_init_crypto();
 	if (rc) {
 		printk(KERN_ERR "Failure whilst attempting to init crypto; "
 		       "rc = [%d]\n", rc);
 		goto out_release_messaging;
 	}
-	printk(KERN_ERR "init5\n");
 	rc = register_filesystem(&ecryptfs_fs_type);
 	if (rc) {
 		printk(KERN_ERR "Failed to register filesystem\n");
@@ -934,6 +927,8 @@ static int __init ecryptfs_init(void)
 	if (ecryptfs_verbosity > 0)
 		printk(KERN_CRIT "eCryptfs verbosity set to %d. Secret values "
 			"will be written to the syslog!\n", ecryptfs_verbosity);
+
+	printk(KERN_ERR "LAKE eCryptfs registered\n");
 
 	goto out;
 out_destroy_crypto:
@@ -947,7 +942,6 @@ out_do_sysfs_unregistration:
 out_free_kmem_caches:
 	ecryptfs_free_kmem_caches();
 out:
-	printk(KERN_ERR "init done\n");
 	return rc;
 }
 

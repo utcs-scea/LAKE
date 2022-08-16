@@ -35,7 +35,7 @@ static int ecryptfs_test_init(void)
     struct aead_request *aead_req = NULL;
     struct extent_crypt_result ecr;
     struct extent_crypt_result *ecr_ptr;
-    int n = 4;
+    int n = 1024;
     char** src_bufs=0;
     char** dst_bufs=0;
     char** dec_bufs=0;

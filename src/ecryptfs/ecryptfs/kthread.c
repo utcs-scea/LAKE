@@ -137,7 +137,7 @@ int ecryptfs_privileged_open(struct file **lower_file,
 	int flags = O_LARGEFILE;
 	int rc = 0;
 
-	ecryptfs_printk(KERN_ERR, "ecryptfs_privileged_open\n");
+	//ecryptfs_printk(KERN_ERR, "ecryptfs_privileged_open\n");
 
 	init_completion(&req.done);
 	req.lower_file = lower_file;

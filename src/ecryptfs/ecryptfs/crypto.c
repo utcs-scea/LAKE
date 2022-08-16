@@ -593,7 +593,7 @@ static int crypt_extent_aead(struct ecryptfs_crypt_stat *crypt_stat,
 				extent_iv, op);
 
 	if (rc == -74) {
-		ecryptfs_printk(KERN_ERR, "Decryption auth failed, ignoring for now..\n");
+		//ecryptfs_printk(KERN_ERR, "Decryption auth failed, ignoring for now..\n");
 		rc = 0;
 	}
 
@@ -651,7 +651,7 @@ int ecryptfs_encrypt_page(struct page *page)
 	u8 *tag_data = NULL;
 	u8 *iv_data = NULL;
 
-	ecryptfs_printk(KERN_ERR, "ok if not using lake_gcm else problem\n");
+	//ecryptfs_printk(KERN_ERR, "ok if not using lake_gcm else problem\n");
 
 	ecryptfs_inode = page->mapping->host;
 	crypt_stat =
