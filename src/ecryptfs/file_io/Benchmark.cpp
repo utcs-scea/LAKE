@@ -148,7 +148,7 @@ void Benchmark::run(){
             this->dropCache();
             this->writeSequential_c();
             this->dropCache();
-            this->readSequential_c();
+            //this->readSequential_c();
 
             //this->writeSequential();
             //this->readSequential();

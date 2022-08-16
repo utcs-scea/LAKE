@@ -37,15 +37,20 @@ if not os.path.isfile(os.path.join(crypto_dir, "lake_gcm.ko")):
     print(f"lake_gcm.ko not found. run make in {crypto_dir}")
     sys.exit(1)
 
+if not os.path.isfile(os.path.join(crypto_dir, "gcm_kernels.cubin")):
+    print(f"gcm_kernels.cubin not found. run make in {crypto_dir}")
+    sys.exit(1)
+
 def load_ecryptfs(modname="ecryptfs.ko"):
     p = os.path.join(ecryptfs_dir, modname)
     r = run(f"sudo insmod {p}", shell=True)
     if r.returncode < 0: 
         print(f"Error {r.returncode} inserting mod {p}")
         sys.exit(1)
+    print(f"Inserted {p}")
 
 def load_lake_ecryptfs():
-    load_ecryptfs("lake_ecryptfs.ko")
+    load_ecryptfs(modname="lake_ecryptfs.ko")
 
 def load_cpu_crypto():
     run("sudo modprobe -r aesni_intel", shell=True)
@@ -56,7 +61,8 @@ def load_aesni_crypto():
 def load_lake_crypto():
     run("sudo modprobe aesni_intel", shell=True)
     p = os.path.join(crypto_dir, "lake_gcm.ko")
-    r = run(f"sudo insmod {p}", shell=True)
+    cubin = os.path.join(crypto_dir, "gcm_kernels.cubin")
+    r = run(f"sudo insmod {p} cubin_path={cubin} aesni_fraction=0", shell=True)
     if r.returncode < 0: 
         print(f"Error {r.returncode} inserting mod {p}")
         sys.exit(1)
@@ -162,7 +168,9 @@ tests = {
 }
 
 sizes = {
-    "4K": "1 1m 4k",
+    "4K": "1 32k 4k",
+    #"4M": "1 64m 4m",
+    # "4K": "1 1m 4k",
     # "8K": "2 2m 8k",
     # "16K": "2 4m 16k",
     # "32K": "2 8m 32k",
@@ -201,7 +209,7 @@ for name, args in tests.items():
         sleep(0.5)
         umount(args["mount_basepath"])
         sleep(0.5)
-        reset()
+        #reset()
         sleep(0.5)
 
 print("," + ",".join(sizes.keys()))
