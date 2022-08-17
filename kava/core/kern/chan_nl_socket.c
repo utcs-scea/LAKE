@@ -85,7 +85,7 @@ static struct kava_cmd_base *nl_socket_cmd_new(struct kava_chan *chan,
     struct block_seeker *seeker;
 
     if (!skb_out) {
-        pr_err("Failed to allocate new netlink skb\n");
+        pr_err("Failed to allocate new netlink skb with size %u\n", cmd_struct_size + data_region_size);
         return NULL;
     }
 

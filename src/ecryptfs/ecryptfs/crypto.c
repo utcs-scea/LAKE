@@ -576,16 +576,24 @@ static int crypt_extent_aead(struct ecryptfs_crypt_stat *crypt_stat,
 
 	// https://www.kernel.org/doc/html/v4.19/crypto/api-aead.html
 	// only two since we are ignoring AD
-	sg_init_table(&src_sg[0], 2);
-	sg_init_table(&dst_sg[0], 2);
+	if (op == ENCRYPT) {
+		sg_init_table(&src_sg[0], 1);
+		sg_init_table(&dst_sg[0], 2);
+	}
+	else {
+		sg_init_table(&src_sg[0], 2);
+		sg_init_table(&dst_sg[0], 1);
+	}
 
 	sg_set_page(&src_sg[0], src_page, extent_size,
 		extent_offset * extent_size);
-	sg_set_buf(&src_sg[1], tag_data_src, ARRAY_SIZE(tag_data_src));
+	if (op == DECRYPT)
+		sg_set_buf(&src_sg[1], tag_data_src, ARRAY_SIZE(tag_data_src));
 
 	sg_set_page(&dst_sg[0], dst_page, extent_size,
 		extent_offset * extent_size);
-	sg_set_buf(&dst_sg[1], tag_data_dst, ARRAY_SIZE(tag_data_dst));
+	if (op == ENCRYPT)
+		sg_set_buf(&dst_sg[1], tag_data_dst, ARRAY_SIZE(tag_data_dst));
 
 	if (op == DECRYPT)
 		extent_size += ECRYPTFS_GCM_TAG_SIZE;

@@ -191,7 +191,21 @@ void lake_AES_GCM_free(CUdeviceptr src) {
 }
 
 void lake_AES_GCM_copy_to_device(CUdeviceptr dst, u8* buf, u32 size) {
-    cuMemcpyHtoDAsync(dst, buf, size, 0);
+    int left = size;
+    int max = 256*PAGE_SIZE;
+    CUdeviceptr cur = dst;
+    u8* cur_buf = buf;
+    while (1) {
+        if (left <= max) {
+            cuMemcpyHtoDAsync(cur, cur_buf, left, 0);
+            break;
+        }
+        cuMemcpyHtoDAsync(cur, cur_buf, max, 0);
+        cur += max;
+        cur_buf += max;
+        left -= max;
+    }
+    //cuMemcpyHtoDAsync(dst, buf, size, 0);
 }
 
 void lake_AES_GCM_copy_from_device(u8* buf, CUdeviceptr src, u32 size) {

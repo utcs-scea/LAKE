@@ -743,6 +743,9 @@ static int truncate_upper(struct dentry *dentry, struct iattr *ia,
 	loff_t lower_size_before_truncate;
 	loff_t lower_size_after_truncate;
 
+	//if (ia->ia_size - i_size > PAGE_SIZE)
+	ecryptfs_printk(KERN_WARNING, "truncating from %llu to %llu\n", i_size, ia->ia_size);
+
 	if (unlikely((ia->ia_size == i_size))) {
 		lower_ia->ia_valid &= ~ATTR_SIZE;
 		return 0;
@@ -815,6 +818,7 @@ static int truncate_upper(struct dentry *dentry, struct iattr *ia,
 	}
 out:
 	ecryptfs_put_lower_file(inode);
+	ecryptfs_printk(KERN_WARNING, "truncate done\n");
 	return rc;
 }
 

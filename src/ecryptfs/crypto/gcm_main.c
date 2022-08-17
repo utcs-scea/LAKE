@@ -73,15 +73,11 @@ static int crypto_gcm_setkey(struct crypto_aead *aead, const u8 *key,
 	}
 
 	lake_AES_GCM_setkey(&ctx->cuda_ctx, key);
-
-	if(aesni_fraction > 0) {
-		err = crypto_aead_setkey(ctx->aesni_tfm, key, 32);
-		if (err) {
-			printk(KERN_ERR "err setkey\n");
-			return err;
-		}
+	err = crypto_aead_setkey(ctx->aesni_tfm, key, 32);
+	if (err) {
+		printk(KERN_ERR "err setkey\n");
+		return err;
 	}
-
 out:
 	return err;
 }
@@ -130,10 +126,18 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 		return -1;
 	}
 
-	aesni_n = get_aesni_fraction(npages);
-	lake_n = npages - aesni_n;
-	printk(KERN_ERR "encrypt: processing %d pages. %d on aesni" 
-		" %d on gpu\n", npages, aesni_n, lake_n);
+	// let's use aesni if it's only one page
+	if (npages == 1) {
+		aesni_n = 1;
+		lake_n = 0;
+	}
+	// else, use fraction
+	else {
+		aesni_n = get_aesni_fraction(npages);
+		lake_n = npages - aesni_n;
+	}
+	//printk(KERN_ERR "encrypt: processing %d pages. %d on aesni" 
+	//	" %d on gpu\n", npages, aesni_n, lake_n);
 
 	if (lake_n > 0) {
 		lake_AES_GCM_alloc_pages(&d_src, lake_n*PAGE_SIZE);
@@ -204,13 +208,17 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 
 	if (aesni_n > 0) {
 		for(i = 0 ; i < aesni_n ; i++) {
-			if (rcs[i] != 0 && rcs[i] != -EINPROGRESS && rcs[i] != -EBUSY) {
-				printk(KERN_ERR "err crypto_aead_encrypt %d\n", rcs[i]);
-				return -1;
-			} else if (rcs[i] == -EINPROGRESS || rcs[i] == -EBUSY) {
+			if (rcs[i] == -EINPROGRESS || rcs[i] == -EBUSY) {
 				printk(KERN_ERR "waiting for enc req %d\n", i);
 				wait_for_completion(&ecrs[i].completion);
-			}	
+			} 
+			else if (rcs[i] == 0 || rcs[i] == -EBADMSG) {
+				//ignore
+			} 
+			else {
+				printk(KERN_ERR "decrypt error: %d\n", rcs[i]);
+				return -1;
+			} 
 			aead_request_free(aead_req[i]);
 		}
 		vfree(rcs);
@@ -244,10 +252,18 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 	}
 	npages = npages/2;
 
-	aesni_n = get_aesni_fraction(npages);
-	lake_n = npages - aesni_n;
-	printk(KERN_ERR "decrypt: processing %d pages. %d on aesni" 
-		"%d on gpu\n", npages, aesni_n, lake_n);
+	// let's use aesni if it's only one page
+	if (npages == 1) {
+		aesni_n = 1;
+		lake_n = 0;
+	}
+	// else, use fraction
+	else {
+		aesni_n = get_aesni_fraction(npages);
+		lake_n = npages - aesni_n;
+	}
+	//printk(KERN_ERR "decrypt: processing %d pages. %d on aesni" 
+	//	"%d on gpu\n", npages, aesni_n, lake_n);
 
 	if (lake_n > 0) {
 		lake_AES_GCM_alloc_pages(&d_src, lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
@@ -320,13 +336,17 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 	
 	if (aesni_n > 0) {
 		for(i = 0 ; i < aesni_n ; i++) {
-			if (rcs[i] != 0 && rcs[i] != -EINPROGRESS && rcs[i] != -EBUSY) {
-				printk(KERN_ERR "err crypto_aead_encrypt %d\n", rcs[i]);
-				return -1;
-			} else if (rcs[i] == -EINPROGRESS || rcs[i] == -EBUSY) {
+			if (rcs[i] == -EINPROGRESS || rcs[i] == -EBUSY) {
 				printk(KERN_ERR "waiting for enc req %d\n", i);
 				wait_for_completion(&ecrs[i].completion);
-			}	
+			} 
+			else if (rcs[i] == 0 || rcs[i] == -EBADMSG) {
+				//ignore
+			} 
+			else {
+				printk(KERN_ERR "decrypt error: %d\n", rcs[i]);
+				return -1;
+			} 
 			aead_request_free(aead_req[i]);
 		}
 		vfree(rcs);
@@ -354,14 +374,12 @@ static int crypto_gcm_init_tfm(struct crypto_aead *tfm)
 	if (aesni_fraction < 0)
 		aesni_fraction = 0;
 
-	if (aesni_fraction > 0) {
-		ctx->aesni_tfm = crypto_alloc_aead("generic-gcm-aesni", 0, 0);
-		if (IS_ERR(ctx->aesni_tfm)) {
-			printk(KERN_ERR "Error allocating generic-gcm-aesni %ld\n", PTR_ERR(ctx->aesni_tfm));
-			return -ENOENT;
-		}
+	ctx->aesni_tfm = crypto_alloc_aead("generic-gcm-aesni", 0, 0);
+	if (IS_ERR(ctx->aesni_tfm)) {
+		printk(KERN_ERR "Error allocating generic-gcm-aesni %ld\n", PTR_ERR(ctx->aesni_tfm));
+		return -ENOENT;
 	}
-
+	
 	return 0;
 }
 
@@ -370,9 +388,8 @@ static void crypto_gcm_exit_tfm(struct crypto_aead *tfm)
 	struct crypto_gcm_ctx *ctx = crypto_aead_ctx(tfm);
 	lake_AES_GCM_destroy(&ctx->cuda_ctx);
 
-	if (aesni_fraction > 0) {
-		crypto_free_aead(ctx->aesni_tfm);
-	}
+
+	crypto_free_aead(ctx->aesni_tfm);
 }
 
 static void crypto_gcm_free(struct aead_instance *inst)
@@ -434,7 +451,6 @@ out_err:
 
 static int crypto_gcm_create(struct crypto_template *tmpl, struct rtattr **tb)
 {
-	usleep_range(50, 100);
 	return crypto_gcm_create_common(tmpl, tb);
 }
 

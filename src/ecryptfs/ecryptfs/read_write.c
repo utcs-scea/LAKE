@@ -116,7 +116,7 @@ int ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
 	int rc = 0;
 
 	crypt_stat = &ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat;
-	//ecryptfs_printk(KERN_ERR, "ecryptfs_write\n");
+
 	/*
 	 * if we are writing beyond current size, then start pos
 	 * at the current size - we'll fill in zeros from there.
@@ -184,6 +184,7 @@ int ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
 		unlock_page(ecryptfs_page);
 
 		if (crypt_stat->flags & ECRYPTFS_ENCRYPTED) {
+			//ecryptfs_printk(KERN_ERR, "calling ecryptfs_write\n");
 			rc = ecryptfs_encrypt_page(ecryptfs_page);
 		}
 		else

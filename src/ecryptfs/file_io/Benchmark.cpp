@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <chrono>
+#include <thread>
 
 #include "Benchmark.h"
 #include "Timer.h"
@@ -148,7 +150,10 @@ void Benchmark::run(){
             this->dropCache();
             this->writeSequential_c();
             this->dropCache();
-            //this->readSequential_c();
+            
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
+            
+            this->readSequential_c();
 
             //this->writeSequential();
             //this->readSequential();
@@ -293,20 +298,23 @@ void Benchmark::writeSequential_c()
     timer.setSetSize((ulong)ceil(0.1 * sizeRWInKiB / block_sizeRWInKiB));
 
     // Write this->fileContent to file in blocks
-    ulong left_size = sizeRWInKiB;
-    ulong write_size;
+    uint64_t left_size = sizeRWInKiB << 10;
+    uint64_t write_size;
+    uint64_t block_size = block_sizeRWInKiB << 10;
     char *p = this->fileContent;
 
+    //ftruncate(file, left_size);
+    //fsync(file);
+
     while (left_size > 0) {
-        write_size = (left_size >= block_sizeRWInKiB) ?
-            (block_sizeRWInKiB << 10) : (left_size << 10);
+        write_size = (left_size >= block_size) ? block_size : left_size;
 
         timer.start();
         write(file, p, write_size);
         timer.stop();
 
         p += write_size;
-        left_size -= (write_size >> 10);
+        left_size -= write_size;
     }
 
     // Get time of this action
@@ -325,7 +333,6 @@ void Benchmark::writeSequential_c()
     this->defaulDevWriteSequential += defaulDevWriteSequentialPartial;    
     this->throughputWriteSequential += throughputWriteSequentialPartial;
     this->execTimeWriteSequential += execTimeWriteSequentialPartial;
-
 
     // close file
     fsync(file);

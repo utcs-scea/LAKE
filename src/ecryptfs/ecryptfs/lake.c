@@ -87,8 +87,23 @@ static int lake_write_middle(struct file *file,
 		ecryptfs_printk(KERN_WARNING, "Error attempting to fill "
 			"zeros in page with index = [0x%.16lx]\n", index);
 	}
+
+	// in the original code, we would ecryptfs_encrypt_page now
+	// XXX: we need to lie and say that we expanded the file size,
+	// otherwise we get a bunch of truncates later
+	if (pos + copied > i_size_read(ecryptfs_inode)) {
+		i_size_write(ecryptfs_inode, pos + copied);
+		ecryptfs_printk(KERN_DEBUG, "Expanded file size to "
+			"[0x%.16llx]\n",
+			(unsigned long long)i_size_read(ecryptfs_inode));
+	}
+	rc = ecryptfs_write_inode_size_to_metadata(ecryptfs_inode);
+	if (rc)
+		printk(KERN_ERR "Error writing inode size to metadata; "
+		       "rc = [%d]\n", rc);
 	else
 		rc = copied;
+
 out:
 	return rc;
 }
@@ -144,6 +159,7 @@ again:
 		}
 	
 		//status = a_ops->write_begin(file, mapping, pos, bytes, flags,
+		//ecryptfs_printk(KERN_ERR, "lake calling ecryptfs_write_begin\n");
 		status = ecryptfs_write_begin(file, mapping, pos, bytes, flags,
 						&page, &fsdata);
 		if (unlikely(status < 0))
@@ -334,12 +350,12 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 	int metadata_per_extent;
 	u8 *tag_data = NULL;
 	u8 *iv_data = NULL;
-	u8 *src_tag_data = NULL;
 
  	struct scatterlist *src_sg = NULL, *dst_sg = NULL;
  	unsigned int i = 0;
  	u32 sz = 0;
-	
+	int cipher_mode_code;
+
 	//ecryptfs_printk(KERN_ERR, "attemping to lock pages\n");
 	for (i = 0; i < nr_pages; i++) {
 		lock_page(pgs[i]);
@@ -351,7 +367,7 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 		&(ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat);
 	BUG_ON(!(crypt_stat->flags & ECRYPTFS_ENCRYPTED));
 	
-	int cipher_mode_code = ecryptfs_code_for_cipher_mode_string(
+	cipher_mode_code = ecryptfs_code_for_cipher_mode_string(
 		crypt_stat->cipher_mode);
 
 	// if using linux GCM, use the original function
@@ -362,7 +378,7 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 		return 0;
 	}
 
-	//ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_encrypt_pages %d pages\n", nr_pages);
+	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_encrypt_pages %d pages\n", nr_pages);
 
  	if (!nr_pages || !pgs || !pgs[0]) {
  		goto out;
@@ -872,7 +888,7 @@ int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
 	struct scatterlist *dst_sg = NULL;
     unsigned int i = 0;
 
-	//ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_decrypt_pages %d pages\n", nr_pages);
+	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_decrypt_pages %d pages\n", nr_pages);
 
     if (!nr_pages || !pgs || !pgs[0]) {
         goto out;
