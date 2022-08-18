@@ -131,3 +131,7 @@ dmypy.json
 *.db
 *.trace
 *.tbl
+*.mod.o
+*.mod.c
+*.o.cmd
+*.ko.cmd
