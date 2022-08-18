@@ -135,3 +135,6 @@ dmypy.json
 *.mod.c
 *.o.cmd
 *.ko.cmd
+*.symvers
+*.ko
+*.o
