@@ -58,14 +58,23 @@ def load_cpu_crypto():
 def load_aesni_crypto():
     run("sudo modprobe aesni_intel", shell=True)
 
-def load_lake_crypto():
+def load_lake_crypto(aesni_fraction=0):
     run("sudo modprobe aesni_intel", shell=True)
     p = os.path.join(crypto_dir, "lake_gcm.ko")
     cubin = os.path.join(crypto_dir, "gcm_kernels.cubin")
-    r = run(f"sudo insmod {p} cubin_path={cubin} aesni_fraction=0", shell=True)
+    r = run(f"sudo insmod {p} cubin_path={cubin} aesni_fraction={aesni_fraction}", shell=True)
     if r.returncode < 0: 
         print(f"Error {r.returncode} inserting mod {p}")
         sys.exit(1)
+
+def load_lake_crypto_75gpu():
+    load_lake_crypto(75)
+
+def load_lake_crypto_50gpu():
+    load_lake_crypto(50)
+
+def load_lake_crypto_25gpu():
+    load_lake_crypto(25)
 
 def mount_gcm(path, cipher="gcm"):
     os.makedirs(f"{path}_enc", exist_ok=True)
@@ -159,8 +168,14 @@ tests = {
     #     "mount_fn": mount_gcm,
     #     "mount_basepath": os.path.join(mnt_dir, "cpu")
     # }
-    "lake": {
-        "cryptomod_fn": load_lake_crypto,
+    # "lake": {
+    #     "cryptomod_fn": load_lake_crypto,
+    #     "fsmod_fn": load_lake_ecryptfs,
+    #     "mount_fn": mount_lakegcm,
+    #     "mount_basepath": os.path.join(mnt_dir, "lake")
+    # }
+    "lake50": {
+        "cryptomod_fn": load_lake_crypto_50gpu,
         "fsmod_fn": load_lake_ecryptfs,
         "mount_fn": mount_lakegcm,
         "mount_basepath": os.path.join(mnt_dir, "lake")
@@ -169,7 +184,7 @@ tests = {
 
 sizes = {
     #"4K": "1 1m 4k",
-    "4M": "1 16m 2m",
+    "4M": "1 512m 4m",
     # "4K": "1 1m 4k",
     # "8K": "2 2m 8k",
     # "16K": "2 4m 16k",

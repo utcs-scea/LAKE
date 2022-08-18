@@ -136,8 +136,8 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 		aesni_n = get_aesni_fraction(npages);
 		lake_n = npages - aesni_n;
 	}
-	//printk(KERN_ERR "encrypt: processing %d pages. %d on aesni" 
-	//	" %d on gpu\n", npages, aesni_n, lake_n);
+	printk(KERN_ERR "encrypt: processing %d pages. %d on aesni" 
+		" %d on gpu\n", npages, aesni_n, lake_n);
 
 	if (lake_n > 0) {
 		lake_AES_GCM_alloc_pages(&d_src, lake_n*PAGE_SIZE);
@@ -262,8 +262,8 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 		aesni_n = get_aesni_fraction(npages);
 		lake_n = npages - aesni_n;
 	}
-	//printk(KERN_ERR "decrypt: processing %d pages. %d on aesni" 
-	//	"%d on gpu\n", npages, aesni_n, lake_n);
+	printk(KERN_ERR "decrypt: processing %d pages. %d on aesni" 
+		"%d on gpu\n", npages, aesni_n, lake_n);
 
 	if (lake_n > 0) {
 		lake_AES_GCM_alloc_pages(&d_src, lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
