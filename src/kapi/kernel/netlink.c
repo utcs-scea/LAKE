@@ -57,7 +57,7 @@ int lake_send_cmd(void *buf, size_t size, char sync)
         nlmsg_free(skb_out);
         return err;
     }
-
+    pr_err("msg sent\n");
     nlmsg_free(skb_out);
 
     // sync if requested

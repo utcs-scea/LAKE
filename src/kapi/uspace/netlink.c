@@ -29,6 +29,9 @@ void lake_send_cmd(uint32_t seqn)
         printf("error on nl_send %d\n", err);
 
     nlmsg_free(msg);
+
+    printf("receiving\n");
+    nl_recvmsgs_default(sk);
 }
 
 static int netlink_recv_msg(struct nl_msg *msg, void *arg)
