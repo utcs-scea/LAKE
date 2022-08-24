@@ -28,18 +28,20 @@ int lake_send_cmd(void *buf, size_t size, char sync)
     u32 xa_idx;
 
     //create a cmd struct
-    cmd = (struct cmd_data*) kmem_cache_alloc(cmd_cache, GFP_KERNEL);
-    if(IS_ERR(cmd)) {
-        pr_alert("Error allocating from cache: %ld\n", PTR_ERR(cmd));
-        kmem_cache_destroy(cmd_cache);
-        return -ENOMEM;
-    }
+    // cmd = (struct cmd_data*) kmem_cache_alloc(cmd_cache, GFP_KERNEL);
+    // if(IS_ERR(cmd)) {
+    //     pr_alert("Error allocating from cache: %ld\n", PTR_ERR(cmd));
+    //     kmem_cache_destroy(cmd_cache);
+    //     return -ENOMEM;
+    // }
+    cmd = (struct cmd_data*) kmalloc(sizeof(struct cmd_data), GFP_KERNEL);
+
     //init completion so we can wait on it
     init_completion(&cmd->cmd_done);
 
-    //insert cmd into xarray, getting idx  (void*)cmd
-    err = xa_alloc(&cmds_xa, &xa_idx, xa_mk_value(1), XA_LIMIT(0, 1024), GFP_KERNEL); //xa_limit_31b
+    //insert cmd into xarray, getting idx  
     //err = xa_store(&cmds_xa, 1, xa_mk_value(1), GFP_KERNEL);
+    err = xa_alloc(&cmds_xa, &xa_idx, (void*)cmd, XA_LIMIT(0, 2048), GFP_KERNEL); //xa_limit_31b
     if (err < 0) {
         pr_alert("Error allocating xa_alloc: %d\n", err);
         return err;
@@ -57,12 +59,12 @@ int lake_send_cmd(void *buf, size_t size, char sync)
         nlmsg_free(skb_out);
         return err;
     }
-    pr_err("msg sent\n");
-    nlmsg_free(skb_out);
+    pr_err("cmd sent\n");
 
     // sync if requested
     if (sync == 1) {
         wait_for_completion(&cmd->cmd_done);
+        pr_alert("cmd was sync, now done!\n");
     }
 
     return err;
@@ -82,6 +84,8 @@ static void netlink_recv_msg(struct sk_buff *skb)
         return;
     }
 
+    pr_err("received a message\n");
+
     //find cmd in xa
     cmd = (struct cmd_data*) xa_load(&cmds_xa, xa_idx);
     if (!cmd) {
@@ -91,9 +95,11 @@ static void netlink_recv_msg(struct sk_buff *skb)
     //if there's anyone waiting, free them
     complete(&cmd->cmd_done);
     //free from cache
-    kmem_cache_free(cmd_cache, cmd);
+    //kmem_cache_free(cmd_cache, cmd);
+    kfree(cmd);
     //erase from xarray
     xa_erase(&cmds_xa, xa_idx);
+    pr_err("cmd was completed and freed\n");
 }
 
 static void null_constructor(void *argument) {
@@ -111,11 +117,11 @@ int lake_init_socket(void) {
     }
 
     //init slab cache (xarray requires 4-alignment)
-    cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct cmd_data), 4, 0, null_constructor);
-    if(IS_ERR(cmd_cache)) {
-        pr_alert("Error creating cache: %ld\n", PTR_ERR(cmd_cache));
-        return -ENOMEM;
-    }
+    // cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct cmd_data), 4, 0, null_constructor);
+    // if(IS_ERR(cmd_cache)) {
+    //     pr_alert("Error creating cache: %ld\n", PTR_ERR(cmd_cache));
+    //     return -ENOMEM;
+    // }
     return 0;
 }
 

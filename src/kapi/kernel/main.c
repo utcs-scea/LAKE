@@ -2,7 +2,7 @@
 #include <linux/delay.h>
 #include "lake_kapi.h"
 
-
+#include "cuda.h"
 
 static int __init lake_kapi_init(void)
 {
@@ -15,7 +15,7 @@ static int __init lake_kapi_init(void)
 
     mdelay(3000);
     err = 1;
-    lake_send_cmd(&err, sizeof(int), 0);
+    cuInit(0);
     mdelay(3000);
     
     return 0;

@@ -1,5 +1,5 @@
-#ifndef __LAKE_CUDA_H__
-#define __LAKE_CUDA_H__
+#ifndef __KAVA_CUDA_H__
+#define __KAVA_CUDA_H__
 
 #ifdef __KERNEL__
 #include <linux/types.h>
@@ -162,9 +162,9 @@
     #define cuGraphLaunch                       __CUDA_API_PTSZ(cuGraphLaunch)
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+// #ifdef __cplusplus
+// extern "C" {
+// #endif
 
 /**
  * CUDA device pointer
@@ -1017,6 +1017,12 @@ typedef struct CUDA_MEMCPY2D_st {
 #define CUDAAPI
 #endif
 
+/* __kava_stop_shadow_thread
+ * This API is called from kernel to stop the kthread's corresponding
+ * shadow thread in the API server.
+ */
+extern void __kava_stop_shadow_thread(void);
+
 extern CUresult CUDAAPI cuTestMmul(unsigned int Flags);
 extern CUresult CUDAAPI cuTestInit(void);
 extern CUresult CUDAAPI cuTestFree(void);
@@ -1120,4 +1126,4 @@ extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_
 // }
 // #endif // kava_policy
 
-#endif
+#endif // __KAVA_CUDA_H__

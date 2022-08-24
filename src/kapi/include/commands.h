@@ -1,16 +1,15 @@
 #ifndef __KAPI_COMMANDS_H__
 #define __KAPI_COMMANDS_H__
 
-#include <linux/module.h>
 #include "cuda.h"
 
 typedef unsigned int u32;
 
 #define CMD_ASYNC 0
-#define CMD_SYNC 1
+#define CMD_SYNC  1
 
 enum lake_api_ids {
-    LAKE_API_cuInit,
+    LAKE_API_cuInit = 0,
     LAKE_API_cuDeviceGet,
     LAKE_API_cuCtxCreate,
     LAKE_API_cuModuleLoad,
