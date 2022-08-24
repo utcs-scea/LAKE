@@ -1,4 +1,5 @@
 #include <linux/module.h>
+#include <linux/delay.h>
 #include "lake_kapi.h"
 
 
@@ -11,6 +12,12 @@ static int __init lake_kapi_init(void)
 		printk(KERN_ERR "Err in init_socket %d\n", err);
         return -1;
 	}
+
+    mdelay(3000);
+    err = 1;
+    lake_send_cmd(&err, sizeof(int), 0);
+    mdelay(3000);
+    
     return 0;
 }
 

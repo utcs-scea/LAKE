@@ -10,7 +10,7 @@
 #include "netlink.h"
 
 static struct sock *sk = NULL;
-static struct xarray cmds_xa;
+DEFINE_XARRAY_ALLOC(cmds_xa); 
 static struct kmem_cache *cmd_cache;
 static pid_t worker_pid = -1;
 
@@ -37,11 +37,12 @@ int lake_send_cmd(void *buf, size_t size, char sync)
     //init completion so we can wait on it
     init_completion(&cmd->cmd_done);
 
-    //insert cmd into xarray, getting idx
-    err = xa_alloc(&cmds_xa, &xa_idx, (void*)cmd, xa_limit_32b, GFP_KERNEL); //XA_LIMIT(0, 512)
+    //insert cmd into xarray, getting idx  (void*)cmd
+    err = xa_alloc(&cmds_xa, &xa_idx, xa_mk_value(1), XA_LIMIT(0, 1024), GFP_KERNEL); //xa_limit_31b
+    //err = xa_store(&cmds_xa, 1, xa_mk_value(1), GFP_KERNEL);
     if (err < 0) {
         pr_alert("Error allocating xa_alloc: %d\n", err);
-        return -ENOMEM;
+        return err;
     }
 
     //create netlink cmd
@@ -108,9 +109,6 @@ int lake_init_socket(void) {
         pr_err("Error creating netlink socket\n");
         return -ENOMEM;
     }
-
-    //init xarray for cmds
-    xa_init(&cmds_xa);
 
     //init slab cache (xarray requires 4-alignment)
     cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct cmd_data), 4, 0, null_constructor);
