@@ -4,6 +4,10 @@
 #include <linux/ctype.h>
 #include <linux/time.h>
 
+    int func_argc;
+    char func_arg_is_handle[64];
+    size_t func_arg_size[64];
+
 void kava_parse_function_args(const char *name, int *func_argc,
                                          char *func_arg_is_handle,
                                          size_t *func_arg_size)

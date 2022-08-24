@@ -1017,18 +1017,7 @@ typedef struct CUDA_MEMCPY2D_st {
 #define CUDAAPI
 #endif
 
-/* __kava_stop_shadow_thread
- * This API is called from kernel to stop the kthread's corresponding
- * shadow thread in the API server.
- */
-extern void __kava_stop_shadow_thread(void);
-
-extern CUresult CUDAAPI cuTestMmul(unsigned int Flags);
-extern CUresult CUDAAPI cuTestInit(void);
-extern CUresult CUDAAPI cuTestFree(void);
-extern CUresult CUDAAPI cuTestKtoU(size_t size);
-extern void CUDAAPI cuTestChannel(size_t size);
-extern int cudaGetGPUUtilizationRates(void);
+//extern int cudaGetGPUUtilizationRates(void);
 
 extern CUresult CUDAAPI cuInit(unsigned int Flags);
 extern CUresult CUDAAPI cuDeviceGet(CUdevice *device, int ordinal);
@@ -1052,24 +1041,24 @@ extern CUresult CUDAAPI cuMemAlloc(CUdeviceptr *dptr, size_t bytesize);
 extern CUresult CUDAAPI cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, size_t ByteCount);
 extern CUresult CUDAAPI cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount);
 extern CUresult CUDAAPI cuCtxSynchronize(void);
-extern CUresult CUDAAPI cuCtxSetCurrent(CUcontext ctx);
-extern CUresult CUDAAPI cuDriverGetVersion(int *driverVersion);
+//extern CUresult CUDAAPI cuCtxSetCurrent(CUcontext ctx);
+//extern CUresult CUDAAPI cuDriverGetVersion(int *driverVersion);
 extern CUresult CUDAAPI cuMemFree(CUdeviceptr dptr);
-extern CUresult CUDAAPI cuModuleGetGlobal(CUdeviceptr *dptr, size_t *bytes, CUmodule hmod, const char *name);
-extern CUresult CUDAAPI cuDeviceGetCount(int *count);
-extern CUresult CUDAAPI cuFuncSetCacheConfig(CUfunction hfunc, CUfunc_cache config);
+//extern CUresult CUDAAPI cuModuleGetGlobal(CUdeviceptr *dptr, size_t *bytes, CUmodule hmod, const char *name);
+//extern CUresult CUDAAPI cuDeviceGetCount(int *count);
+//extern CUresult CUDAAPI cuFuncSetCacheConfig(CUfunction hfunc, CUfunc_cache config);
 extern CUresult CUDAAPI cuStreamCreate(CUstream *phStream, unsigned int Flags);
 extern CUresult CUDAAPI cuStreamSynchronize(CUstream hStream);
 extern CUresult CUDAAPI cuStreamDestroy(CUstream hStream);
 extern CUresult CUDAAPI cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, size_t ByteCount, CUstream hStream);
 extern CUresult CUDAAPI cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount, CUstream hStream);
-extern CUresult CUDAAPI cuGetErrorString(CUresult error, const char **pStr); // *pStr must be freed by user
-extern CUresult CUDAAPI cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev);
-extern CUresult CUDAAPI cuDeviceGetName(char *name, int len, CUdevice dev);
-extern CUresult CUDAAPI cuMemHostAlloc(void **pp, size_t bytesize, unsigned int Flags);
-extern CUresult CUDAAPI cuMemFreeHost(void *p);
-extern CUresult CUDAAPI cuMemHostGetDevicePointer(CUdeviceptr *pdptr, void *p, unsigned int Flags);
-extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_t WidthInBytes, size_t Height, unsigned int ElementSizeBytes);
+//extern CUresult CUDAAPI cuGetErrorString(CUresult error, const char **pStr); // *pStr must be freed by user
+//extern CUresult CUDAAPI cuDeviceGetAttribute(int *pi, CUdevice_attribute attrib, CUdevice dev);
+//extern CUresult CUDAAPI cuDeviceGetName(char *name, int len, CUdevice dev);
+//extern CUresult CUDAAPI cuMemHostAlloc(void **pp, size_t bytesize, unsigned int Flags);
+//extern CUresult CUDAAPI cuMemFreeHost(void *p);
+//extern CUresult CUDAAPI cuMemHostGetDevicePointer(CUdeviceptr *pdptr, void *p, unsigned int Flags);
+//extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_t WidthInBytes, size_t Height, unsigned int ElementSizeBytes);
 //extern CUresult CUDAAPI cuMemcpy2D(const CUDA_MEMCPY2D *pCopy);
 
 //extern CUresult CUDAAPI cuEventCreate(CUevent *phEvent, unsigned int Flags);
@@ -1079,51 +1068,5 @@ extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_
 //extern CUresult CUDAAPI cuEventSynchronize(CUevent hEvent);
 
 #endif // __cuda_cuda_h__
-
-
-// #ifndef kava_policy
-// #define kava_policy static
-
-// kava_policy void *cu_policy_default(kava_offload_func_t dev_func,
-//                                     void *dev_args,
-//                                     kava_offload_func_t cpu_func,
-//                                     void *cpu_args)
-// {
-//     static const int util_threshold = 80;
-//     static struct timespec last_check_ts = {0, 0};
-
-//     struct timespec check_ts;
-//     int gpu_util = 0;
-//     static int denominator = 100;
-//     static int numerator = 100;
-//     int modulus = numerator / denominator;
-
-//     getnstimeofday(&check_ts);
-
-//     /* Check GPU utilization every 5 ms */
-//     if (last_check_ts.tv_sec == 0 ||
-//             (check_ts.tv_sec - last_check_ts.tv_sec) * 1000 + (check_ts.tv_nsec - last_check_ts.tv_nsec) / 1000000 > 5) {
-//         gpu_util = cudaGetGPUUtilizationRates();
-//     }
-
-//     if (gpu_util > util_threshold) {
-//         numerator /= 2;
-//     }
-//     else if (numerator < denominator) {
-//         numerator = denominator;
-//     }
-//     if (numerator > denominator) {
-//         numerator = denominator;
-//     }
-
-//     last_check_ts = check_ts;
-
-//     if (dev_func && modulus > 0)
-//         dev_func(dev_args);
-//     else if (cpu_func)
-//         cpu_func(cpu_args);
-//     return NULL;
-// }
-// #endif // kava_policy
 
 #endif // __KAVA_CUDA_H__
