@@ -3,11 +3,33 @@
 #include <inttypes.h>
 #include <linux/netlink.h>
 #include <netlink/netlink.h>
+#include <netlink/msg.h>
 #include "netlink.h"
-
 
 static struct nl_sock *sk = NULL;
 
+//TODO: send return
+void lake_send_cmd(uint32_t seqn)
+{
+    int err;
+    struct nl_msg *msg;
+    struct nlmsghdr *nlh;
+
+    msg = nlmsg_alloc_simple(MSG_LAKE_KAPI_REP, 0);
+    if (!msg)
+        printf("error on nlmsg_alloc_simple\n");
+   
+    //err = nlmsg_append(msg, buf, size, NLMSG_ALIGNTO);
+    nl_complete_msg(sk, msg);
+   
+    nlh = nlmsg_hdr(msg);
+    nlh->nlmsg_seq = seqn;
+    err = nl_send(sk, msg);
+    if(err < 0)
+        printf("error on nl_send %d\n", err);
+
+    nlmsg_free(msg);
+}
 
 static int netlink_recv_msg(struct nl_msg *msg, void *arg)
 {
@@ -15,20 +37,14 @@ static int netlink_recv_msg(struct nl_msg *msg, void *arg)
     nlh = nlmsg_hdr(msg);
     uint32_t seq = nlh->nlmsg_seq;
 
-    printf("received msg with seq %u\n", xa);
-
-    char* data = nlmsg_data(nlh);
-
-    uint32_t cmd_id = *((uint32_t*) data)
+    printf("received msg with seq %u\n", seq);
+    void* data = nlmsg_data(nlh);
+    uint32_t cmd_id = *((uint32_t*) data);
 
     //TODO: handle cmd_id
-
-    
-
 }
 
-
-int init_socket() {
+int lake_init_socket() {
     int err;
 
     sk = nl_socket_alloc();
@@ -49,4 +65,8 @@ int init_socket() {
         printf("Error connecting to netlink: %d\n", err);
         exit(1);
     }
+}
+
+void lake_destroy_socket() {
+    nl_socket_free(sk);
 }

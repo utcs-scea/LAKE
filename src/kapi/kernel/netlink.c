@@ -19,7 +19,7 @@ struct cmd_data {
     //u32 xa_idx;
 };
 
-void lake_send_cmd(void *buf, size_t size, char sync)
+int lake_send_cmd(void *buf, size_t size, char sync)
 {
     int err;
     struct sk_buff *skb_out;
@@ -38,7 +38,7 @@ void lake_send_cmd(void *buf, size_t size, char sync)
     init_completion(&cmd->cmd_done);
 
     //insert cmd into xarray, getting idx
-    err = xa_alloc(cmds_xa, &xa_idx, (void*)cmd, xa_limit_32b, GFP_KERNEL); //XA_LIMIT(0, 512)
+    err = xa_alloc(&cmds_xa, &xa_idx, (void*)cmd, xa_limit_32b, GFP_KERNEL); //XA_LIMIT(0, 512)
     if (err < 0) {
         pr_alert("Error allocating xa_alloc: %d\n", err);
         return -ENOMEM;
@@ -46,15 +46,15 @@ void lake_send_cmd(void *buf, size_t size, char sync)
 
     //create netlink cmd
     skb_out = nlmsg_new(size, 0);
-    nlh = nlmsg_put(skb_out, 0, seq, NLMSG_DONE, size, 0);
+    nlh = nlmsg_put(skb_out, 0, xa_idx, MSG_LAKE_KAPI_REQ, size, 0);
     NETLINK_CB(skb_out).dst_group = 0;
     memcpy(nlmsg_data(nlh), buf, size);
 
-    ret = netlink_unicast(sk, skb_out, worker_pid, 0);
-    if (ret < 0) {
-        pr_err("Failed to send netlink skb to API server, error=%d\n", ret);
+    err = netlink_unicast(sk, skb_out, worker_pid, 0);
+    if (err < 0) {
+        pr_err("Failed to send netlink skb to API server, error=%d\n", err);
         nlmsg_free(skb_out);
-        return ret;
+        return err;
     }
 
     nlmsg_free(skb_out);
@@ -67,7 +67,7 @@ void lake_send_cmd(void *buf, size_t size, char sync)
     return err;
 }
 
-static int netlink_recv_msg(struct sk_buff *skb)
+static void netlink_recv_msg(struct sk_buff *skb)
 {
     struct nlmsghdr *nlh = (struct nlmsghdr*) skb->data;
     //TODO: get ret
@@ -78,52 +78,50 @@ static int netlink_recv_msg(struct sk_buff *skb)
     if (unlikely(worker_pid == -1)) {
         worker_pid = nlh->nlmsg_pid;
         printk(KERN_INFO "Setting worker PID to %d\n", worker_pid);
-        return 0;
+        return;
     }
 
     //find cmd in xa
-    cmd = (struct cmd_data*) xa_load(cmds_xa, xa_idx);
+    cmd = (struct cmd_data*) xa_load(&cmds_xa, xa_idx);
     if (!cmd) {
         pr_alert("Error looking up cmd %u at xarray\n", xa_idx);
-        return -ENOENT;
     }
 
     //if there's anyone waiting, free them
-    complete(cmd->cmd_done);
+    complete(&cmd->cmd_done);
     //free from cache
     kmem_cache_free(cmd_cache, cmd);
     //erase from xarray
-    xa_erase(cmds_xa, xa_idx);
-
-    return 0;
+    xa_erase(&cmds_xa, xa_idx);
 }
 
 static void null_constructor(void *argument) {
 }
 
-int lake_init_socket() {
+int lake_init_socket(void) {
     static struct netlink_kernel_cfg netlink_cfg = {
         .input = netlink_recv_msg,
     };
 
     sk = netlink_kernel_create(&init_net, NETLINK_LAKE_PROT, &netlink_cfg);
-    if (!nl_sk) {
+    if (!sk) {
         pr_err("Error creating netlink socket\n");
-        goto error;
+        return -ENOMEM;
     }
 
     //init xarray for cmds
     xa_init(&cmds_xa);
 
     //init slab cache (xarray requires 4-alignment)
-    cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct example_struct), 4, 0, null_constructor);
+    cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct cmd_data), 4, 0, null_constructor);
     if(IS_ERR(cmd_cache)) {
         pr_alert("Error creating cache: %ld\n", PTR_ERR(cmd_cache));
         return -ENOMEM;
     }
+    return 0;
 }
 
-void lake_destroy_socket() {
+void lake_destroy_socket(void) {
     //TODO: wait a bit
     netlink_kernel_release(sk);
     xa_destroy(&cmds_xa);
