@@ -76,6 +76,14 @@ static void ecryptfs_i_callback(struct rcu_head *head)
 	kmem_cache_free(ecryptfs_inode_info_cache, inode_info);
 }
 
+static void ecryptfs_free_inode(struct inode *inode)
+{
+	struct ecryptfs_inode_info *inode_info;
+	inode_info = ecryptfs_inode_to_private(inode);
+
+	kmem_cache_free(ecryptfs_inode_info_cache, inode_info);
+}
+
 /**
  * ecryptfs_destroy_inode
  * @inode: The ecryptfs inode
@@ -92,7 +100,7 @@ static void ecryptfs_destroy_inode(struct inode *inode)
 	inode_info = ecryptfs_inode_to_private(inode);
 	BUG_ON(inode_info->lower_file);
 	ecryptfs_destroy_crypt_stat(&inode_info->crypt_stat);
-	call_rcu(&inode->i_rcu, ecryptfs_i_callback);
+	//call_rcu(&inode->i_rcu, ecryptfs_i_callback);
 }
 
 /**
@@ -189,6 +197,7 @@ static int ecryptfs_show_options(struct seq_file *m, struct dentry *root)
 const struct super_operations ecryptfs_sops = {
 	.alloc_inode = ecryptfs_alloc_inode,
 	.destroy_inode = ecryptfs_destroy_inode,
+	.free_inode = ecryptfs_free_inode,
 	.statfs = ecryptfs_statfs,
 	.remount_fs = NULL,
 	.evict_inode = ecryptfs_evict_inode,

@@ -37,6 +37,7 @@
 #include <linux/slab.h>
 #include <asm/unaligned.h>
 #include <linux/kernel.h>
+#include <linux/xattr.h>
 #include "ecryptfs_kernel.h"
 
 #define DECRYPT		0
@@ -61,18 +62,18 @@ void ecryptfs_from_hex(char *dst, char *src, int dst_size)
 	}
 }
 
-static int ecryptfs_hash_digest(struct crypto_shash *tfm,
-				char *src, int len, char *dst)
-{
-	SHASH_DESC_ON_STACK(desc, tfm);
-	int err;
+// static int ecryptfs_hash_digest(struct crypto_shash *tfm,
+// 				char *src, int len, char *dst)
+// {
+// 	SHASH_DESC_ON_STACK(desc, tfm);
+// 	int err;
 
-	desc->tfm = tfm;
-	desc->flags = CRYPTO_TFM_REQ_MAY_SLEEP;
-	err = crypto_shash_digest(desc, src, len, dst);
-	shash_desc_zero(desc);
-	return err;
-}
+// 	desc->tfm = tfm;
+// 	desc->flags = CRYPTO_TFM_REQ_MAY_SLEEP;
+// 	err = crypto_shash_digest(desc, src, len, dst);
+// 	shash_desc_zero(desc);
+// 	return err;
+// }
 
 /**
  * ecryptfs_calculate_md5 - calculates the md5 of @src
@@ -88,11 +89,13 @@ static int ecryptfs_calculate_md5(char *dst,
 				  struct ecryptfs_crypt_stat *crypt_stat,
 				  char *src, int len)
 {
-	struct crypto_shash *tfm;
-	int rc = 0;
+	// struct crypto_shash *tfm;
+	// int rc = 0;
 
-	tfm = crypt_stat->hash_tfm;
-	rc = ecryptfs_hash_digest(tfm, src, len, dst);
+	// tfm = crypt_stat->hash_tfm;
+	// rc = ecryptfs_hash_digest(tfm, src, len, dst);
+	int rc = crypto_shash_tfm_digest(crypt_stat->hash_tfm, src, len, dst);
+
 	if (rc) {
 		printk(KERN_ERR
 		       "%s: Error computing crypto hash; rc = [%d]\n",
@@ -1059,9 +1062,9 @@ int ecryptfs_init_crypt_ctx(struct ecryptfs_crypt_stat *crypt_stat)
 	//crypto_skcipher_set_flags(crypt_stat->tfm, CRYPTO_TFM_REQ_WEAK_KEY);
 	if (cipher_mode_code == ECRYPTFS_CIPHER_MODE_GCM
 			|| cipher_mode_code == ECRYPTFS_CIPHER_MODE_LAKE) {
-		crypto_aead_set_flags(crypt_stat->aead_tfm, CRYPTO_TFM_REQ_WEAK_KEY);
+		crypto_aead_set_flags(crypt_stat->aead_tfm, CRYPTO_TFM_REQ_FORBID_WEAK_KEYS);
 	} else {
-		crypto_skcipher_set_flags(crypt_stat->tfm, CRYPTO_TFM_REQ_WEAK_KEY);
+		crypto_skcipher_set_flags(crypt_stat->tfm, CRYPTO_TFM_REQ_FORBID_WEAK_KEYS);
 	}
 
 	rc = 0;
@@ -1339,7 +1342,7 @@ static struct ecryptfs_flag_map_elem ecryptfs_flag_map[] = {
  *
  * Returns zero on success; non-zero if the flag set is invalid
  */
-static int ecryptfs_process_flags(struct ecryptfs_crypt_stat *crypt_stat,
+static void ecryptfs_process_flags(struct ecryptfs_crypt_stat *crypt_stat,
 				  char *page_virt, int *bytes_read)
 {
 	int rc = 0;
@@ -1833,12 +1836,12 @@ static int ecryptfs_read_headers_virt(char *page_virt,
 	if (!(crypt_stat->flags & ECRYPTFS_I_SIZE_INITIALIZED))
 		ecryptfs_i_size_init(page_virt, d_inode(ecryptfs_dentry));
 	offset += MAGIC_ECRYPTFS_MARKER_SIZE_BYTES;
-	rc = ecryptfs_process_flags(crypt_stat, (page_virt + offset),
+	ecryptfs_process_flags(crypt_stat, (page_virt + offset),
 				    &bytes_read);
-	if (rc) {
-		ecryptfs_printk(KERN_WARNING, "Error processing flags\n");
-		goto out;
-	}
+	// if (rc) {
+	// 	ecryptfs_printk(KERN_WARNING, "Error processing flags\n");
+	// 	goto out;
+	// }
 	if (crypt_stat->file_version > ECRYPTFS_SUPPORTED_FILE_VERSION) {
 		ecryptfs_printk(KERN_WARNING, "File version is [%d]; only "
 				"file version [%d] is supported by this "
@@ -2120,9 +2123,9 @@ ecryptfs_process_key_cipher(struct crypto_skcipher **key_tfm,
 		       "[%s]; rc = [%d]\n", full_alg_name, rc);
 		goto out;
 	}
-	crypto_skcipher_set_flags(*key_tfm, CRYPTO_TFM_REQ_WEAK_KEY);
+	crypto_skcipher_set_flags(*key_tfm, CRYPTO_TFM_REQ_FORBID_WEAK_KEYS);
 	if (*key_size == 0)
-		*key_size = crypto_skcipher_default_keysize(*key_tfm);
+		*key_size = crypto_skcipher_max_keysize(*key_tfm);
 	get_random_bytes(dummy_key, *key_size);
 	rc = crypto_skcipher_setkey(*key_tfm, dummy_key, *key_size);
 	if (rc) {

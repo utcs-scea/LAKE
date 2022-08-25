@@ -769,7 +769,7 @@ ecryptfs_write_tag_70_packet(char *dest, size_t *remaining_bytes,
 	}
 
 	s->hash_desc->tfm = s->hash_tfm;
-	s->hash_desc->flags = CRYPTO_TFM_REQ_MAY_SLEEP;
+	//s->hash_desc->flags = CRYPTO_TFM_REQ_MAY_SLEEP;
 
 	rc = crypto_shash_digest(s->hash_desc,
 				 (u8 *)s->auth_tok->token.password.session_key_encryption_key,
@@ -853,7 +853,7 @@ ecryptfs_write_tag_70_packet(char *dest, size_t *remaining_bytes,
 out_release_free_unlock:
 	crypto_free_shash(s->hash_tfm);
 out_free_unlock:
-	kzfree(s->block_aligned_filename);
+	kfree_sensitive(s->block_aligned_filename);
 out_unlock:
 	mutex_unlock(s->tfm_mutex);
 out:
@@ -862,7 +862,7 @@ out:
 		key_put(auth_tok_key);
 	}
 	skcipher_request_free(s->skcipher_req);
-	kzfree(s->hash_desc);
+	kfree_sensitive(s->hash_desc);
 	kfree(s);
 	return rc;
 }
@@ -1063,8 +1063,8 @@ ecryptfs_parse_tag_70_packet(char **filename, size_t *filename_size,
 		       "rc = [%d]\n", __func__, rc);
 		goto out_free_unlock;
 	}
-	while (s->decrypted_filename[s->i] != '\0'
-	       && s->i < s->block_aligned_filename_size)
+	while (s->i < s->block_aligned_filename_size &&
+	       s->decrypted_filename[s->i] != '\0')
 		s->i++;
 	if (s->i == s->block_aligned_filename_size) {
 		printk(KERN_WARNING "%s: Invalid tag 70 packet; could not "
@@ -2316,9 +2316,9 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 	if (mount_crypt_stat->global_default_cipher_key_size == 0) {
 		printk(KERN_WARNING "No key size specified at mount; "
 		       "defaulting to [%d]\n",
-		       crypto_skcipher_default_keysize(tfm));
+		       crypto_skcipher_max_keysize(tfm));
 		mount_crypt_stat->global_default_cipher_key_size =
-			crypto_skcipher_default_keysize(tfm);
+			crypto_skcipher_max_keysize(tfm);
 	}
 	if (crypt_stat->key_size == 0)
 		crypt_stat->key_size =
