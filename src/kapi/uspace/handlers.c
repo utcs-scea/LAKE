@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "commands.h"
 
-#define DRY_RUN 1
+#define DRY_RUN 0
 
 /*********************
  *  cuInit    
@@ -145,8 +145,7 @@ static int lake_handler_cuMemcpyHtoD(void* buf, struct lake_cmd_ret* cmd_ret) {
     printf("Dry running cuMemcpyHtoD\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
-    //TODO srcHost
-    cmd_ret->res = cuMemcpyHtoD(cmd->dstDevice, cmd->srcHost, cmd->ByteCount);
+    cmd_ret->res = cuMemcpyHtoD(cmd->dstDevice, lake_shm_address(cmd->srcHost), cmd->ByteCount);
 #endif
     return 0;
 }
@@ -160,8 +159,7 @@ static int lake_handler_cuMemcpyDtoH(void* buf, struct lake_cmd_ret* cmd_ret) {
     printf("Dry running cuMemcpyDtoH\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
-    //TODO
-    cmd_ret->res = cuMemcpyDtoH(cmd->dstHost, cmd->srcDevice, cmd->ByteCount);
+    cmd_ret->res = cuMemcpyDtoH(lake_shm_address(cmd->dstHost), cmd->srcDevice, cmd->ByteCount);
 #endif
     return 0;
 }
@@ -245,8 +243,7 @@ static int lake_handler_cuMemcpyHtoDAsync(void* buf, struct lake_cmd_ret* cmd_re
     printf("Dry running cuMemcpyHtoDAsync\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
-    //TODO:
-    cmd_ret->res = cuMemcpyHtoDAsync(cmd->dstDevice, cmd->srcHost, cmd->ByteCount, cmd->hStream);
+    cmd_ret->res = cuMemcpyHtoDAsync(cmd->dstDevice, lake_shm_address(cmd->srcHost), cmd->ByteCount, cmd->hStream);
 #endif
     return 0;
 }
@@ -260,8 +257,7 @@ static int lake_handler_cuMemcpyDtoHAsync(void* buf, struct lake_cmd_ret* cmd_re
     printf("Dry running cuMemcpyDtoHAsync\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
-    //TODO:
-    cmd_ret->res = cuMemcpyDtoHAsync(cmd->dstHost, cmd->srcDevice, cmd->ByteCount, cmd->hStream);
+    cmd_ret->res = cuMemcpyDtoHAsync(lake_shm_address(cmd->dstHost), cmd->srcDevice, cmd->ByteCount, cmd->hStream);
 #endif
     return 0;
 }

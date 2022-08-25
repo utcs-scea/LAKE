@@ -11,6 +11,7 @@ void exit_handler(int dummy) {
     //TODO: sock is blocking, so it never quits the loop, just quit here
     sleep(1);
     lake_destroy_socket();
+    lake_shm_fini();
     exit(0);
 }
 
@@ -18,6 +19,7 @@ int main() {
     signal(SIGINT, exit_handler);
     printf("Starting uspace lake kapi with pid %d\n", getpid());
     lake_init_socket();
+    lake_shm_init();
 
     while(!stop_running) {
         lake_recv();

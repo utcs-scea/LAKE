@@ -1,22 +1,37 @@
 #ifndef __KAPI_CUDA_UTIL_H__
 #define __KAPI_CUDA_UTIL_H__
 
+#ifdef __KERNEL__
 #include <linux/ctype.h>
 #include <linux/time.h>
+#include <linux/string.h>
+#define PRINT(...) printf (__VA_ARGS__)
+#else
+#include <stdlib.h>
+#include <ctype.h>
+#define PRINT(...) pr_error (__VA_ARGS__)
+#endif
 
+#include "cuda.h"
+
+void init_kargs_kv();
+void destroy_kargs_kv();
+struct kernel_args* get_kargs(const void* ptr);
+
+struct kernel_args_metadata {
     int func_argc;
     char func_arg_is_handle[64];
     size_t func_arg_size[64];
+};
 
-void kava_parse_function_args(const char *name, int *func_argc,
-                                         char *func_arg_is_handle,
-                                         size_t *func_arg_size)
+inline void kava_parse_function_args(const char *name, int *func_argc,
+            char *func_arg_is_handle, size_t *func_arg_size)
 {
     int i = 0, skip = 0;
 
     *func_argc = 0;
     if (strncmp(name, "_Z", 2)) {
-        BUG_ON("Wrong CUDA function name");
+        PRINT("Wrong CUDA function name");
         return;
     }
 
@@ -47,7 +62,7 @@ void kava_parse_function_args(const char *name, int *func_argc,
                     i += skip;
                 }
                 else {
-                    BUG_ON("CUDA function argument: wrong pointer");
+                    PRINT("CUDA function argument: wrong pointer");
                     return;
                 }
                 break;
@@ -81,15 +96,11 @@ void kava_parse_function_args(const char *name, int *func_argc,
                 break;
 
             default:
-                BUG_ON("CUDA function argument: unrecognized type");
+                PRINT("CUDA function argument: unrecognized type");
                 return;
         }
         i++;
     }
-
-    //for (i = 0; i < *func_argc; i++) {
-    //    DEBUG_PRINT("function arg#%d it is %sa handle\n", i, func_arg_is_handle[i]?"":"not ");
-    //}
 }
 
 

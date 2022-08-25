@@ -5,5 +5,5 @@ CFLAGS=$(shell pkg-config --cflags libnl-3.0) -I$(ROOT_DIR)/../include
 
 all: lake_uspace
 
-lake_uspace: netlink.c main.c handlers.c
+lake_uspace: netlink.c main.c handlers.c lake_shm.c
 	g++ $(CFLAGS) $^ -o $@ $(LIBS)

@@ -1,19 +1,17 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
 #include <unistd.h>
 #include <sys/mman.h>
-
+#include <string.h>
 #include "lake_shm.h"
 
 static char *kshm_base = NULL;
 static int kshm_fd = 0;
 static long kshm_size = 0;
 
-//used like:
-//if ((__call->__shm_srcHost)) {
-//    srcHost = kava_shm_address((long)__call->srcHost);
 void *lake_shm_address(long offset)
 {
     return (void *)(kshm_base + offset);
@@ -26,27 +24,27 @@ int lake_shm_init(void)
     kshm_fd = open(dev_name, O_RDWR);
 
     if (kshm_fd <= 0) {
-        pr_err("Shared memory driver (%s) is not installed: %s\n",
+        printf("Shared memory driver (%s) is not installed: %s\n",
                 dev_name, strerror(errno));
         return errno;
     }
 
     int ret = ioctl(kshm_fd, KAVA_SHM_GET_SHM_SIZE, &kshm_size);
     if (ret) {
-        pr_err("Failed IOCTL to shared memory driver\n");
+        printf("Failed IOCTL to shared memory driver\n");
         return ret;
     }
     else {
-        pr_info("Request shared memory size: %lx\n", kshm_size);
+        printf("Request shared memory size: %lx\n", kshm_size);
     }
 
     kshm_base = (char *)mmap(NULL, kshm_size, PROT_READ | PROT_WRITE, MAP_SHARED, kshm_fd, 0);
     if (kshm_base == MAP_FAILED) {
-        pr_err("Failed to mmap shared memory regionn\n");
+        printf("Failed to mmap shared memory regionn\n");
         return (int)(uintptr_t)kshm_base;
     }
     else {
-        pr_info("mmap shared memory region to 0x%lx, size=0x%lx\n",
+        printf("mmap shared memory region to 0x%lx, size=0x%lx\n",
                 (uintptr_t)kshm_base, kshm_size);
     }
 
