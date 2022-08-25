@@ -4,6 +4,8 @@ lake_kapi-y := main.o kapi.o netlink.o
 
 ccflags-y += -I. -I$(src)/../include -O3
 
+KBUILD_EXTRA_SYMBOLS := $(src)/../kshm/Module.symvers
+
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 

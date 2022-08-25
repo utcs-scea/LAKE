@@ -8,18 +8,22 @@
 #include <linux/slab.h>
 
 #include "netlink.h"
+#include "commands.h"
 
 static struct sock *sk = NULL;
 DEFINE_XARRAY_ALLOC(cmds_xa); 
 static struct kmem_cache *cmd_cache;
 static pid_t worker_pid = -1;
 
+
 struct cmd_data {
     struct completion cmd_done;
-    //u32 xa_idx;
-};
+    char sync;
+    struct lake_cmd_ret ret;
+} __attribute__ ((aligned (8)));
 
-int lake_send_cmd(void *buf, size_t size, char sync)
+// ret is only filled in case sync is CMD_SYNC
+CUresult lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
 {
     int err;
     struct sk_buff *skb_out;
@@ -28,23 +32,23 @@ int lake_send_cmd(void *buf, size_t size, char sync)
     u32 xa_idx;
 
     //create a cmd struct
-    // cmd = (struct cmd_data*) kmem_cache_alloc(cmd_cache, GFP_KERNEL);
-    // if(IS_ERR(cmd)) {
-    //     pr_alert("Error allocating from cache: %ld\n", PTR_ERR(cmd));
-    //     kmem_cache_destroy(cmd_cache);
-    //     return -ENOMEM;
-    // }
-    cmd = (struct cmd_data*) kmalloc(sizeof(struct cmd_data), GFP_KERNEL);
+    //cmd = (struct cmd_data*) kmalloc(sizeof(struct cmd_data), GFP_KERNEL);
+    cmd = (struct cmd_data*) kmem_cache_alloc(cmd_cache, GFP_KERNEL);
+    if(IS_ERR(cmd)) {
+        pr_alert("Error allocating from cache: %ld\n", PTR_ERR(cmd));
+        kmem_cache_destroy(cmd_cache);
+        return CUDA_ERROR_OUT_OF_MEMORY;
+    }
 
     //init completion so we can wait on it
     init_completion(&cmd->cmd_done);
+    cmd->sync = sync;
 
     //insert cmd into xarray, getting idx  
-    //err = xa_store(&cmds_xa, 1, xa_mk_value(1), GFP_KERNEL);
     err = xa_alloc(&cmds_xa, &xa_idx, (void*)cmd, XA_LIMIT(0, 2048), GFP_KERNEL); //xa_limit_31b
     if (err < 0) {
         pr_alert("Error allocating xa_alloc: %d\n", err);
-        return err;
+        return CUDA_ERROR_OPERATING_SYSTEM;
     }
 
     //create netlink cmd
@@ -57,24 +61,28 @@ int lake_send_cmd(void *buf, size_t size, char sync)
     if (err < 0) {
         pr_err("Failed to send netlink skb to API server, error=%d\n", err);
         nlmsg_free(skb_out);
-        return err;
+        return CUDA_ERROR_OPERATING_SYSTEM;
     }
     pr_err("cmd sent\n");
 
     // sync if requested
-    if (sync == 1) {
+    if (sync == CMD_SYNC) {
         wait_for_completion(&cmd->cmd_done);
         pr_alert("cmd was sync, now done!\n");
+        memcpy(ret, (void*)&cmd->ret, sizeof(struct lake_cmd_ret));
+        // if we sync, its like the cmd never existed, so clear every trace
+        kmem_cache_free(cmd_cache, cmd);
+        xa_erase(&cmds_xa, xa_idx);
+        return cmd->ret.res;
     }
-
-    return err;
+    else
+        return CUDA_SUCCESS;
 }
 
 static void netlink_recv_msg(struct sk_buff *skb)
 {
     struct nlmsghdr *nlh = (struct nlmsghdr*) skb->data;
-    //TODO: get ret
-    // ret = (struct cmd_data*) nlmsg_data(nlh);
+    struct lake_cmd_ret *ret = (struct lake_cmd_ret*) nlmsg_data(nlh);
     struct cmd_data *cmd;
     u32 xa_idx = nlh->nlmsg_seq;
 
@@ -92,13 +100,20 @@ static void netlink_recv_msg(struct sk_buff *skb)
         pr_alert("Error looking up cmd %u at xarray\n", xa_idx);
     }
 
+    memcpy((void*)&cmd->ret, (void*)ret, sizeof(struct lake_cmd_ret));
+
     //if there's anyone waiting, free them
     complete(&cmd->cmd_done);
-    //free from cache
-    //kmem_cache_free(cmd_cache, cmd);
-    kfree(cmd);
-    //erase from xarray
-    xa_erase(&cmds_xa, xa_idx);
+    //if the cmd is sync, whoever we woke up will clean up
+
+    //if the cmd is async, no one will read this cmd, so clear
+    if (cmd->sync == CMD_ASYNC) {
+        //free from cache
+        kmem_cache_free(cmd_cache, cmd);
+        //erase from xarray
+        xa_erase(&cmds_xa, xa_idx);
+        //TODO: accumulate error
+    }
     pr_err("cmd was completed and freed\n");
 }
 
@@ -117,17 +132,25 @@ int lake_init_socket(void) {
     }
 
     //init slab cache (xarray requires 4-alignment)
-    // cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct cmd_data), 4, 0, null_constructor);
-    // if(IS_ERR(cmd_cache)) {
-    //     pr_alert("Error creating cache: %ld\n", PTR_ERR(cmd_cache));
-    //     return -ENOMEM;
-    // }
+    cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct cmd_data), 4, 0, null_constructor);
+    if(IS_ERR(cmd_cache)) {
+        pr_alert("Error creating cache: %ld\n", PTR_ERR(cmd_cache));
+        return -ENOMEM;
+    }
     return 0;
 }
 
 void lake_destroy_socket(void) {
-    //TODO: wait a bit
-    netlink_kernel_release(sk);
-    xa_destroy(&cmds_xa);
+    unsigned long idx = 0;
+    void* entry;
+    //TODO: set a halt flag
+
+    //free up all cache entries so the kernel doesnt yell at us
+    xa_for_each(&cmds_xa, idx, entry) {
+        kmem_cache_free(cmd_cache, entry);
+    }
+
     kmem_cache_destroy(cmd_cache);
+    xa_destroy(&cmds_xa);
+    netlink_kernel_release(sk);
 }
