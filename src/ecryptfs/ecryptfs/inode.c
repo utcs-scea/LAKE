@@ -533,22 +533,30 @@ static int ecryptfs_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	struct dentry *lower_dentry;
 	struct dentry *lower_dir_dentry;
+	struct inode *lower_dir_inode;
 	int rc;
 
 	lower_dentry = ecryptfs_dentry_to_lower(dentry);
-	dget(dentry);
-	lower_dir_dentry = lock_parent(lower_dentry);
-	dget(lower_dentry);
-	rc = vfs_rmdir(d_inode(lower_dir_dentry), lower_dentry);
-	dput(lower_dentry);
-	if (!rc && d_really_is_positive(dentry))
+	lower_dir_dentry = ecryptfs_dentry_to_lower(dentry->d_parent);
+	lower_dir_inode = d_inode(lower_dir_dentry);
+
+	inode_lock_nested(lower_dir_inode, I_MUTEX_PARENT);
+	dget(lower_dentry);	// don't even try to make the lower negative
+	if (lower_dentry->d_parent != lower_dir_dentry)
+		rc = -EINVAL;
+	else if (d_unhashed(lower_dentry))
+		rc = -EINVAL;
+	else
+		rc = vfs_rmdir(lower_dir_inode, lower_dentry);
+	if (!rc) {
 		clear_nlink(d_inode(dentry));
-	fsstack_copy_attr_times(dir, d_inode(lower_dir_dentry));
-	set_nlink(dir, d_inode(lower_dir_dentry)->i_nlink);
-	unlock_dir(lower_dir_dentry);
+		fsstack_copy_attr_times(dir, lower_dir_inode);
+		set_nlink(dir, lower_dir_inode->i_nlink);
+	}
+	dput(lower_dentry);
+	inode_unlock(lower_dir_inode);
 	if (!rc)
 		d_drop(dentry);
-	dput(dentry);
 	return rc;
 }
 
@@ -586,25 +594,32 @@ ecryptfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	struct dentry *lower_new_dentry;
 	struct dentry *lower_old_dir_dentry;
 	struct dentry *lower_new_dir_dentry;
-	struct dentry *trap = NULL;
+	struct dentry *trap;
 	struct inode *target_inode;
 
 	if (flags)
 		return -EINVAL;
 
+	lower_old_dir_dentry = ecryptfs_dentry_to_lower(old_dentry->d_parent);
+	lower_new_dir_dentry = ecryptfs_dentry_to_lower(new_dentry->d_parent);
+
 	lower_old_dentry = ecryptfs_dentry_to_lower(old_dentry);
 	lower_new_dentry = ecryptfs_dentry_to_lower(new_dentry);
-	dget(lower_old_dentry);
-	dget(lower_new_dentry);
-	lower_old_dir_dentry = dget_parent(lower_old_dentry);
-	lower_new_dir_dentry = dget_parent(lower_new_dentry);
+
 	target_inode = d_inode(new_dentry);
+
 	trap = lock_rename(lower_old_dir_dentry, lower_new_dir_dentry);
-	/* source should not be ancestor of target */
-	if (trap == lower_old_dentry) {
-		rc = -EINVAL;
+	dget(lower_new_dentry);
+	rc = -EINVAL;
+	if (lower_old_dentry->d_parent != lower_old_dir_dentry)
 		goto out_lock;
-	}
+	if (lower_new_dentry->d_parent != lower_new_dir_dentry)
+		goto out_lock;
+	if (d_unhashed(lower_old_dentry) || d_unhashed(lower_new_dentry))
+		goto out_lock;
+	/* source should not be ancestor of target */
+	if (trap == lower_old_dentry)
+		goto out_lock;
 	/* target should not be ancestor of source */
 	if (trap == lower_new_dentry) {
 		rc = -ENOTEMPTY;
@@ -622,11 +637,8 @@ ecryptfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 	if (new_dir != old_dir)
 		fsstack_copy_attr_all(old_dir, d_inode(lower_old_dir_dentry));
 out_lock:
-	unlock_rename(lower_old_dir_dentry, lower_new_dir_dentry);
-	dput(lower_new_dir_dentry);
-	dput(lower_old_dir_dentry);
 	dput(lower_new_dentry);
-	dput(lower_old_dentry);
+	unlock_rename(lower_old_dir_dentry, lower_new_dir_dentry);
 	return rc;
 }
 
@@ -1157,7 +1169,7 @@ static int ecryptfs_xattr_set(const struct xattr_handler *handler,
 	}
 }
 
-const struct xattr_handler ecryptfs_xattr_handler = {
+static struct xattr_handler ecryptfs_xattr_handler = {
 	.prefix = "",  /* match anything */
 	.get = ecryptfs_xattr_get,
 	.set = ecryptfs_xattr_set,
