@@ -251,7 +251,7 @@ out:
 /**
  * Called with lower inode mutex held.
  */
-static int fill_zeros_to_end_of_page(struct page *page, unsigned int to)
+int fill_zeros_to_end_of_page(struct page *page, unsigned int to)
 {
 	struct inode *inode = page->mapping->host;
 	int end_byte_in_page;
@@ -280,7 +280,7 @@ out:
  *
  * Returns zero on success; non-zero otherwise
  */
-static int ecryptfs_write_begin(struct file *file,
+int ecryptfs_write_begin(struct file *file,
 			struct address_space *mapping,
 			loff_t pos, unsigned len, unsigned flags,
 			struct page **pagep, void **fsdata)
