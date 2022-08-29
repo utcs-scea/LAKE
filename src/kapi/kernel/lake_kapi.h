@@ -3,7 +3,7 @@
 
 #include <linux/ctype.h>
 #include "cuda.h"
-
+#include "commands.h"
 
 int lake_init_socket(void);
 void lake_destroy_socket(void);

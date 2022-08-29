@@ -12,8 +12,9 @@ static char *kshm_base = NULL;
 static int kshm_fd = 0;
 static long kshm_size = 0;
 
-void *lake_shm_address(long offset)
+void *lake_shm_address(const void* ptr_offset)
 {
+    long offset = (long) ptr_offset;
     return (void *)(kshm_base + offset);
 }
 

@@ -1,6 +1,6 @@
 obj-$(CONFIG_ECRYPT_FS) += lake_kapi.o
 
-lake_kapi-y := main.o kapi.o netlink.o kargs.c
+lake_kapi-y := main.o kapi.o netlink.o kargs.o
 
 ccflags-y += -I. -I$(src)/../include -O3
 

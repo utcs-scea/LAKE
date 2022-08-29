@@ -1,8 +1,10 @@
 #include <linux/types.h>
 #include <linux/module.h>
+#include <linux/vmalloc.h>
 #include "commands.h"
 #include "lake_kapi.h"
 #include "lake_shm.h"
+#include "kargs.h"
 
 /*
  *
@@ -31,7 +33,7 @@ CUresult CUDAAPI cuDeviceGet(CUdevice *device, int ordinal) {
         .API_ID = LAKE_API_cuDeviceGet, .ordinal = ordinal,
     };
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
-    *device = ret.device
+    *device = ret.device;
 	return ret.res;
 }
 EXPORT_SYMBOL(cuDeviceGet);
@@ -70,6 +72,7 @@ CUresult CUDAAPI cuModuleUnload(CUmodule hmod) {
 EXPORT_SYMBOL(cuModuleUnload);
 
 CUresult CUDAAPI cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const char *name) {
+    struct kernel_args_metadata* meta;
     struct lake_cmd_ret ret;
 	struct lake_cmd_cuModuleGetFunction cmd = {
         .API_ID = LAKE_API_cuModuleGetFunction, .hmod = hmod
@@ -77,7 +80,12 @@ CUresult CUDAAPI cuModuleGetFunction(CUfunction *hfunc, CUmodule hmod, const cha
     strcpy(cmd.name, name);
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
     *hfunc = ret.func;
-	return ret.res;
+
+    //parse and store kargs
+    meta = get_kargs(*hfunc);
+    kava_parse_function_args(name, meta);
+
+    return ret.res;
 }
 EXPORT_SYMBOL(cuModuleGetFunction);
 
@@ -93,14 +101,22 @@ CUresult CUDAAPI cuLaunchKernel(CUfunction f,
                                 void **kernelParams,
                                 void **extra) {
     struct lake_cmd_ret ret;
-	struct lake_cmd_cuLaunchKernel cmd = {
-        .API_ID = LAKE_API_cuLaunchKernel, .f = f, .gridDimX = gridDimX,
-        .gridDimY = gridDimY, .gridDimZ = gridDimZ, .blockDimX = blockDimX,
-        .blockDimY = blockDimY, .blockDimZ = blockDimZ, .sharedMemBytes = sharedMemBytes,
-        .hStream = hStream, .extra = 0
-    };
-    //TODO: serialize kernelParams
-    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_ASYNC, &ret);
+    struct kernel_args_metadata* meta = get_kargs(f);
+    u32 tsize = sizeof(struct lake_cmd_cuLaunchKernel) + meta->total_size;
+    void* cmd_and_args = vmalloc(tsize);
+	struct lake_cmd_cuLaunchKernel *cmd = (struct lake_cmd_cuLaunchKernel*) cmd_and_args;
+    u8 *args = cmd_and_args + sizeof(struct lake_cmd_cuLaunchKernel);
+
+    cmd->API_ID = LAKE_API_cuLaunchKernel; cmd->f = f; 
+    cmd->gridDimX = gridDimX; cmd->gridDimY = gridDimY; cmd->gridDimZ = gridDimZ;
+    cmd->blockDimX = blockDimX; cmd->blockDimY = blockDimY; cmd->blockDimZ = blockDimZ;
+    cmd->sharedMemBytes = sharedMemBytes; cmd->hStream = hStream; cmd->extra = 0;
+
+    cmd->paramsSize = meta->total_size;
+    serialize_args(meta, args, kernelParams);
+
+    lake_send_cmd(cmd_and_args, tsize, CMD_ASYNC, &ret);
+    vfree(cmd_and_args);
 	return ret.res;
 }
 EXPORT_SYMBOL(cuLaunchKernel);
@@ -128,7 +144,7 @@ CUresult CUDAAPI cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, size_t
         pr_err("srcHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
-    cmd.srcHost = offset;
+    cmd.srcHost = (void*)offset;
 
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_ASYNC, &ret);
 	return ret.res;
@@ -147,7 +163,7 @@ CUresult CUDAAPI cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, size_t ByteC
         pr_err("dstHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
-    cmd.dstHost = offset;
+    cmd.dstHost = (void*)offset;
 
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_ASYNC, &ret);
 	return ret.res;
@@ -206,7 +222,7 @@ CUresult CUDAAPI cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, s
         pr_err("srcHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
-    cmd.srcHost = offset;
+    cmd.srcHost = (void*)offset;
 
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_ASYNC, &ret);
 	return ret.res;
@@ -225,7 +241,7 @@ CUresult CUDAAPI cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, size_t 
         pr_err("dstHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
-    cmd.dstHost = offset;
+    cmd.dstHost = (void*)offset;
 
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_ASYNC, &ret);
 	return ret.res;

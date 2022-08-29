@@ -2,6 +2,9 @@
 #include <inttypes.h>
 #include <stdio.h>
 #include "commands.h"
+#include "lake_shm.h"
+#include "lake_kapi.h"
+#include "kargs.h"
 
 #define DRY_RUN 0
 
@@ -85,7 +88,8 @@ static int lake_handler_cuModuleGetFunction(void* buf, struct lake_cmd_ret* cmd_
     cmd_ret->res = CUDA_SUCCESS;
 #else
     cmd_ret->res = cuModuleGetFunction(&cmd_ret->func, cmd->hmod, cmd->name);
-    //TODO: parse args
+    struct kernel_args_metadata* meta = get_kargs(cmd_ret->func);
+    kava_parse_function_args(cmd->name, meta);
 #endif
     return 0;
 }
@@ -99,11 +103,17 @@ static int lake_handler_cuLaunchKernel(void* buf, struct lake_cmd_ret* cmd_ret) 
     printf("Dry running cuLaunchKernel\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
-    //TODO: reconstruct args
-    void** args = 0;
+    struct kernel_args_metadata* meta = get_kargs(cmd_ret->func);
+    uint8_t *serialized = ((u8*)buf) + sizeof(struct lake_cmd_cuLaunchKernel);
+    
+    void* args = malloc(meta->func_argc * sizeof(void*));
+    construct_args(meta, &args, serialized), 
+
     cmd_ret->res = cuLaunchKernel(cmd->f, cmd->gridDimX, cmd->gridDimY,
         cmd->gridDimZ, cmd->blockDimX, cmd->blockDimY, cmd->blockDimZ, cmd->sharedMemBytes,
-        cmd->hStream, args, cmd->extra);
+        cmd->hStream, &args, cmd->extra);
+    
+    free(args);
 #endif
     return 0;
 }

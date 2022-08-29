@@ -5,28 +5,62 @@
 #include <linux/ctype.h>
 #include <linux/time.h>
 #include <linux/string.h>
-#define PRINT(...) printf (__VA_ARGS__)
+#define PRINT(...) pr_err (__VA_ARGS__)
 #else
 #include <stdlib.h>
 #include <ctype.h>
-#define PRINT(...) pr_error (__VA_ARGS__)
+#include <string.h>
+#define PRINT(...) printf (__VA_ARGS__)
+typedef unsigned char u8;
 #endif
 
 #include "cuda.h"
 
-void init_kargs_kv();
-void destroy_kargs_kv();
-struct kernel_args* get_kargs(const void* ptr);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void init_kargs_kv(void);
+void destroy_kargs_kv(void);
+struct kernel_args_metadata* get_kargs(const void* ptr);
+
+#ifdef __cplusplus
+}
+#endif
 
 struct kernel_args_metadata {
     int func_argc;
+    size_t total_size;
     char func_arg_is_handle[64];
     size_t func_arg_size[64];
 };
 
-inline void kava_parse_function_args(const char *name, int *func_argc,
-            char *func_arg_is_handle, size_t *func_arg_size)
+static inline void serialize_args(struct kernel_args_metadata* meta,
+                u8* buf, void** args)
 {
+    int i;
+    for (i = 0 ; i < meta->func_argc ; i++) {
+        memcpy(buf, args[i], meta->func_arg_size[i]);
+        buf += meta->func_arg_size[i];
+    }
+}
+
+static inline void construct_args(struct kernel_args_metadata* meta,
+                void** args, u8* buf)
+{
+    int i;
+    for (i = 0 ; i < meta->func_argc ; i++) {
+        args[i] = (void*) buf;     
+        buf += meta->func_arg_size[i];
+    }
+}
+
+static inline void kava_parse_function_args(const char *name, 
+            struct kernel_args_metadata* meta)
+{
+    int *func_argc = &meta->func_argc;
+    char *func_arg_is_handle = meta->func_arg_is_handle;
+    size_t *func_arg_size = meta->func_arg_size;
     int i = 0, skip = 0;
 
     *func_argc = 0;
@@ -101,6 +135,12 @@ inline void kava_parse_function_args(const char *name, int *func_argc,
         }
         i++;
     }
+
+    meta->total_size = 0;
+    for (i = 0 ; i < *func_argc ; i++) {
+        meta->total_size += func_arg_size[i];
+    }
+    PRINT("size of args for name: %lu\n", meta->total_size);
 }
 
 

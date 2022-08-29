@@ -34,18 +34,18 @@ static int run_hello(void)
 
 	// Get the GPU ready
 	check_error(cuDeviceGet(&dev, devID), "cuDeviceGet", __LINE__);
-	check_error(cuDeviceGetAttribute(&compute_mode, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, dev), "cuDeviceGetAttribute", __LINE__);
+	// check_error(cuDeviceGetAttribute(&compute_mode, CU_DEVICE_ATTRIBUTE_COMPUTE_MODE, dev), "cuDeviceGetAttribute", __LINE__);
 
-	if (compute_mode == CU_COMPUTEMODE_PROHIBITED) {
-		printk(KERN_ERR "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cuSetDevice().\n");
-		return 0;
-	}
+	// if (compute_mode == CU_COMPUTEMODE_PROHIBITED) {
+	// 	printk(KERN_ERR "Error: device is running in <Compute Mode Prohibited>, no threads can use ::cuSetDevice().\n");
+	// 	return 0;
+	// }
 
-	check_error(cuDeviceGetName(dev_name, 128, dev), "cuDeviceGetName", __LINE__);
-	check_error(cuDeviceGetAttribute(&compute_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, dev), "cuDeviceGetAttribute", __LINE__);
-	check_error(cuDeviceGetAttribute(&compute_minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, dev), "cuDeviceGetAttribute", __LINE__);
-	PRINT(V_INFO, "GPU Device %d: \"%s\" with compute capability %d.%d\n",
-            devID, dev_name, compute_major, compute_minor);
+	// check_error(cuDeviceGetName(dev_name, 128, dev), "cuDeviceGetName", __LINE__);
+	// check_error(cuDeviceGetAttribute(&compute_major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, dev), "cuDeviceGetAttribute", __LINE__);
+	// check_error(cuDeviceGetAttribute(&compute_minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, dev), "cuDeviceGetAttribute", __LINE__);
+	// PRINT(V_INFO, "GPU Device %d: \"%s\" with compute capability %d.%d\n",
+    //         devID, dev_name, compute_major, compute_minor);
 
 	check_error(cuCtxCreate(&ctx, 0, dev), "cuCtxCreate", __LINE__);
 

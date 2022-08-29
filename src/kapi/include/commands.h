@@ -92,10 +92,7 @@ struct lake_cmd_cuLaunchKernel {
     CUstream hStream;
     //extra is always null
     void **extra;
-    //TODO: pass params here as
-    //void **kernelParams;
-    //unsigned int paramsSize;
-    //void* params;
+    unsigned int paramsSize;
 };
 
 struct lake_cmd_cuCtxDestroy {
@@ -151,7 +148,7 @@ struct lake_cmd_cuStreamDestroy {
 struct lake_cmd_cuMemcpyHtoDAsync {
     u32 API_ID;
     CUdeviceptr dstDevice;
-    void *srcHost; 
+    const void *srcHost; 
     size_t ByteCount; 
     CUstream hStream;
 };

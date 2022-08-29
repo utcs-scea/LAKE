@@ -14,11 +14,11 @@ else
 
 KDIR ?= /lib/modules/$(shell uname -r)/build
 
-all: hello.cubin
-	KBUILD_VERBOSE=1 $(MAKE) -C $(KDIR) M=$(shell pwd) modules
-
 hello.cubin:
 	make -f Makefile.cubin
+
+all: hello.cubin
+	KBUILD_VERBOSE=1 $(MAKE) -C $(KDIR) M=$(shell pwd) modules
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(shell pwd) clean
