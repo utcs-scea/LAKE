@@ -86,6 +86,8 @@ static int __init kshm_init(void)
     }
     dev_class->devnode = mod_dev_node;
 
+    device_destroy(dev_class, MKDEV(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_MINOR));
+
     if (!(dev_node = device_create(dev_class, NULL,
                     MKDEV(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_MINOR), NULL, KAVA_SHM_DEV_NAME))) {
         pr_err("[kava-shm] Device_create error\n");
@@ -95,11 +97,11 @@ static int __init kshm_init(void)
     pr_info("[kava-shm] Create shared memory device\n");
 
     /* Initialize allocator */
-    kava_allocator_init((shm_size << 20));
+    err = kava_allocator_init(dev_node, (shm_size << 20));
 
-    return 0;
-
-destroy_device:
+    if (!err) return 0;
+    else pr_err("kava_allocator_init error\n");
+//destroy_device:
     device_destroy(dev_class, MKDEV(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_MINOR));
 
 destroy_class:
@@ -113,12 +115,11 @@ unregister_dev:
 
 static void __exit kshm_fini(void)
 {
-    kava_allocator_fini();
-
+    kava_allocator_fini(dev_node);
+    unregister_chrdev(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_NAME);
     device_destroy(dev_class, MKDEV(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_MINOR));
     class_unregister(dev_class);
     class_destroy(dev_class);
-    unregister_chrdev(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_NAME);
 }
 
 module_init(kshm_init);

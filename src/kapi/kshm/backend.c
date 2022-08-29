@@ -134,10 +134,11 @@ static size_t offset = offsetof(node_t, next);
  *
  * This function initializes the static shm_allocator.
  */
-void kava_allocator_init(size_t size)
+int kava_allocator_init(struct device *dev_node, size_t size)
 {
     void *start;
     node_t *init_region;
+    int err;
 
     /* Create allocator */
     shm_allocator = (allocator_t *)kmalloc(sizeof(allocator_t), GFP_USER);
@@ -149,17 +150,24 @@ void kava_allocator_init(size_t size)
     }
 
     /* Allocate memory */
-    pr_info("[kava-shm] Executing dma_alloc_coherent\n");
-    start = dma_alloc_coherent(NULL, size, &dma_handle, GFP_KERNEL);
+    // pr_info("[kava-shm] Executing dma_alloc_coherent\n");
+    // err = dma_set_mask_and_coherent(dev_node, DMA_BIT_MASK(32));
+    // if (err) {
+    //     pr_err("dma_set_mask returned: %d\n", err);
+    //     return -EIO;
+    // }
+    u64 dmamask = DMA_BIT_MASK(32);
+    dev_node->dma_mask = (u64*)&dmamask;
+    dev_node->coherent_dma_mask = DMA_BIT_MASK(32);
+
+    start = dma_alloc_coherent(dev_node, size, &dma_handle, GFP_KERNEL);
     if (start) {
         shm_allocator->is_dma = 1;
     }
     else {
-        start = vmalloc(size);
-        if (!start) {
-            pr_err("[kava-shm] Failed to allocate shared memory\n");
-            return;
-        }
+        pr_err("[kava-shm] Failed to allocate shared memory\n");
+        kfree(shm_allocator);
+        return -ENOMEM;
     }
 
     pr_info("[kava-shm] Allocate shared %smemory region pa = 0x%lx, va = 0x%lx\n",
@@ -179,13 +187,15 @@ void kava_allocator_init(size_t size)
 
     /* Add initial region to buckets */
     add_node(&shm_allocator->bins[get_bin_index(init_region->size)], init_region);
+
+    return 0;
 }
 EXPORT_SYMBOL(kava_allocator_init);
 
 /**
  * kava_allocator_fini - Free allocated memory region
  */
-void kava_allocator_fini(void)
+void kava_allocator_fini(struct device *dev_node)
 {
     if (shm_allocator) {
         pr_info("[kava-shm] Deallocate shared %smemory region pa = 0x%lx, va = 0x%lx\n",
@@ -195,10 +205,10 @@ void kava_allocator_fini(void)
 
         if (shm_allocator->is_dma) {
             /* BUG: dma_free_coherent has segfault in a virtual machine. */
-            dma_free_coherent(NULL, shm_allocator->size, (void *)shm_allocator->start, dma_handle);
+            dma_free_coherent(dev_node, shm_allocator->size, (void *)shm_allocator->start, dma_handle);
         }
-        else
-            vfree((void *)shm_allocator->start);
+        //else
+        //    vfree((void *)shm_allocator->start);
         kfree(shm_allocator);
     }
 }

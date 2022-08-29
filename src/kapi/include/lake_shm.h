@@ -6,7 +6,7 @@
 #define KAVA_DEV_NAME  "kava_dev"
 #define KAVA_DEV_CLASS "kava_dev"
 
-#define KAVA_SHM_DEV_MAJOR 152
+#define KAVA_SHM_DEV_MAJOR 153
 #define KAVA_SHM_DEV_MINOR 99
 #define KAVA_SHM_DEV_NAME  "kava_shm"
 #define KAVA_SHM_DEV_CLASS "kava_shm"
@@ -49,8 +49,8 @@ typedef struct allocator_t {
 
 extern allocator_t *shm_allocator;
 
-void kava_allocator_init(size_t size);
-void kava_allocator_fini(void);
+int kava_allocator_init(struct device *dev_node, size_t size);
+void kava_allocator_fini(struct device *dev_node);
 void *kava_alloc(size_t size);
 void kava_free(void *p);
 long kava_shm_offset(const void *p);
