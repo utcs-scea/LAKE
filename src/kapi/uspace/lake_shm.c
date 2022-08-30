@@ -10,7 +10,7 @@
 
 static char *kshm_base = NULL;
 static int kshm_fd = 0;
-static long kshm_size = 0;
+static uint64_t kshm_size = 0;
 
 void *lake_shm_address(const void* ptr_offset)
 {
@@ -36,7 +36,7 @@ int lake_shm_init(void)
         return ret;
     }
     else {
-        printf("Request shared memory size: %lx\n", kshm_size);
+        printf("Request shared memory size: %lu MB   %lu\n", kshm_size>>20, kshm_size);
     }
 
     kshm_base = (char *)mmap(NULL, kshm_size, PROT_READ | PROT_WRITE, MAP_SHARED, kshm_fd, 0);

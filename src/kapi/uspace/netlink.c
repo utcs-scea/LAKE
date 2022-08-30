@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <inttypes.h>
 #include <linux/netlink.h>
 #include <netlink/netlink.h>
@@ -74,12 +75,17 @@ int lake_init_socket() {
     nl_socket_recv_pktinfo(sk, 0);
     nl_socket_set_nonblocking(sk);
 
-    err = nl_connect(sk, NETLINK_LAKE_PROT);
-    if (err < 0) {
-        printf("Error connecting to netlink: %d\n", err);
-        exit(1);
+    while(1) {
+        err = nl_connect(sk, NETLINK_LAKE_PROT);
+        if (err < 0) {
+            printf("Error connecting to netlink (%d), sleeping..\n", err);
+            //exit(1);
+            sleep(1);
+        }
+        else break;
     }
 
     //ping so kernel can get our pid
     lake_send_cmd(0, 0, 0);
+    printf("Netlink connected, message sent to kernel\n");
 }

@@ -14,10 +14,12 @@ static int __init lake_kapi_init(void)
         return -1;
 	}
 
-    mdelay(3000);
-    err = 1;
-    cuInit(0);
-    mdelay(3000);
+    pr_info("[lake] Registered CUDA kapi\n");
+
+    // mdelay(3000);
+    // err = 1;
+    // cuInit(0);
+    // mdelay(3000);
     
     return 0;
 }

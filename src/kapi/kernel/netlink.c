@@ -68,7 +68,7 @@ CUresult lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* r
     // sync if requested
     if (sync == CMD_SYNC) {
         wait_for_completion(&cmd->cmd_done);
-        pr_alert("cmd was sync, now done!\n");
+        pr_err("cmd was sync, now done!\n");
         memcpy(ret, (void*)&cmd->ret, sizeof(struct lake_cmd_ret));
         // if we sync, its like the cmd never existed, so clear every trace
         kmem_cache_free(cmd_cache, cmd);

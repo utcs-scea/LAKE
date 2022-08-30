@@ -13,6 +13,11 @@
 
 allocator_t *shm_allocator = NULL;
 static dma_addr_t dma_handle;
+static size_t overhead = sizeof(node_t) + sizeof(footer_t);
+static size_t offset = offsetof(node_t, next);
+static struct device *dev_node;
+static struct class  *dev_class;
+static long shm_size;
 
 static void add_node(bin_t *bin, node_t *node)
 {
@@ -125,8 +130,81 @@ static unsigned get_bin_index(size_t size)
     return index;
 }
 
-static size_t overhead = sizeof(node_t) + sizeof(footer_t);
-static size_t offset = offsetof(node_t, next);
+static char *mod_dev_node(struct device *dev, umode_t *mode)
+{
+    if (mode)
+        *mode = 0444;
+    return NULL;
+}
+
+static int kshm_open(struct inode *inode, struct file *filp)
+{
+    return 0;
+}
+
+static int kshm_release(struct inode *inode, struct file *filp)
+{
+    return 0;
+}
+
+static long kshm_ioctl(struct file *filp, unsigned int cmd,
+                       unsigned long arg)
+{
+    int r = -EINVAL;
+    long size_in_bytes;
+
+    switch (cmd)
+    {
+    case KAVA_SHM_GET_SHM_SIZE:
+        size_in_bytes = shm_size;
+        copy_to_user((void *)arg, (void *)&size_in_bytes, sizeof(long));
+        r = 0;
+        break;
+
+    default:
+        pr_err("[kava-shm] Unsupported IOCTL command\n");
+    }
+
+    return r;
+}
+
+static const struct file_operations fops =
+{
+    .owner          = THIS_MODULE,
+    .open           = kshm_open,
+    .mmap           = kshm_mmap_helper,
+    .release        = kshm_release,
+    .unlocked_ioctl = kshm_ioctl,
+};
+
+static int create_chrdevice(void) {
+    register_chrdev(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_NAME, &fops);
+    pr_info("[kava-shm] Registered shared memory device with major number %d\n", KAVA_SHM_DEV_MAJOR);
+
+    if (!(dev_class = class_create(THIS_MODULE, KAVA_SHM_DEV_CLASS))) {
+        pr_err("[kava-shm] Class_create error\n");
+        goto unregister_dev;
+    }
+    dev_class->devnode = mod_dev_node;
+
+    device_destroy(dev_class, MKDEV(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_MINOR));
+
+    if (!(dev_node = device_create(dev_class, NULL,
+                    MKDEV(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_MINOR), NULL, KAVA_SHM_DEV_NAME))) {
+        pr_err("[kava-shm] Device_create error\n");
+        goto destroy_class;
+    }
+    pr_info("[kava-shm] Create shared memory device\n");
+    return 0;
+
+    destroy_class:
+    class_unregister(dev_class);
+    class_destroy(dev_class);
+
+unregister_dev:
+    unregister_chrdev(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_NAME);
+    return -1;
+}
 
 /**
  * kava_allocator_init - Initialize shared memory allocator
@@ -134,11 +212,19 @@ static size_t offset = offsetof(node_t, next);
  *
  * This function initializes the static shm_allocator.
  */
-int kava_allocator_init(struct device *dev_node, size_t size)
+int kava_allocator_init(size_t size)
 {
     void *start;
     node_t *init_region;
     int err;
+    u64 dmamask;
+
+    shm_size = size;
+
+    /* Register chardev */
+    err = create_chrdevice();
+    if (err) 
+        return err;
 
     /* Create allocator */
     shm_allocator = (allocator_t *)kmalloc(sizeof(allocator_t), GFP_USER);
@@ -156,7 +242,7 @@ int kava_allocator_init(struct device *dev_node, size_t size)
     //     pr_err("dma_set_mask returned: %d\n", err);
     //     return -EIO;
     // }
-    u64 dmamask = DMA_BIT_MASK(32);
+    dmamask = DMA_BIT_MASK(32);
     dev_node->dma_mask = (u64*)&dmamask;
     dev_node->coherent_dma_mask = DMA_BIT_MASK(32);
 
@@ -195,7 +281,7 @@ EXPORT_SYMBOL(kava_allocator_init);
 /**
  * kava_allocator_fini - Free allocated memory region
  */
-void kava_allocator_fini(struct device *dev_node)
+void kava_allocator_fini(void)
 {
     if (shm_allocator) {
         pr_info("[kava-shm] Deallocate shared %smemory region pa = 0x%lx, va = 0x%lx\n",
@@ -211,6 +297,11 @@ void kava_allocator_fini(struct device *dev_node)
         //    vfree((void *)shm_allocator->start);
         kfree(shm_allocator);
     }
+
+    unregister_chrdev(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_NAME);
+    device_destroy(dev_class, MKDEV(KAVA_SHM_DEV_MAJOR, KAVA_SHM_DEV_MINOR));
+    //class_unregister(dev_class);
+    class_destroy(dev_class);
 }
 EXPORT_SYMBOL(kava_allocator_fini);
 
@@ -349,8 +440,11 @@ static const struct vm_operations_struct va_shm_vm_ops = {
 
 EXPORTED_WEAKLY int kshm_mmap_helper(struct file *filp, struct vm_area_struct *vma)
 {
-    if (vma->vm_end - vma->vm_start != shm_allocator->size || vma->vm_pgoff != 0) {
-        pr_err("[kava] Error: shared memory size does not match\n");
+    u64 rsize = vma->vm_end - vma->vm_start;
+    if (rsize != shm_allocator->size || vma->vm_pgoff != 0) {
+        pr_err("[kava] Error: shared memory size does not match "
+            "%llu != %lu  or  %lu != 0\n", rsize, shm_allocator->size,
+            vma->vm_pgoff);
         return -EINVAL;
     }
 
@@ -359,7 +453,7 @@ EXPORTED_WEAKLY int kshm_mmap_helper(struct file *filp, struct vm_area_struct *v
 
     if (shm_allocator->is_dma) {
         vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-        return dma_mmap_coherent(NULL, vma, (void *)shm_allocator->start, dma_handle, shm_allocator->size);
+        return dma_mmap_coherent(dev_node, vma, (void *)shm_allocator->start, dma_handle, shm_allocator->size);
     }
     else {
         vma->vm_ops = &va_shm_vm_ops;

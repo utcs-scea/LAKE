@@ -7,5 +7,5 @@ fi
 
 
 sudo pkill -2 lake_uspace
-sudo rmmod lake_kshm
 sudo rmmod lake_kapi
+sudo rmmod lake_shm
