@@ -25,3 +25,6 @@ clean:
 .PHONY : clean
 
 endif
+
+utest:
+	nvcc driver.c helpers.c kernels.cu weights.c -o utest -lcuda

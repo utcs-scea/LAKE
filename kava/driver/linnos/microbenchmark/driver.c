@@ -1,6 +1,28 @@
-#include "weights.h"
+#ifdef __KERNEL__
 #include <linux/delay.h>
 #include <linux/ktime.h>
+#else
+#define kava_free(X) free(X)
+#define kava_alloc(X) malloc(X)
+#define vfree(X) free(X)
+#define vmalloc(X) malloc(X)
+#include <stdint.h>
+#define u64 uint64_t
+#include <unistd.h>
+#include <stdio.h>
+#define usleep_range(X,Y) sleep(X/1000)
+#include <sys/time.h>
+u64 get_tsns() {
+    struct timeval current_time;
+    gettimeofday(&current_time, NULL);
+    return current_time.tv_sec*1000000000 + current_time.tv_usec*1000;
+}
+
+#define ktime_get_ns() get_tsns()
+#endif
+
+#include <stdbool.h>
+#include "weights.h"
 #include "helpers.h"
 
 //#include <asm/fpu/api.h>
@@ -12,8 +34,10 @@
 #define RUNS 3
 
 static char *cubin_path = "linnos.cubin";
+#ifdef __KERNEL__
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin");
+#endif
 
 static int run_cpu(void) {
     return 0;
@@ -136,8 +160,8 @@ static int run_gpu(void) {
 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
-    comp_run_times = (u64*) kava_alloc(RUNS*sizeof(u64));
-    total_run_times = (u64*) kava_alloc(RUNS*sizeof(u64));
+    comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
+    total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
 
     //flatten n inputs, which is enough for all batches
     parallel_input = (long*) kava_alloc(n*31*sizeof(long));
@@ -187,14 +211,22 @@ static int run_gpu(void) {
         best = best / 1000; best_total = best_total / 1000;
 
         //PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-        PRINT(V_INFO, "GPU batch_%d, %lld, %lld\n", batch_size, avg, avg_total);
+        //PRINT(V_INFO, "GPU batch_%d, %lld, %lld\n", batch_size, avg, avg_total);
+        #ifdef __KERNEL__
+            PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        #else
+            printf("GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        #endif
         clean_batch();
 	}
 
     cleanup();
+    vfree(comp_run_times);
+    vfree(total_run_times);
     return 0;
 }
 
+#ifdef __KERNEL__
 
 /**
  * Program main
@@ -219,3 +251,12 @@ MODULE_VERSION(__stringify(1) "."
                __stringify(0) "."
                __stringify(0) "."
                "0");
+
+#else
+
+int main() {
+    run_gpu();
+    return 0;
+}
+
+#endif
