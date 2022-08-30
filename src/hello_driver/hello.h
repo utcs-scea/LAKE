@@ -12,7 +12,7 @@
 
 // CUDA driver
 #include "cuda.h"
-#include "shared_memory.h"
+#include "lake_shm.h"
 
 #define V_ERROR 0
 #define V_INFO 1
@@ -25,11 +25,7 @@
 static inline CUresult check_error(CUresult error, const char* error_str, int line)
 {
 	if (error != CUDA_SUCCESS) {
-        const char *error_str;
-        cuGetErrorString(error, &error_str);
-		printk(KERN_ERR "ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
-        if (error_str)
-            kfree(error_str);
+		printk(KERN_ERR "ERROR: returned error (line %d): %s\n", line, error_str);
 	}
 	return error;
 }

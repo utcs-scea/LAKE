@@ -1,28 +1,18 @@
-mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
-mkfile_dir := $(dir $(mkfile_path))
-KAVA_ROOT = $(mkfile_dir)/../..
-
-ifneq ($(KERNELRELEASE),)
-
-ccflags-y += -I$(KAVA_ROOT)/klib/cuda -I$(KAVA_ROOT)/include -O0 -g
+ccflags-y += -I$(src)/../kapi/include -I$(KAVA_ROOT)/include -O0 -g
 
 obj-m += hello_kern.o
-
 hello_kern-objs := hello.o
 
-else
+KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kshm/Module.symvers
+KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kernel/Module.symvers
 
-KDIR ?= /lib/modules/$(shell uname -r)/build
-
-hello.cubin:
+all:
+	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 	make -f Makefile.cubin
 
-all: hello.cubin
-	KBUILD_VERBOSE=1 $(MAKE) -C $(KDIR) M=$(shell pwd) modules
-
 clean:
-	$(MAKE) -C $(KDIR) M=$(shell pwd) clean
+	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
 
-.PHONY : clean
 
-endif
+uspace:
+	nvcc uspace.c -lcuda -o uspace

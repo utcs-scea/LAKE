@@ -59,7 +59,9 @@ static int lake_handler_cuModuleLoad(void* buf, struct lake_cmd_ret* cmd_ret) {
     printf("Dry running cuModuleLoad\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
+    printf("Running cuModuleLoad  %s\n", cmd->fname);
     cmd_ret->res = cuModuleLoad(&cmd_ret->module, cmd->fname);
+    printf("cuModuleLoad ret %d\n", cmd_ret->res);
 #endif
     return 0;
 }

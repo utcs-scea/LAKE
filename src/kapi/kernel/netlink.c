@@ -63,7 +63,6 @@ CUresult lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* r
         nlmsg_free(skb_out);
         return CUDA_ERROR_OPERATING_SYSTEM;
     }
-    pr_err("cmd sent\n");
 
     // sync if requested
     if (sync == CMD_SYNC) {
