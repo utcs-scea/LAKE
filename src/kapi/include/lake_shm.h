@@ -53,7 +53,7 @@ int kava_allocator_init(size_t size);
 void kava_allocator_fini(void);
 void *kava_alloc(size_t size);
 void kava_free(void *p);
-long kava_shm_offset(const void *p);
+s64 kava_shm_offset(const void *p);
 int kshm_mmap_helper(struct file *filp, struct vm_area_struct *vma);
 
 

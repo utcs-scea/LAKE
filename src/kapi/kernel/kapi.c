@@ -139,14 +139,13 @@ CUresult CUDAAPI cuMemcpyHtoD(CUdeviceptr dstDevice, const void *srcHost, size_t
         .ByteCount = ByteCount
     };
 
-    long offset = kava_shm_offset(srcHost);
+    s64 offset = kava_shm_offset(srcHost);
     if (offset < 0) {
         pr_err("srcHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
     cmd.srcHost = (void*)offset;
-
-    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_ASYNC, &ret);
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
 	return ret.res;
 }
 EXPORT_SYMBOL(cuMemcpyHtoD);
@@ -154,18 +153,17 @@ EXPORT_SYMBOL(cuMemcpyHtoD);
 CUresult CUDAAPI cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, size_t ByteCount) {
     struct lake_cmd_ret ret;
 	struct lake_cmd_cuMemcpyDtoH cmd = {
-        .API_ID = LAKE_API_cuMemcpyDtoH, .dstHost = dstHost, .srcDevice = srcDevice,
+        .API_ID = LAKE_API_cuMemcpyDtoH, .srcDevice = srcDevice,
         .ByteCount = ByteCount
     };
 
-    long offset = kava_shm_offset(dstHost);
+    s64 offset = kava_shm_offset(dstHost);
     if (offset < 0) {
         pr_err("dstHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
     cmd.dstHost = (void*)offset;
-
-    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_ASYNC, &ret);
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
 	return ret.res;
 }
 EXPORT_SYMBOL(cuMemcpyDtoH);
@@ -217,7 +215,7 @@ CUresult CUDAAPI cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, s
         .API_ID = LAKE_API_cuMemcpyHtoDAsync, .dstDevice = dstDevice, .srcHost = srcHost, 
         .ByteCount = ByteCount, .hStream = hStream
     };
-    long offset = kava_shm_offset(srcHost);
+    s64 offset = kava_shm_offset(srcHost);
     if (offset < 0) {
         pr_err("srcHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
@@ -236,7 +234,7 @@ CUresult CUDAAPI cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, size_t 
         .ByteCount = ByteCount, .hStream = hStream
     };
     
-    long offset = kava_shm_offset(dstHost);
+    s64 offset = kava_shm_offset(dstHost);
     if (offset < 0) {
         pr_err("dstHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;

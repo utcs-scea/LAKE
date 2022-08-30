@@ -14,7 +14,8 @@ static uint64_t kshm_size = 0;
 
 void *lake_shm_address(const void* ptr_offset)
 {
-    long offset = (long) ptr_offset;
+    int64_t offset = (int64_t) ptr_offset;
+    //printf("Translating offset %lld\n", offset);
     return (void *)(kshm_base + offset);
 }
 

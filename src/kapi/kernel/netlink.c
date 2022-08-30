@@ -23,7 +23,7 @@ struct cmd_data {
 } __attribute__ ((aligned (8)));
 
 // ret is only filled in case sync is CMD_SYNC
-CUresult lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
+void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
 {
     int err;
     struct sk_buff *skb_out;
@@ -37,7 +37,7 @@ CUresult lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* r
     if(IS_ERR(cmd)) {
         pr_alert("Error allocating from cache: %ld\n", PTR_ERR(cmd));
         kmem_cache_destroy(cmd_cache);
-        return CUDA_ERROR_OUT_OF_MEMORY;
+        ret->res = CUDA_ERROR_OUT_OF_MEMORY;
     }
 
     //init completion so we can wait on it
@@ -48,7 +48,7 @@ CUresult lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* r
     err = xa_alloc(&cmds_xa, &xa_idx, (void*)cmd, XA_LIMIT(0, 2048), GFP_KERNEL); //xa_limit_31b
     if (err < 0) {
         pr_alert("Error allocating xa_alloc: %d\n", err);
-        return CUDA_ERROR_OPERATING_SYSTEM;
+        ret->res = CUDA_ERROR_OPERATING_SYSTEM;
     }
 
     //create netlink cmd
@@ -61,21 +61,19 @@ CUresult lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* r
     if (err < 0) {
         pr_err("Failed to send netlink skb to API server, error=%d\n", err);
         nlmsg_free(skb_out);
-        return CUDA_ERROR_OPERATING_SYSTEM;
+        ret->res = CUDA_ERROR_OPERATING_SYSTEM;
     }
 
     // sync if requested
     if (sync == CMD_SYNC) {
         wait_for_completion(&cmd->cmd_done);
-        pr_err("cmd was sync, now done!\n");
         memcpy(ret, (void*)&cmd->ret, sizeof(struct lake_cmd_ret));
         // if we sync, its like the cmd never existed, so clear every trace
         kmem_cache_free(cmd_cache, cmd);
         xa_erase(&cmds_xa, xa_idx);
-        return cmd->ret.res;
     }
-    else
-        return CUDA_SUCCESS;
+    else 
+        ret->res = CUDA_SUCCESS;
 }
 
 static void netlink_recv_msg(struct sk_buff *skb)
@@ -90,8 +88,6 @@ static void netlink_recv_msg(struct sk_buff *skb)
         printk(KERN_INFO "Setting worker PID to %d\n", worker_pid);
         return;
     }
-
-    pr_err("received a message\n");
 
     //find cmd in xa
     cmd = (struct cmd_data*) xa_load(&cmds_xa, xa_idx);
@@ -113,7 +109,6 @@ static void netlink_recv_msg(struct sk_buff *skb)
         xa_erase(&cmds_xa, xa_idx);
         //TODO: accumulate error
     }
-    pr_err("cmd was completed and freed\n");
 }
 
 static void null_constructor(void *argument) {

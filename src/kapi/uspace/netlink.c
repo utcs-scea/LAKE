@@ -48,7 +48,6 @@ static int netlink_recv_msg(struct nl_msg *msg, void *arg) {
     lake_handle_cmd(data, &cmd_ret);
     printf("command handled, replying\n");
     lake_send_cmd(seq, &cmd_ret, sizeof(cmd_ret));
-    printf("reply sent\n");
 }
 
 void lake_destroy_socket() {

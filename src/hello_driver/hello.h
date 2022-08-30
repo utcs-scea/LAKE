@@ -25,7 +25,7 @@
 static inline CUresult check_error(CUresult error, const char* error_str, int line)
 {
 	if (error != CUDA_SUCCESS) {
-		printk(KERN_ERR "ERROR: returned error (line %d): %s\n", line, error_str);
+		printk(KERN_ERR "ERROR: returned error %d (line %d): %s\n", error, line, error_str);
 	}
 	return error;
 }

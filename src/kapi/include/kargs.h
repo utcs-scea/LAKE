@@ -40,6 +40,13 @@ static inline void serialize_args(struct kernel_args_metadata* meta,
 {
     int i;
     for (i = 0 ; i < meta->func_argc ; i++) {
+// #ifdef __KERNEL__
+//         pr_err("arg %d: %lu\n", i, meta->func_arg_size[i]);
+//         if(meta->func_arg_size[i] == 8)
+//             pr_err("   %llx\n", *((u64*) args[i]));
+//         if(meta->func_arg_size[i] == 4)
+//             pr_err("   %x\n", *((u32*) args[i]));
+// #endif
         memcpy(buf, args[i], meta->func_arg_size[i]);
         buf += meta->func_arg_size[i];
     }
@@ -51,6 +58,13 @@ static inline void construct_args(struct kernel_args_metadata* meta,
     int i;
     for (i = 0 ; i < meta->func_argc ; i++) {
         args[i] = (void*) buf;     
+// #ifndef __KERNEL__
+//         printf("arg %d: %lu\n", i, meta->func_arg_size[i]);
+//         if(meta->func_arg_size[i] == 8)
+//             printf(" 8B:  %lx\n", *((uint64_t*) args[i]));
+//         if(meta->func_arg_size[i] == 4)
+//             printf(" 4B:  %x\n", *((uint32_t*) args[i]));
+// #endif
         buf += meta->func_arg_size[i];
     }
 }
@@ -140,7 +154,7 @@ static inline void kava_parse_function_args(const char *name,
     for (i = 0 ; i < *func_argc ; i++) {
         meta->total_size += func_arg_size[i];
     }
-    PRINT("size of args for name: %lu\n", meta->total_size);
+    //PRINT("size of args for name: %lu\n", meta->total_size);
 }
 
 

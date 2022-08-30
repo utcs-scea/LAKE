@@ -50,33 +50,33 @@ static int run_hello(void)
     check_error(cuModuleGetFunction(&hello_kernel, mod, "_Z12hello_kernelPii"),
             "cuModuleGetFunction", __LINE__);
 
-	// val = kava_alloc(10*sizeof(int));
-	// for (i = 0; i < 10; i++)
-	// 	val[i] = i;
+	val = malloc(10*sizeof(int));
+	for (i = 0; i < 10; i++)
+		val[i] = i;
 
-	// check_error(cuMemAlloc((CUdeviceptr*) &d_p1, 128), "cuMemAlloc d_p1", __LINE__);
-	// check_error(cuMemcpyHtoD(d_p1, val, 10), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemAlloc((CUdeviceptr*) &d_p1, 128), "cuMemAlloc d_p1", __LINE__);
+	check_error(cuMemcpyHtoD(d_p1, val, 10), "cuMemcpyHtoD", __LINE__);
 
-	// int count = 10;
-	// void *args[] = {
-	// 	&d_p1, &count
-	// };
+	int count = 10;
+	void *args[] = {
+		&d_p1, &count
+	};
 
-	// check_error(cuLaunchKernel(hello_kernel, 
-	// 			1, 1, 1,
-	// 			10, 1, 1, 
-	// 			0, NULL, args, NULL),
-	// 		"cuLaunchKernel", __LINE__);
+	check_error(cuLaunchKernel(hello_kernel, 
+				1, 1, 1,
+				10, 1, 1, 
+				0, NULL, args, NULL),
+			"cuLaunchKernel", __LINE__);
 
-	// check_error(cuMemcpyDtoH(val, d_p1, 10), "cuMemcpyDtoH", __LINE__);
+	check_error(cuMemcpyDtoH(val, d_p1, 10), "cuMemcpyDtoH", __LINE__);
 
-	// PRINT(V_INFO, "Printing resulting array: \n");
-	// for (i = 0; i < 10; i++)
-	// 	PRINT(V_INFO, " %d", val[i]);
+	printf("Printing resulting array: \n");
+	for (i = 0; i < 10; i++)
+		printf(" %d", val[i]);
 
-	// cuMemFree(d_p1);
+	cuMemFree(d_p1);
 
-	// kava_free(val);
+	free(val);
 
  	// check_error(cuCtxDestroy(ctx), "cuCtxDestroy", __LINE__);
 	return 0;

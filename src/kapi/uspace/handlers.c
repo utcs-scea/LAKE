@@ -59,9 +59,9 @@ static int lake_handler_cuModuleLoad(void* buf, struct lake_cmd_ret* cmd_ret) {
     printf("Dry running cuModuleLoad\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
-    printf("Running cuModuleLoad  %s\n", cmd->fname);
+    //printf("Running cuModuleLoad  %s\n", cmd->fname);
     cmd_ret->res = cuModuleLoad(&cmd_ret->module, cmd->fname);
-    printf("cuModuleLoad ret %d\n", cmd_ret->res);
+    //printf("cuModuleLoad ret %d\n", cmd_ret->res);
 #endif
     return 0;
 }
@@ -105,17 +105,15 @@ static int lake_handler_cuLaunchKernel(void* buf, struct lake_cmd_ret* cmd_ret) 
     printf("Dry running cuLaunchKernel\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
-    struct kernel_args_metadata* meta = get_kargs(cmd_ret->func);
+    struct kernel_args_metadata* meta = get_kargs(cmd->f);
     uint8_t *serialized = ((u8*)buf) + sizeof(struct lake_cmd_cuLaunchKernel);
-    
     void* args = malloc(meta->func_argc * sizeof(void*));
-    construct_args(meta, &args, serialized), 
-
+    construct_args(meta, args, serialized), 
     cmd_ret->res = cuLaunchKernel(cmd->f, cmd->gridDimX, cmd->gridDimY,
         cmd->gridDimZ, cmd->blockDimX, cmd->blockDimY, cmd->blockDimZ, cmd->sharedMemBytes,
-        cmd->hStream, &args, cmd->extra);
+        cmd->hStream, args, cmd->extra);
     
-    free(args);
+    //free(args);
 #endif
     return 0;
 }
@@ -144,6 +142,7 @@ static int lake_handler_cuMemAlloc(void* buf, struct lake_cmd_ret* cmd_ret) {
     cmd_ret->res = CUDA_SUCCESS;
 #else
     cmd_ret->res = cuMemAlloc(&cmd_ret->ptr, cmd->bytesize);
+    //printf("cuMemAlloc ptr %lx\n", cmd_ret->ptr);
 #endif
     return 0;
 }
@@ -199,6 +198,7 @@ static int lake_handler_cuMemFree(void* buf, struct lake_cmd_ret* cmd_ret) {
     printf("Dry running cuMemFree\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
+    printf("cuMemFree %llx\n", cmd->dptr);
     cmd_ret->res = cuMemFree(cmd->dptr);
 #endif
     return 0;

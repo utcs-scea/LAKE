@@ -419,7 +419,7 @@ EXPORT_SYMBOL(kava_free);
  *
  * This function returns -1 if p is not inside the shared memory.
  */
-long kava_shm_offset(const void *p)
+s64 kava_shm_offset(const void *p)
 {
     if (shm_allocator->start <= (long)p && (long)p < shm_allocator->end)
         return (long)p - shm_allocator->start;
