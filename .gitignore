@@ -139,3 +139,11 @@ dmypy.json
 *.ko
 *.o
 *.cubin
+*.order.cmd
+*.symvers.cmd
+*/modules.order
+.tmp_versions
+*.mod
+*.mod.cmd
+modules.order
+*/uspace

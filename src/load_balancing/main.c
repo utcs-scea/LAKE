@@ -2,17 +2,21 @@
 #include <linux/delay.h>
 #include <linux/ktime.h>
 #include <asm/fpu/api.h>
+#define LLU "%llu"
+#define LLD "%lld"
 #else
 //if uspace
+#define LLU "%lu"
+#define LLD "%ld"
 #define vmalloc(X) malloc(X)
 #define vfree(X) free((void*)X)
 #define kava_free(X) free(X)
 #define kava_alloc(X) malloc(X)
+#define u64 uint64_t
+#define usleep_range(X,Y) sleep(X/1000000)
 #include <stdint.h>
 #include <stdio.h>
-#define u64 uint64_t
 #include <unistd.h>
-#define usleep_range(X,Y) sleep(X/1000000)
 #include <sys/time.h>
 u64 get_tsns() {
     struct timeval current_time;
@@ -27,17 +31,11 @@ u64 get_tsns() {
 #include "helpers.h"
 #include "consts.h"
 
-#ifdef __KERNEL__
 static char *cubin_path = "mllb.cubin";
+#ifdef __KERNEL__
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to mllb.cubin, default ./mllb.cubin");
-
-int use_kshm = 1;
-module_param(use_kshm, int, 0);
-MODULE_PARM_DESC(use_kshm, "Set to 1 (default) to use zero copy");
 #else
-static char *cubin_path = "/home/hfingler/hf-HACK/kava/driver/load_balancing/microbenchmark/mllb.cubin";
-int use_kshm = 1;
 #endif
 
 static inline void check_malloc(void *p, const char* error_str, int line) {
@@ -89,14 +87,12 @@ int forward_pass(struct matrix *input){
     kernel_fpu_begin();
     float o1[10] = {0};
     float o2[10] = {0};
-
     struct matrix W1 = {NR_FEAT, 10, w1};
     struct matrix out1 = {1, 10, o1};
     struct matrix B1 = {1, 10, b1};
     struct matrix W2 = {10, 1, w2};
     struct matrix out2 = {1, 1, o2};
     struct matrix B2 = {1, 1, b2};
-
     matmul(input, &W1, &out1);
     matadd(&out1, &B1, &out1);
     ReLU(&out1);
@@ -104,7 +100,6 @@ int forward_pass(struct matrix *input){
     matadd(&out2, &B2, &out2);
     output = m1d(&out2, 0);
     /* printf("output: %f\n", output); */
-    
     ret = output > 0.5 ? 1 : 0;
     kernel_fpu_end();
     return ret;
@@ -135,7 +130,6 @@ static int run_cpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
     total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
     for (i = 0 ; i < n_batches ; i++) {
         batch_size = batch_sizes[i];
-
         //warmup
         forward_pass(inputs);
         usleep_range(250, 1000);
@@ -155,7 +149,7 @@ static int run_cpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
             avg += total_run_times[j];
         }
         avg = avg / (1000*RUNS); 
-        PRINT(V_INFO, "cpu %d, %llu\n", batch_size, avg);
+        PRINT(V_INFO, "cpu %d, "LLU"\n", batch_size, avg);
     }
 
     for (j = 0 ; j < max_batch ; j++) {
@@ -182,10 +176,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
     CUdeviceptr d_inputs, d_w1, d_b1, d_w2, d_results;
     gpu_init(0, &cuContext);
 
-    if (!use_kshm)
-        linear_inputs = (int*) vmalloc(NR_FEAT*max_batch*sizeof(float));
-    else
-        linear_inputs = kava_alloc(NR_FEAT*max_batch*sizeof(float));
+    linear_inputs = kava_alloc(NR_FEAT*max_batch*sizeof(float));
     check_malloc(linear_inputs, "check_malloc", __LINE__);
 
     //initialize a linear matrix with fake inputs
@@ -212,6 +203,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
         cuCtxSynchronize();
         usleep_range(250, 1000);
 
+        //do the entire algorithm
         for (j = 0 ; j < RUNS ; j++) {
             t_start = ktime_get_ns();
             gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
@@ -219,12 +211,17 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
             gpu_get_result(batch_size, d_results, outs);
             t_stop = ktime_get_ns();
 
+            total_run_times[j] = (t_stop - t_start);
+            usleep_range(250, 500);
+        }
+
+        //do just computation
+        for (j = 0 ; j < RUNS ; j++) {
             c_start = ktime_get_ns();
             gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
             c_stop = ktime_get_ns();
 
             comp_run_times[j] = (c_stop - c_start);
-            total_run_times[j] = (t_stop - t_start);
             usleep_range(250, 1000);
         }
 
@@ -242,56 +239,13 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
         best_total = best_total / 1000;
 
         //PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-        PRINT(V_INFO, "%d, %lld, %lld\n", batch_size, avg, avg_total);
+        PRINT(V_INFO, "%d, "LLD", "LLD"\n", batch_size, avg, avg_total);
         gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
         vfree(outs);
 
-
-        // float* outs = vmalloc(batch_size * sizeof(float));
-
-        // //warmup
-        // for (j = 0 ; j < 1 ; j++) {
-        //     gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
-        //     gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
-        //     usleep_range(200, 300);
-        // }
-
-        // for (j = 0 ; j < RUNS ; j++) {
-        //     t_start = ktime_get_ns();
-        //     gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
-        //     gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 0);
-        //     gpu_get_result(batch_size, d_results, outs);
-        //     t_stop = ktime_get_ns();
-
-        //     usleep_range(1000, 2000);
-
-        //     c_start = ktime_get_ns();
-        //     gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 1);
-        //     c_stop = ktime_get_ns();
-
-        //     comp_run_times[j] = (c_stop - c_start);
-        //     total_run_times[j] = (t_stop - t_start);
-        //     usleep_range(1000, 2000);
-        // }
-
-        // avg = 0; avg_total = 0;
-        // for (j = 0 ; j < RUNS ; j++) {
-        //     avg += comp_run_times[j];
-        //     avg_total += total_run_times[j];
-        // }
-        // avg = avg / (1000*RUNS); 
-        // avg_total = avg_total / (1000*RUNS);
-        
-        // PRINT(V_INFO, "%d, %lld, %lld\n", batch_size, avg, avg_total);
-        // gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
-        // vfree(outs);
     }
 
-    if (!use_kshm) 
-        vfree(linear_inputs);
-    else
-        kava_free(linear_inputs);
-
+    kava_free(linear_inputs);
     vfree(comp_run_times);
     vfree(total_run_times);
     return 0;
@@ -307,7 +261,7 @@ static int run(void) {
     int RUNS = 3;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
 
-    //run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
+    run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
     run_gpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
 
     return 0;
@@ -315,9 +269,7 @@ static int run(void) {
 
 
 #ifdef __KERNEL__
-/**
- * Program main
- */
+
 static int __init mllb_init(void)
 {
 	return run();

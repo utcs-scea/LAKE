@@ -14,13 +14,12 @@
 #include <linux/slab.h>
 // CUDA driver
 #include "cuda.h"
-#include "shared_memory.h"
+#include "lake_shm.h"
 
 #else
 #include <cuda.h>
 #include <stdio.h>
 #endif
-
 
 #define V_ERROR 0
 #define V_INFO 1
@@ -37,12 +36,8 @@
 static inline CUresult check_error(CUresult error, const char* error_str, int line)
 {
 	if (error != CUDA_SUCCESS) {
-        const char *error_str;
-        cuGetErrorString(error, &error_str);
         #ifdef __KERNEL__
-		printk(KERN_ERR "ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
-        //if (error_str)
-        //    kfree(error_str);
+        printk(KERN_ERR "ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
         #else
         printf("ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
         #endif
