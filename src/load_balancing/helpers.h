@@ -16,9 +16,31 @@
 #include "cuda.h"
 #include "lake_shm.h"
 
+#define LLU "%llu"
+#define LLD "%lld"
+
 #else
+#include <stdint.h>
+#include <sys/time.h>
+#define u64 uint64_t
+#define usleep_range(X,Y) sleep(X/1000000)
+#define LLU "%lu"
+#define LLD "%ld"
+#define vmalloc(X) malloc(X)
+#define vfree(X) free((void*)X)
+
+static inline u64 get_tsns() {
+    struct timeval current_time;
+    gettimeofday(&current_time, 0);
+    return current_time.tv_sec*1000000000 + current_time.tv_usec*1000;
+}
+#define ktime_get_ns() get_tsns()
+#define kernel_fpu_begin() (void)0
+#define kernel_fpu_end() (void)0
+
 #include <cuda.h>
 #include <stdio.h>
+#include <string.h>
 #endif
 
 #define V_ERROR 0
@@ -31,6 +53,8 @@
 #define PRINT(verbosity, ...) do { if (verbosity <= VERBOSITY) printk(KERN_INFO __VA_ARGS__); } while (0)
 #else
 #define PRINT(verbosity, ...) do { if (1) printf(__VA_ARGS__); } while (0)
+#define kava_alloc(...) malloc(__VA_ARGS__)
+#define kava_free(...) free(__VA_ARGS__)
 #endif
 
 static inline CUresult check_error(CUresult error, const char* error_str, int line)

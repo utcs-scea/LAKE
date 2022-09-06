@@ -1,6 +1,10 @@
 #include "helpers.h"
 #include "consts.h"
 
+void* w1_shm;
+void* b1_shm;
+void* w2_shm;
+
 void gpu_init(int dev, CUcontext *cuctx) {
     CUdevice cuDevice;
     CUresult res;
@@ -11,7 +15,7 @@ void gpu_init(int dev, CUcontext *cuctx) {
         #ifdef __KERNEL__
         PRINT(V_INFO, "cannot acquire device 0\n");
         #else
-        printf("1cannot acquire device 0\n");
+        printf("cannot acquire device 0\n");
         #endif
     }
 
@@ -20,7 +24,7 @@ void gpu_init(int dev, CUcontext *cuctx) {
         #ifdef __KERNEL__
         PRINT(V_INFO, "cannot create context\n");
         #else
-        printf("2cannot acquire device 0\n");
+        printf("cannot create context\n");
         #endif
     }
 }
@@ -47,13 +51,25 @@ void gpu_setup(int n_inputs, CUdeviceptr *d_inputs, CUdeviceptr *d_w1, CUdevicep
     check_error(cuMemAlloc((CUdeviceptr*) d_w2,     10*sizeof(float)), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) d_results,n_inputs*sizeof(float)), "cuMemAlloc ", __LINE__);
     //PRINT(V_INFO, "allocated\n");
-    check_error(cuMemcpyHtoD(*d_w1, w1, NR_FEAT*10*sizeof(float)), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD(*d_b1, b1, 10*sizeof(float)), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD(*d_w2, w2, 10*sizeof(float)), "cuMemcpyHtoD", __LINE__);
-    //PRINT(V_INFO, "copied weights\n");
+
+    w1_shm = kava_alloc(NR_FEAT*10*sizeof(float));
+    b1_shm = kava_alloc(10*sizeof(float));
+    w2_shm = kava_alloc(10*sizeof(float));
+
+    memcpy(w1_shm, w1, NR_FEAT*10*sizeof(float));
+    memcpy(b1_shm, b1, 10*sizeof(float));
+    memcpy(w2_shm, w2, 10*sizeof(float));
+
+    check_error(cuMemcpyHtoD(*d_w1, w1_shm, NR_FEAT*10*sizeof(float)), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(*d_b1, b1_shm, 10*sizeof(float)), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(*d_w2, w2_shm, 10*sizeof(float)), "cuMemcpyHtoD", __LINE__);
 }
 
 void gpu_clean(CUdeviceptr d_inputs, CUdeviceptr d_w1, CUdeviceptr d_b1, CUdeviceptr d_w2, CUdeviceptr d_results) {
+    kava_free(w1_shm);
+    kava_free(b1_shm);
+    kava_free(w2_shm);
+    
     cuMemFree(d_inputs);
     cuMemFree(d_w1);
     cuMemFree(d_b1);

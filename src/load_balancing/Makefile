@@ -1,7 +1,7 @@
 obj-m += mllb_kern.o
 mllb_kern-objs := consts.o helpers.o main.o
 
-ccflags-y += -I$(src)/../kapi/include -I$(KAVA_ROOT)/include -O3
+ccflags-y += -I$(src)/../kapi/include -I$(KAVA_ROOT)/include -O3 -march=native -mhard-float -msse
 
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kshm/Module.symvers
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kernel/Module.symvers

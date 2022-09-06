@@ -159,7 +159,7 @@ CUresult CUDAAPI cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, size_t ByteC
 
     s64 offset = kava_shm_offset(dstHost);
     if (offset < 0) {
-        pr_err("dstHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
+        pr_err("dstHost in cuMemcpyDtoH is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
     cmd.dstHost = (void*)offset;
@@ -217,7 +217,7 @@ CUresult CUDAAPI cuMemcpyHtoDAsync(CUdeviceptr dstDevice, const void *srcHost, s
     };
     s64 offset = kava_shm_offset(srcHost);
     if (offset < 0) {
-        pr_err("srcHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
+        pr_err("srcHost in cuMemcpyHtoDAsync is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
     cmd.srcHost = (void*)offset;
@@ -236,7 +236,7 @@ CUresult CUDAAPI cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, size_t 
     
     s64 offset = kava_shm_offset(dstHost);
     if (offset < 0) {
-        pr_err("dstHost in cuMemcpyHtoD is NOT a kshm pointer (use kava_alloc to fix it)\n");
+        pr_err("dstHost in cuMemcpyDtoHAsync is NOT a kshm pointer (use kava_alloc to fix it)\n");
         return CUDA_ERROR_INVALID_VALUE;
     }
     cmd.dstHost = (void*)offset;

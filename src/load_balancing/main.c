@@ -1,34 +1,18 @@
+#include "helpers.h"
 #ifdef __KERNEL__
 #include <linux/delay.h>
 #include <linux/ktime.h>
+#include <linux/vmalloc.h>
 #include <asm/fpu/api.h>
-#define LLU "%llu"
-#define LLD "%lld"
 #else
 //if uspace
-#define LLU "%lu"
-#define LLD "%ld"
-#define vmalloc(X) malloc(X)
-#define vfree(X) free((void*)X)
-#define kava_free(X) free(X)
-#define kava_alloc(X) malloc(X)
-#define u64 uint64_t
-#define usleep_range(X,Y) sleep(X/1000000)
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/time.h>
-u64 get_tsns() {
-    struct timeval current_time;
-    gettimeofday(&current_time, NULL);
-    return current_time.tv_sec*1000000000 + current_time.tv_usec*1000;
-}
-#define ktime_get_ns() get_tsns()
-#define kernel_fpu_begin() (void)0
-#define kernel_fpu_end() (void)0
 #endif
 
-#include "helpers.h"
+
 #include "consts.h"
 
 static char *cubin_path = "mllb.cubin";
@@ -112,7 +96,7 @@ static int run_cpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
     int rand_counter = 0;
     u64 t_start, t_stop;
     u64* total_run_times;
-    u64 avg, best;
+    u64 avg;
 
     struct matrix *inputs = (struct matrix*) vmalloc(max_batch*sizeof(struct matrix));
     for (j = 0 ; j < max_batch ; j++) {
@@ -169,6 +153,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
     u64* total_run_times;
     u64 avg, avg_total;
     u64 best, best_total;
+    float* outs;
 
     //init cuda context
     CUcontext cuContext;
@@ -193,7 +178,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
     for (i = 0 ; i < n_batches ; i++) {
         batch_size = batch_sizes[i];
         gpu_setup(batch_size, &d_inputs, &d_w1, &d_b1, &d_w2, &d_results);
-        float* outs = vmalloc(batch_size * sizeof(float));
+        outs = kava_alloc(batch_size * sizeof(float));
 
         //warmup
         gpu_setup_inputs(d_inputs, linear_inputs, batch_size);
@@ -241,7 +226,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
         //PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
         PRINT(V_INFO, "%d, "LLD", "LLD"\n", batch_size, avg, avg_total);
         gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
-        vfree(outs);
+        kava_free(outs);
 
     }
 
@@ -253,15 +238,16 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
 
 static int run(void) {
     //these are configurable
-    //int batch_sizes[] = {512};
-    //int n_batches = 1;
-    int batch_sizes[] = {16, 1,2,4,8,16,32,64, 128, 256, 512,1024};
-    int n_batches = 12;
+    int batch_sizes[] = {512};
+    int n_batches = 1;
+    //int batch_sizes[] = {16, 1,2,4,8,16,32,64, 128, 256, 512,1024};
+    //int n_batches = 12;
+    
     const int max_batch = 1024;
     int RUNS = 3;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
 
-    run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
+    //run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
     run_gpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
 
     return 0;

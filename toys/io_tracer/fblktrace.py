@@ -135,7 +135,7 @@ int ext4_pf(struct pt_regs *ctx, struct vm_fault *vmf)
 b = BPF(text=bpf_text)
 
 b.attach_kprobe(event="ext4_mpage_readpages", fn_name="fblktrace_read_pages");
-#b.attach_kretprobe(event="ext4_file_open",  fn_name="fblktrace_ext4_file_open");
+b.attach_kretprobe(event="ext4_file_open",  fn_name="fblktrace_ext4_file_open");
 
 #b.attach_kprobe(event="ext4_file_read_iter", fn_name="ext4_file_read")
 #b.attach_kprobe(event="ext4_readpage", fn_name="ext4_readpage")
