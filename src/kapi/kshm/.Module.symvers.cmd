@@ -1,1 +1,1 @@
-cmd_/home/hfingler/hf-HACK/src/kapi/kshm/Module.symvers := sed 's/ko$$/o/' /home/hfingler/hf-HACK/src/kapi/kshm/modules.order | scripts/mod/modpost     -o /home/hfingler/hf-HACK/src/kapi/kshm/Module.symvers -e -i Module.symvers   -T -
+cmd_/home/hfingler/hf-HACK/src/kapi/kshm/Module.symvers := sed 's/\.ko$$/\.o/' /home/hfingler/hf-HACK/src/kapi/kshm/modules.order | scripts/mod/modpost    -o /home/hfingler/hf-HACK/src/kapi/kshm/Module.symvers -e -i Module.symvers   -T -

@@ -67,14 +67,14 @@ out:
 	return inode;
 }
 
-static void ecryptfs_i_callback(struct rcu_head *head)
-{
-	struct inode *inode = container_of(head, struct inode, i_rcu);
-	struct ecryptfs_inode_info *inode_info;
-	inode_info = ecryptfs_inode_to_private(inode);
+// static void ecryptfs_i_callback(struct rcu_head *head)
+// {
+// 	struct inode *inode = container_of(head, struct inode, i_rcu);
+// 	struct ecryptfs_inode_info *inode_info;
+// 	inode_info = ecryptfs_inode_to_private(inode);
 
-	kmem_cache_free(ecryptfs_inode_info_cache, inode_info);
-}
+// 	kmem_cache_free(ecryptfs_inode_info_cache, inode_info);
+// }
 
 static void ecryptfs_free_inode(struct inode *inode)
 {
