@@ -195,7 +195,7 @@ out:
  *
  * Returns zero on success; non-zero on error.
  */
-static int ecryptfs_readpage(struct file *file, struct page *page)
+int ecryptfs_readpage(struct file *file, struct page *page)
 {
 	struct ecryptfs_crypt_stat *crypt_stat =
 		&ecryptfs_inode_to_private(page->mapping->host)->crypt_stat;
@@ -561,10 +561,10 @@ static sector_t ecryptfs_bmap(struct address_space *mapping, sector_t block)
 }
 
 const struct address_space_operations ecryptfs_aops = {
-//#ifdef LAKE_ECRYPTFS
-//	.readpages = lake_ecryptfs_mmap_readpages,
+#ifdef LAKE_ECRYPTFS
+	.readpages = lake_ecryptfs_mmap_readpages,
 //    .writepages = lake_ecryptfs_mmap_writepages,
-//#endif
+#endif
 	.writepage = ecryptfs_writepage,
 	.readpage = ecryptfs_readpage,
 	.write_begin = ecryptfs_write_begin,
