@@ -207,7 +207,8 @@ static void lake_AES_GCM_compute_mac(struct AES_GCM_engine_ctx* d_engine, CUdevi
 void lake_AES_GCM_encrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
     //assert(size % AES_BLOCKLEN == 0);
     lake_AES_GCM_xcrypt(d_engine, d_dst, d_src, size);
-    lake_AES_GCM_compute_mac(d_engine, d_dst+size, d_src, size);
+    //TODO: enable MAC. using it as is breaks correctness
+    //lake_AES_GCM_compute_mac(d_engine, d_dst+size, d_src, size);
 }
 
 void lake_AES_GCM_alloc_pages(CUdeviceptr* src, u32 size) {
@@ -242,7 +243,8 @@ void lake_AES_GCM_copy_from_device(u8* buf, CUdeviceptr src, u32 size) {
 
 void lake_AES_GCM_decrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
     //assert(size % AES_BLOCKLEN == 0);
-    lake_AES_GCM_compute_mac(d_engine, d_dst, d_src, size);
+    //TODO: enable MAC. using it as is breaks correctness
+    //lake_AES_GCM_compute_mac(d_engine, d_dst, d_src, size);
     // TODO verify mac for i in crypto_aead_aes256gcm_ABYTES: (dst == src[size])
     lake_AES_GCM_xcrypt(d_engine, d_dst, d_src, size);
 }
