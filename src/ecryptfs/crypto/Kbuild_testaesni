@@ -1,2 +1,6 @@
-obj-m += test_aesni.o
-test_aesni-objs := test_kernel_aesni.o
+ccflags-y +=  -I$(src)/../../kapi/include
+obj-m += test_aesni_crypto.o
+test_aesni_crypto-objs := test_kernel_aesni.o
+
+KBUILD_EXTRA_SYMBOLS += $(src)/../../kapi/kernel/Module.symvers
+KBUILD_EXTRA_SYMBOLS += $(src)/../../kapi/kshm/Module.symvers

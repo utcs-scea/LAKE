@@ -6,6 +6,8 @@
 #include <linux/module.h>
 #else
 #include <stdio.h>
+#include <string.h>
+#define PAGE_SIZE 4096u
 #endif
 
 #include <cuda.h>
@@ -14,6 +16,8 @@
 #define PRINT(...) do { printk(KERN_ERR __VA_ARGS__); } while (0)
 #else
 #define PRINT(...) do { printf(__VA_ARGS__); } while (0)
+#define kava_alloc(...) malloc(__VA_ARGS__)
+#define kava_free(...) free(__VA_ARGS__)
 #endif
 
 typedef unsigned long long int u64;

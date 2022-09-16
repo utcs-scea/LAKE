@@ -5,6 +5,7 @@
 #include <linux/module.h>
 #include <linux/crypto.h>
 #include <linux/completion.h>
+#include "lake_shm.h"
 #else
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,7 +50,7 @@ static int ecryptfs_test_init(void)
         return -2;
     }
 
-    crypto_aead_set_flags(aead_tfm, CRYPTO_TFM_REQ_WEAK_KEY);
+    crypto_aead_set_flags(aead_tfm, CRYPTO_TFM_REQ_FORBID_WEAK_KEYS);
 
 	aead_req = aead_request_alloc(aead_tfm, GFP_NOFS);
     if (!aead_req) {
