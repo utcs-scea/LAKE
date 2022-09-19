@@ -146,5 +146,6 @@ dmypy.json
 *.mod
 *.mod.cmd
 */modules.order
+modules.order
 */uspace
 src/kapi/uspace/lake_uspace
