@@ -7,10 +7,10 @@ LDFLAGS       := -L$(CUDA_LIB_PATH) -lcuda
 
 HOST=$(shell hostname)
 
-ifeq ($(HOSTNAME), hackvm)
-	GENCODE_FLAGS   := -gencode arch=compute_61,code=sm_61
-else
+ifeq ($(HOSTNAME), santacruz)
 	GENCODE_FLAGS   := -gencode arch=compute_80,code=sm_80
+else
+	GENCODE_FLAGS   := -gencode arch=compute_61,code=sm_61
 endif
 
 gcm_kernels.cubin: gcm_kernels.cu

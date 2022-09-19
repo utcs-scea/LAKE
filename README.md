@@ -41,3 +41,31 @@ then
 Add `-g` to use a GPU.
 
 
+
+
+
+## eBPF
+
+sudo apt-get install libreadline-dev binutils-dev clang-11
+Go to linux-5.15.65/tools/bpf, make and make install 
+
+Clang might not be in path, do something like 
+sudo ln -s /usr/bin/clang-11 /usr/bin/clang
+
+wget https://github.com/libbpf/libbpf/archive/refs/tags/v1.0.0.tar.gz
+untar, cd src, make
+
+sudo mount -t tracefs nodev /sys/kernel/tracing
+
+sudo apt-get install libelf-dev libdwarf-dev # some dependency install
+git clone https://github.com/acmel/dwarves.git
+cd dwarves/
+git checkout tags/v1.19 -b V1.19-branch # take the latest version
+mkdir build
+cd build
+cmake -D__LIB=lib ..
+sudo make install
+sudo /sbin/ldconfig -v
+
+compile kernel, boot into it
+

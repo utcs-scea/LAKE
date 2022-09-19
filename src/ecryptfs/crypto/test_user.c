@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-u32 PAGE_SIZE = 4096;
 u32 n = 16;
 
 void gen_pages(char* buf, int n) {

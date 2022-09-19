@@ -3,6 +3,8 @@
 #ifdef __KERNEL__
 #include <linux/err.h>
 #include <linux/kernel.h>
+#include <linux/vmalloc.h>
+#include "lake_shm.h"
 #else
 #include <errno.h>
 #endif
@@ -54,6 +56,8 @@ static u8 Rcon_host[11] = {
 
 //TODO: init nonce, figure out when to call next_nonce
 void lake_AES_GCM_init(struct AES_GCM_engine_ctx* d_engine) {
+    u8* kbuf = kava_alloc(SBOX_SIZE);
+
     gpuErrchk(cuMemAlloc(&d_engine->sbox, SBOX_SIZE));
     gpuErrchk(cuMemAlloc(&d_engine->rsbox, SBOX_SIZE));
     gpuErrchk(cuMemAlloc(&d_engine->Rcon,  RCON_SIZE));
@@ -73,9 +77,18 @@ void lake_AES_GCM_init(struct AES_GCM_engine_ctx* d_engine) {
     gpuErrchk(cuMemAlloc(&d_engine->buffer1, AESGCM_BLOCK_SIZE * AES_GCM_STEP * AES_GCM_STEP));
     gpuErrchk(cuMemAlloc(&d_engine->buffer2, AESGCM_BLOCK_SIZE * AES_GCM_STEP));
 
-    gpuErrchk(cuMemcpyHtoD(d_engine->sbox, sbox_host, SBOX_SIZE));
-    gpuErrchk(cuMemcpyHtoD(d_engine->rsbox, rsbox_host, SBOX_SIZE));
-    gpuErrchk(cuMemcpyHtoD(d_engine->Rcon, Rcon_host, RCON_SIZE));
+    memcpy(kbuf, sbox_host, SBOX_SIZE);
+    gpuErrchk(cuMemcpyHtoD(d_engine->sbox, kbuf, SBOX_SIZE));
+    //gpuErrchk(cuMemcpyHtoD(d_engine->sbox, sbox_host, SBOX_SIZE));
+
+    memcpy(kbuf, rsbox_host, SBOX_SIZE);
+    gpuErrchk(cuMemcpyHtoD(d_engine->rsbox, kbuf, SBOX_SIZE));
+    //gpuErrchk(cuMemcpyHtoD(d_engine->rsbox, rsbox_host, SBOX_SIZE));
+
+    memcpy(kbuf, Rcon_host, RCON_SIZE);
+    gpuErrchk(cuMemcpyHtoD(d_engine->Rcon, kbuf, RCON_SIZE));
+    //gpuErrchk(cuMemcpyHtoD(d_engine->Rcon, Rcon_host, RCON_SIZE));
+    kava_free(kbuf);
 }
 
 void lake_AES_GCM_destroy(struct AES_GCM_engine_ctx* d_engine) {
@@ -102,6 +115,7 @@ void lake_AES_GCM_destroy(struct AES_GCM_engine_ctx* d_engine) {
 void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, const u8* key) {
     u8* nonce_host;
     int i = 0;
+    u8* kbuf = kava_alloc(AESGCM_KEYLEN);
 
     void *args[] = { &d_engine->sbox, &d_engine->Rcon, &d_engine->key, &d_engine->aes_roundkey};
     void *args2[] = { &d_engine->sbox, &d_engine->aes_roundkey, &d_engine->gcm_h};
@@ -119,16 +133,29 @@ void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, const u8* key) {
         nonce_host[i] = i;
 
     gpuErrchk(cuMemAlloc((CUdeviceptr*)&d_engine->nonce_device, 12));
-    gpuErrchk(cuMemcpyHtoD(d_engine->nonce_device, nonce_host, crypto_aead_aes256gcm_NPUBBYTES));
-    gpuErrchk(cuMemcpyHtoD(d_engine->key, key, AESGCM_KEYLEN));
+
+    memcpy(kbuf, nonce_host, crypto_aead_aes256gcm_NPUBBYTES);
+    gpuErrchk(cuMemcpyHtoD(d_engine->nonce_device, kbuf, crypto_aead_aes256gcm_NPUBBYTES));
+    //gpuErrchk(cuMemcpyHtoD(d_engine->nonce_device, nonce_host, crypto_aead_aes256gcm_NPUBBYTES));
+
+    memcpy(kbuf, key, AESGCM_KEYLEN);
+    gpuErrchk(cuMemcpyHtoD(d_engine->key, kbuf, AESGCM_KEYLEN));
+    //gpuErrchk(cuMemcpyHtoD(d_engine->key, key, AESGCM_KEYLEN));
 
     for(i = 0 ; i < 16 ; i++)
         nonce_host[i] = 0;
-    gpuErrchk(cuMemcpyHtoD(d_engine->gcm_h, nonce_host, 16));
+
+    memcpy(kbuf, nonce_host, 16);
+    gpuErrchk(cuMemcpyHtoD(d_engine->gcm_h, kbuf, 16));
+    //gpuErrchk(cuMemcpyHtoD(d_engine->gcm_h, nonce_host, 16));
 
     cuLaunchKernel(d_engine->key_expansion_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args, 0);
     cuLaunchKernel(d_engine->encrypt_oneblock_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args2, 0);
-    cuMemcpyHtoD(d_engine->gf_last4, gf_last4_host, AESGCM_BLOCK_SIZE);
+
+    memcpy(kbuf, gf_last4_host, AESGCM_BLOCK_SIZE);
+    cuMemcpyHtoD(d_engine->gf_last4, kbuf, AESGCM_BLOCK_SIZE);
+    //cuMemcpyHtoD(d_engine->gf_last4, gf_last4_host, AESGCM_BLOCK_SIZE);
+
     cuLaunchKernel(d_engine->setup_table_kernel, 1, 1, 1, 1, 1, 1, 0, 0, args3, 0);
     gpuErrchk(cuCtxSynchronize());
 
@@ -137,6 +164,7 @@ void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, const u8* key) {
     #else
         free(nonce_host);
     #endif
+    kava_free(kbuf);
 }
 
 static void lake_AES_GCM_xcrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
@@ -179,7 +207,8 @@ static void lake_AES_GCM_compute_mac(struct AES_GCM_engine_ctx* d_engine, CUdevi
 void lake_AES_GCM_encrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
     //assert(size % AES_BLOCKLEN == 0);
     lake_AES_GCM_xcrypt(d_engine, d_dst, d_src, size);
-    lake_AES_GCM_compute_mac(d_engine, d_dst+size, d_src, size);
+    //TODO: enable MAC. using it as is breaks correctness
+    //lake_AES_GCM_compute_mac(d_engine, d_dst+size, d_src, size);
 }
 
 void lake_AES_GCM_alloc_pages(CUdeviceptr* src, u32 size) {
@@ -214,7 +243,8 @@ void lake_AES_GCM_copy_from_device(u8* buf, CUdeviceptr src, u32 size) {
 
 void lake_AES_GCM_decrypt(struct AES_GCM_engine_ctx* d_engine, CUdeviceptr d_dst, CUdeviceptr d_src, u32 size) {
     //assert(size % AES_BLOCKLEN == 0);
-    lake_AES_GCM_compute_mac(d_engine, d_dst, d_src, size);
+    //TODO: enable MAC. using it as is breaks correctness
+    //lake_AES_GCM_compute_mac(d_engine, d_dst, d_src, size);
     // TODO verify mac for i in crypto_aead_aes256gcm_ABYTES: (dst == src[size])
     lake_AES_GCM_xcrypt(d_engine, d_dst, d_src, size);
 }

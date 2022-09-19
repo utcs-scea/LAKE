@@ -16,7 +16,7 @@
 #include <linux/scatterlist.h>
 #include <crypto/gcm.h>
 #include <crypto/hash.h>
-#include "internal.h"
+//#include "internal.h"
 #include <linux/err.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -25,7 +25,7 @@
 #include <linux/delay.h>
 #include <linux/fs.h> 
 #include <asm/uaccess.h>
-
+#include "lake_shm.h"
 #include "gcm_cuda.h"
 
 static char *cubin_path = "gcm_kernels.cubin";
@@ -143,8 +143,8 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 		lake_AES_GCM_alloc_pages(&d_src, lake_n*PAGE_SIZE);
 		lake_AES_GCM_alloc_pages(&d_dst, lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
 		//TODO: switch between these
-		//pages_buf = (char *)kava_alloc(nbytes);
-		pages_buf = vmalloc(lake_n*PAGE_SIZE);
+		pages_buf = (char *)kava_alloc(lake_n*PAGE_SIZE);
+		//pages_buf = vmalloc(lake_n*PAGE_SIZE);
 
 		for(i = aesni_n ; i < npages ; i++) {
 			buf = sg_virt(&src_sg[i]);
@@ -203,7 +203,8 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 
 		lake_AES_GCM_free(d_src);
 		lake_AES_GCM_free(d_dst);
-		vfree(pages_buf);
+		//vfree(pages_buf);
+		kava_free(pages_buf);
 	}
 
 	if (aesni_n > 0) {
@@ -269,8 +270,8 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 		lake_AES_GCM_alloc_pages(&d_src, lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
 		lake_AES_GCM_alloc_pages(&d_dst, lake_n*PAGE_SIZE);
 		//TODO: switch between these
-		//pages_buf = (char *)kava_alloc(nbytes);
-		pages_buf = vmalloc(lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+		pages_buf = (char *)kava_alloc(lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
+		//pages_buf = vmalloc(lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
 		if(!pages_buf) {
 			printk(KERN_ERR "decrypt: error allocating %ld bytes\n", 
 				lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
@@ -329,7 +330,8 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 			memcpy(buf, pages_buf+(count_dst * PAGE_SIZE), PAGE_SIZE);
 			count_dst++;
 		}
-		vfree(pages_buf);
+		//vfree(pages_buf);
+		kava_free(pages_buf);
 		lake_AES_GCM_free(d_src);
 		lake_AES_GCM_free(d_dst);
 	}
