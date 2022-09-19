@@ -138,6 +138,7 @@ dmypy.json
 *.symvers
 *.ko
 *.o
+*.o.d
 *.cubin
 *.order.cmd
 *.symvers.cmd
