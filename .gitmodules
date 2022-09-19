@@ -1,6 +1,0 @@
-[submodule "vendor/MLLB"]
-	path = vendor/MLLB
-	url = https://github.com/Keitokuch/MLLB
-[submodule "vendor/coeus-sim"]
-	path = vendor/coeus-sim
-	url = https://github.com/GTkernel/coeus-sim.git
