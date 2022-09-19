@@ -1,4 +1,4 @@
 all:
-	cd uspace ; make
-	cd kshm ; make
-	cd kernel ; make
+	cd uspace ; make clean ; make
+	cd kshm ; make clean ; make 
+	cd kernel ; make clean ; make
