@@ -65,6 +65,18 @@ static void setup_gpu(int batch_size) {
     weight_1_T_ent = &weight_i_1[0][0];
     bias_0_ent = bias_i_0;
     bias_1_ent = bias_i_1;
+
+    long *kbuf_weight_0_T_ent = (long*) kava_alloc(256*31*sizeof(long));
+    memcpy(kbuf_weight_0_T_ent, weight_0_T_ent, 256*31*sizeof(long));
+
+    long *kbuf_weight_1_T_ent = (long*) kava_alloc(256*2*sizeof(long));
+    memcpy(kbuf_weight_1_T_ent, weight_1_T_ent, 256*2*sizeof(long));
+
+    long *kbuf_bias_0_ent = (long*) kava_alloc(256*sizeof(long));
+    memcpy(kbuf_bias_0_ent, bias_0_ent, 256*sizeof(long));
+
+    long *kbuf_bias_1_ent = (long*) kava_alloc(2*sizeof(long));
+    memcpy(kbuf_bias_1_ent, bias_1_ent, 2*sizeof(long));
 	
 	check_error(cuMemAlloc((CUdeviceptr*) &d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
@@ -76,10 +88,15 @@ static void setup_gpu(int batch_size) {
     check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * batch_size *32), "cuMemAlloc ", __LINE__);
 
-    check_error(cuMemcpyHtoD(d_weight_0_T_ent, weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_weight_1_T_ent, weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_bias_0_ent, bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_bias_1_ent, bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(d_weight_0_T_ent, kbuf_weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(d_weight_1_T_ent, kbuf_weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(d_bias_0_ent, kbuf_bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(d_bias_1_ent, kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
+
+    kava_free(kbuf_weight_0_T_ent);
+    kava_free(kbuf_weight_1_T_ent);
+    kava_free(kbuf_bias_0_ent);
+    kava_free(kbuf_bias_1_ent);
 
     final_res_i = (long*) kava_alloc(batch_size*64*sizeof(long));
     check_malloc(final_res_i, "check_malloc", __LINE__);
