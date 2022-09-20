@@ -6,13 +6,13 @@ hello_kern-objs := hello.o
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kshm/Module.symvers
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kernel/Module.symvers
 
-all:
+all: uspace
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
-	make -f Makefile.cubin
+	rm -f hello.cubin
+	make -f Makefile_cubin
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
 
-
-uspace:
+uspace: uspace.c
 	nvcc uspace.c -lcuda -o uspace

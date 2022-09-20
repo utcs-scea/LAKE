@@ -85,16 +85,15 @@ static int run_hello(void)
 	cuMemFree(d_p1);
 	kava_free(val);
 
-	for (i = 0 ; i < 20 ; i++) {
-		hello_test_kfunc_trigger();
-		msleep(1000);
-	}
+	// for (i = 0 ; i < 20 ; i++) {
+	// 	hello_test_kfunc_trigger();
+	// 	msleep(1000);
+	// }
 
 
  	// check_error(cuCtxDestroy(ctx), "cuCtxDestroy", __LINE__);
 	return 0;
 }
-
 
 // BTF_SET_START(hello_test_kfunc_ids)
 // BTF_ID(func, hello_test_kfunc)
@@ -104,7 +103,6 @@ static int run_hello(void)
 // {
 // 	return btf_id_set_contains(&hello_test_kfunc_ids, kfunc_id);
 // }
-
 
 
 /**
@@ -117,14 +115,13 @@ static int __init hello_init(void)
 
 static void __exit hello_fini(void)
 {
-
 }
 
 module_init(hello_init);
 module_exit(hello_fini);
 
 MODULE_AUTHOR("Henrique Fingler");
-MODULE_DESCRIPTION("Kernel module of a hello program in kava");
+MODULE_DESCRIPTION("Example kernel module of using CUDA in lake");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(__stringify(1) "."
                __stringify(0) "."

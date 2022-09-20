@@ -46,7 +46,7 @@ static int run_hello(void)
 
 	check_error(cuCtxCreate(&ctx, 0, dev), "cuCtxCreate", __LINE__);
 
-    check_error(cuModuleLoad(&mod, "/home/hfingler/hf-HACK/src/hello_driver/hello.cubin"), "cuModuleLoad", __LINE__);
+    check_error(cuModuleLoad(&mod, "/home/hfingler/HACK/src/hello_driver/hello.cubin"), "cuModuleLoad", __LINE__);
     check_error(cuModuleGetFunction(&hello_kernel, mod, "_Z12hello_kernelPii"),
             "cuModuleGetFunction", __LINE__);
 
