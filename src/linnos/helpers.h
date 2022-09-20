@@ -33,13 +33,9 @@ static inline CUresult check_error(CUresult error, const char* error_str, int li
 {
 	if (error != CUDA_SUCCESS) {
         #ifdef __KERNEL__
-        const char *error_str;
-        cuGetErrorString(error, &error_str);
-		printk("ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
-        if (error_str)
-            kfree(error_str);
+        printk(KERN_ERR "ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
         #else
-        printf("ERROR: %d returned error (line %d)\n", error, line);
+        printf("ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
         #endif
 	}
 	return error;
