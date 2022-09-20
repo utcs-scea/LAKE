@@ -186,7 +186,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
         cuCtxSynchronize();
         gpu_inference_many(&batch_mllb_kernel, batch_size, d_inputs, d_w1, d_b1, d_w2, *b2, d_results, 0);
         cuCtxSynchronize();
-        usleep_range(250, 1000);
+        usleep_range(1000, 2000);
 
         //do the entire algorithm
         for (j = 0 ; j < RUNS ; j++) {
@@ -197,7 +197,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
             t_stop = ktime_get_ns();
 
             total_run_times[j] = (t_stop - t_start);
-            usleep_range(250, 500);
+            usleep_range(1000, 2000);
         }
 
         //do just computation
@@ -207,7 +207,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
             c_stop = ktime_get_ns();
 
             comp_run_times[j] = (c_stop - c_start);
-            usleep_range(250, 1000);
+            usleep_range(1000, 2000);
         }
 
         avg = 0; avg_total = 0;
@@ -238,16 +238,16 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
 
 static int run(void) {
     //these are configurable
-    int batch_sizes[] = {512};
-    int n_batches = 1;
-    //int batch_sizes[] = {16, 1,2,4,8,16,32,64, 128, 256, 512,1024};
-    //int n_batches = 12;
+    //int batch_sizes[] = {512};
+    //int n_batches = 1;
+    int batch_sizes[] = {16, 1,2,4,8,16,32,64, 128, 256, 512,1024};
+    int n_batches = 12;
     
     const int max_batch = 1024;
-    int RUNS = 3;
+    int RUNS = 5;
     int rand_floats_as_int[] = {1036831949, 1045220557, 1050253722, -1110651699};
 
-    //run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
+    run_cpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
     run_gpu(batch_sizes, n_batches, max_batch, RUNS, rand_floats_as_int);
 
     return 0;
