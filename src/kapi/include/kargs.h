@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdint.h>
 #define PRINT(...) printf (__VA_ARGS__)
 typedef unsigned char u8;
 #endif

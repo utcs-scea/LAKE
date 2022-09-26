@@ -2,8 +2,10 @@
 
 ## Install BPF and other dependencies
 
-
+Start with Ubuntu 20 or 22. We assume gcc is installed.
 ```
+sudo apt-get update
+sudo apt-get install build-essential tmux git pkg-config
 sudo apt-get install libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm zstd
 sudo apt-get install libreadline-dev binutils-dev
 sudo apt-get install libelf-dev libdwarf-dev libdw-dev
@@ -55,7 +57,7 @@ Clang might not be in path, if so, do something like
 
 Go to `linux-5.15.65/tools/bpf` (the linux source downloaded in the previous stap), and run `make && sudo make install`
 
-Install libbpf running:
+Install libbpf by running:
 
 ```
 wget https://github.com/libbpf/libbpf/archive/refs/tags/v1.0.0.tar.gz
