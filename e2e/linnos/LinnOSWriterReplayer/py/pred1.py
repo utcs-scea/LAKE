@@ -3,13 +3,16 @@ import numpy as np
 import os
 from sklearn.utils import class_weight
 from keras import regularizers
-from keras.models import Sequential
-from keras.layers import Dense
+# from keras.models import Sequential
+# from keras.layers import Dense
 from itertools import product
 import keras.backend as K
 from functools import partial
-from keras import utils
+#from keras import utils
 import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from keras.layers import Dense
 from sklearn.metrics import classification_report
 import sys
 
@@ -52,8 +55,14 @@ train_ytst = train_y[num_train_entries:]
 train_ytrn = np.array(train_ytrn)
 train_ytst = np.array(train_ytst)
 
+print(type(train_ytrn))
+print(type(train_Xtrn))
+
 #-------------------------Custom Loss--------------------------
 def w_categorical_crossentropy(y_true, y_pred, weights):
+    y_true = tf.cast(y_true, tf.float32)
+    y_pred = tf.cast(y_pred, tf.float32)
+    weights = weights.astype(float)
     nb_cl = len(weights)
     final_mask = K.zeros_like(y_pred[:, 0])
     y_pred_max = K.max(y_pred, axis=1)
@@ -80,7 +89,8 @@ for i in range(50):
     print('Iteration '+str(i)+'\n')
     print('On test dataset:\n')
     train_Y_test = np.argmax(train_ytst, axis=1) # Convert one-hot to index
-    train_y_pred = model.predict_classes(train_Xtst)
+    train_y_pred = np.argmax(model.predict(train_Xtst), axis=-1)
+    #model.predict_classes(train_Xtst)
     print(classification_report(train_Y_test, train_y_pred, digits=4))
  
     count = 0
