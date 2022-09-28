@@ -11,7 +11,7 @@ sudo apt-get install libreadline-dev binutils-dev libnl-3-dev
 sudo apt-get install libelf-dev libdwarf-dev libdw-dev
 git clone https://github.com/acmel/dwarves.git 
 cd dwarves/
-git checkout tags/v1.24
+git checkout tags/v1.22
 mkdir build
 cd build
 cmake -D__LIB=lib ..
@@ -57,8 +57,10 @@ Reboot and make sure the kernel is right by running `uname -r`
 
 ## More BPF stuff
 
-Clang might not be in path, if so, do something like 
-`sudo ln -s /usr/bin/clang-11 /usr/bin/clang`
+Clang might not be in path or have its name versioned. If this is true, run the script in scripts/create_llvm_links.sh to rename.
+For example, if you have llvm-config-10 and clang-10 but not llvm-config and clang, run:
+`create_llvm_links.sh 10 1`
+
 
 Go to `linux-5.15.65/tools/bpf` (the linux source downloaded in the previous stap), and run `make && sudo make install`
 
@@ -71,8 +73,6 @@ cd libbpf-1.0.0/src
 make && sudo make install
 cd ../.. ; rm -rf libbpf-1.0.0
 ```
-If `/sys/kernel/tracing` is not mounted, run:
-`sudo mount -t tracefs nodev /sys/kernel/tracing`
 
 
 ## Install CUDA

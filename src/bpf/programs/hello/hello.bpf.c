@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0 OR BSD-3-Clause
 /* Copyright (c) 2020 Facebook */
-#include <linux/bpf.h>
+#include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
-#include "bpf_helpers.h"
+#include <bpf/bpf_core_read.h>
+#include <bpf/bpf_tracing.h>
 
 char LICENSE[] SEC("license") = "Dual BSD/GPL";
 
 int my_pid = 0;
 
-extern __u64 bpf_kfunc_call_test1(struct sock *sk, __u32 a, __u64 b,
-				  __u32 c, __u64 d) __ksym;
+extern u64 bpf_kfunc_call_test1(struct sock *sk, u32 a, u64 b, u32 c, u64 d) __ksym;
 
 SEC("tp/raw_syscalls/sys_enter")
 int handle_tp(void *ctx)

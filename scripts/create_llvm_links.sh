@@ -28,7 +28,8 @@ function register_clang_version {
         --slave   /usr/bin/llvm-size         llvm-size        /usr/bin/llvm-size-${version} \
         --slave   /usr/bin/llvm-stress       llvm-stress      /usr/bin/llvm-stress-${version} \
         --slave   /usr/bin/llvm-symbolizer   llvm-symbolizer  /usr/bin/llvm-symbolizer-${version} \
-        --slave   /usr/bin/llvm-tblgen       llvm-tblgen      /usr/bin/llvm-tblgen-${version}
+        --slave   /usr/bin/llvm-tblgen       llvm-tblgen      /usr/bin/llvm-tblgen-${version} \
+        --slave   /usr/bin/llvm-strip       llvm-strip      /usr/bin/llvm-strip-${version}
 
         update-alternatives \
         --install /usr/bin/clang                 clang                 /usr/bin/clang-${version} ${priority} \
