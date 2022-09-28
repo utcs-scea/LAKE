@@ -5,13 +5,13 @@
 Start with Ubuntu 20 or 22. We assume gcc is installed.
 ```
 sudo apt-get update
-sudo apt-get install build-essential tmux git pkg-config
-sudo apt-get install libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf llvm zstd
-sudo apt-get install libreadline-dev binutils-dev
+sudo apt-get -y install build-essential tmux git pkg-config cmake zsh
+sudo apt-get install libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libiberty-dev autoconf llvm zstd
+sudo apt-get install libreadline-dev binutils-dev libnl-3-dev
 sudo apt-get install libelf-dev libdwarf-dev libdw-dev
 git clone https://github.com/acmel/dwarves.git 
 cd dwarves/
-git checkout tags/v1.19 -b V1.19-branch
+git checkout tags/v1.24
 mkdir build
 cd build
 cmake -D__LIB=lib ..
@@ -23,11 +23,16 @@ rm -rf dwarves
 
 ## Compile kernel
 
-Download the linux kernel (`download.sh`), untar it, cd into the linux dir
+Download the linux kernel 
+```
+wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.15.68.tar.xz
+tar xf linux-5.15.68.tar.xz
+cd linux-5.15.68/
+```
 Manually copy a config or run `cp /boot/config-$(uname -r) .config`
-Copy `set_configs.sh` into linux dir and run it
-Compile with `make -j$(nproc)`
-Then install
+Copy `linux/set_configs.sh` into linux-5.15.68 dir and run it
+Compile with `make -j$(nproc)` (you might have to press enter once)
+Then install:
 ```
 sudo make INSTALL_MOD_STRIP=1 modules_install
 sudo make install
@@ -43,7 +48,7 @@ Open `/etc/default/grub` and at the top add a default option, using the string a
 `GRUB_DEFAULT="gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-5.15.68-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1"`
 
 Since you are here, add to `GRUB_CMDLINE_LINUX_DEFAULT` (create if it doesnt exist):
-`cma=128M@0-4G log_buf_len=16M"`
+`cma=128M@0-4G log_buf_len=16M`
 For example: `GRUB_CMDLINE_LINUX_DEFAULT="quiet splash cma=128M@0-4G log_buf_len=16M"`
 The last argument is optional for more log length
 
