@@ -80,27 +80,27 @@ static void setup_gpu(int batch_size) {
 
     float *w0, *w1, *w2, *b0, *b1, *b2;
 
-    w0 = w0_arr;
+    w0 = &w0_arr[0][0];
     float *kbfuf_w0 = (float*) kava_alloc(w0_rows * w0_cols * sizeof(float));
     memcpy(kbfuf_w0, w0, w0_rows * w0_cols * sizeof(float));
 
-    b0 = b0_arr;
+    b0 = &b0_arr[0][0];
     float *kbfuf_b0 = (float*) kava_alloc(b0_rows * b0_cols * sizeof(float));
     memcpy(kbfuf_b0, b0, b0_rows * b0_cols * sizeof(float));
 
-    w1 = w1_arr;
+    w1 = &w1_arr[0][0];
     float *kbfuf_w1 = (float*) kava_alloc(w1_rows * w1_cols * sizeof(float));
     memcpy(kbfuf_w1, w1, w1_rows * w1_cols * sizeof(float));
 
-    b1 = b1_arr;
+    b1 = &b1_arr[0][0];
     float *kbfuf_b1 = (float*) kava_alloc(b1_rows * b1_cols * sizeof(float));
     memcpy(kbfuf_b1, b1, b1_rows * b1_cols * sizeof(float));
 
-    w2 = w2_arr;
+    w2 = &w2_arr[0][0];
     float *kbfuf_w2 = (float*) kava_alloc(w2_rows * w2_cols * sizeof(float));
     memcpy(kbfuf_w2, w2, w2_rows * w2_cols * sizeof(float));
 
-    b2 = b2_arr;
+    b2 = &b2_arr[0][0];
     float *kbfuf_b2 = (float*) kava_alloc(b2_rows * b2_cols * sizeof(float));
     memcpy(kbfuf_b2, b2, b2_rows * b2_cols * sizeof(float));
 
