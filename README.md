@@ -6,7 +6,7 @@ Start with Ubuntu 20 or 22. We assume gcc is installed.
 ```
 sudo apt-get update
 sudo apt-get -y install build-essential tmux git pkg-config cmake zsh
-sudo apt-get install libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libiberty-dev autoconf llvm zstd
+sudo apt-get install libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libiberty-dev autoconf zstd
 sudo apt-get install libreadline-dev binutils-dev libnl-3-dev
 sudo apt-get install libelf-dev libdwarf-dev libdw-dev
 git clone https://github.com/acmel/dwarves.git 
@@ -57,9 +57,17 @@ Reboot and make sure the kernel is right by running `uname -r`
 
 ## More BPF stuff
 
+Install llvm and clang.
+Add to /etc/apt/sources.list:
+```
+deb http://archive.ubuntu.com/ubuntu bionic-updates main multiverse restricted universe
+deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-15 main
+deb-src http://apt.llvm.org/bionic/ llvm-toolchain-bionic-15 main
+```
+
 Clang might not be in path or have its name versioned. If this is true, run the script in scripts/create_llvm_links.sh to rename.
-For example, if you have llvm-config-10 and clang-10 but not llvm-config and clang, run:
-`create_llvm_links.sh 10 1`
+For example, if you have llvm-config-15 and clang-15 but not llvm-config and clang, run:
+`create_llvm_links.sh 15 1`
 
 
 Go to `linux-5.15.65/tools/bpf` (the linux source downloaded in the previous stap), and run `make && sudo make install`

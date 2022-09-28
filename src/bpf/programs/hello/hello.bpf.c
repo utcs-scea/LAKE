@@ -2,28 +2,42 @@
 /* Copyright (c) 2020 Facebook */
 #include "vmlinux.h"
 #include <bpf/bpf_helpers.h>
-#include <bpf/bpf_core_read.h>
-#include <bpf/bpf_tracing.h>
+//#include <bpf/bpf_core_read.h>
+//#include <bpf/bpf_tracing.h>
+//#include <linux/bpf.h>
 
-char LICENSE[] SEC("license") = "Dual BSD/GPL";
+//int my_pid = 0;
 
-int my_pid = 0;
-
-extern u64 bpf_kfunc_call_test1(struct sock *sk, u32 a, u64 b, u32 c, u64 d) __ksym;
+extern __u64 bpf_kfunc_call_test1(struct sock *sk, __u32 a, __u64 b,
+				  __u32 c, __u64 d) __ksym;
 
 SEC("tp/raw_syscalls/sys_enter")
 int handle_tp(void *ctx)
 {
-	int pid = bpf_get_current_pid_tgid() >> 32;
-	int r;
+	// int pid = bpf_get_current_pid_tgid() >> 32;
+	// int r;
 
-	if (pid != my_pid)
-		return 0;
+	// if (pid != my_pid)
+	// 	return 0;
 
-	bpf_printk("BPF triggered from PID %d.\n", pid);
+	// bpf_printk("BPF triggered from PID %d.\n", pid);
 
-	r = (__u32)bpf_kfunc_call_test1(0, 1, 2, 3, 4);
-	bpf_printk("bpf_kfunc_call_test1:  %d.\n", r);
+	__u64 a;
+   	a = bpf_kfunc_call_test1(0, 1, 2, 3, 4);
+   	bpf_printk("bpf_kfunc_call_test1:  %d.\n", a);
 
 	return 0;
 }
+
+// SEC("classifier")
+// int kfunc_call_test1(struct __sk_buff *skb)
+// {
+// 	struct sock *sk = 0;
+//   	__u64 a;
+//   	a = bpf_kfunc_call_test1(sk, 1, 2, 3, 4);
+//   	bpf_printk("bpf_kfunc_call_test1:  %d.\n", a);
+//   	return a;
+// }
+
+
+char _license[] SEC("license") = "GPL";

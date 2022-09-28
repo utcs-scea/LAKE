@@ -23,7 +23,7 @@ hello.bpf.o: hello.bpf.c vmlinux.h
 hello.skel.h: hello.bpf.o
 	$(BPFTOOL) gen skeleton $< > $@
 
-hello: hello.skel.h
+hello: hello.skel.h hello.c /usr/lib64/libbpf.a
 	$(CC) $(CFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -o $@
 
 clean:
