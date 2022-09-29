@@ -91,3 +91,12 @@ sudo sh ./cuda_11.7.1_515.65.01_linux.run
 ```
 Select driver and toolkit.
 Run `nvidia-smi` to make sure it's working.
+
+
+# eCryptfs
+
+Make sure you have python3.8 or above.
+If you don't install it by running the command below. We require pip for installing matplotlib, if you already have it, you don't need to install pip.
+```
+sudo apt install python3.10 python3-pip
+```

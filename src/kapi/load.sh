@@ -7,11 +7,10 @@ if [ "$EUID" -ne 0 ]
   exit
 fi
 
-
 # Trap Ctrl-C
 trap ctrl_c INT
 function ctrl_c() {
-    $ROOT/unload.sh
+    sudo $ROOT/unload.sh
 }
 
 cd ${ROOT}/kshm
@@ -21,6 +20,6 @@ cd ${ROOT}/kernel
 sudo insmod lake_kapi.ko
 
 cd ${ROOT}/uspace
-sudo ./lake_uspace
+sudo taskset 0x15 ./lake_uspace
 
 cd ${ROOT}

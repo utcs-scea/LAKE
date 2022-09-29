@@ -42,11 +42,11 @@ static int netlink_recv_msg(struct nl_msg *msg, void *arg) {
     struct nlmsghdr *nlh;
     nlh = nlmsg_hdr(msg);
     uint32_t seq = nlh->nlmsg_seq;
-    printf("received msg with seq %u\n", seq);
+    //printf("received msg with seq %u\n", seq);
     void* data = nlmsg_data(nlh);
     struct lake_cmd_ret cmd_ret;
     lake_handle_cmd(data, &cmd_ret);
-    printf("command handled, replying\n");
+    //printf("command handled, replying\n");
     lake_send_cmd(seq, &cmd_ret, sizeof(cmd_ret));
 }
 

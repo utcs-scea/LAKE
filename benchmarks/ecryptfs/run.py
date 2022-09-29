@@ -116,7 +116,6 @@ def umount(path):
     run(f"sudo rm -rf {path}_plain", shell=True, stdout=DEVNULL)
 
 def set_readhead(bsize):
-    #spray and pray
     run(f"echo {bsize} | sudo tee /sys/block/{DRIVE}/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
 
 def to_bytes(sz):
@@ -139,7 +138,7 @@ def reset():
 def run_benchmark(p, sz):
     bsize = sz.split()[-1]
     bsize = to_bytes(bsize)
-    set_readhead(bsize)
+    set_readhead(4*bsize)
 
     b = os.path.join(fileio_dir, "fs_bench")
     out = run(f"sudo {b} {p} {sz}", shell=True, capture_output=True, text=True)
@@ -168,12 +167,12 @@ def parse_out(out):
     return rd, wt
 
 tests = {
-    "cpu": {
-        "cryptomod_fn": load_cpu_crypto,
-        "fsmod_fn": load_ecryptfs,
-        "mount_fn": mount_gcm,
-        "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    },
+    # "cpu": {
+    #     "cryptomod_fn": load_cpu_crypto,
+    #     "fsmod_fn": load_ecryptfs,
+    #     "mount_fn": mount_gcm,
+    #     "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    # },
     "aesni": {
        "cryptomod_fn": load_aesni_crypto,
        "fsmod_fn": load_ecryptfs,
@@ -192,8 +191,14 @@ tests = {
     #     "mount_fn": mount_lakegcm,
     #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
     # },
-    # "lake75aesni": {
-    #     "cryptomod_fn": load_lake_crypto_75aesni,
+    "lake75aesni": {
+        "cryptomod_fn": load_lake_crypto_75aesni,
+        "fsmod_fn": load_lake_ecryptfs,
+        "mount_fn": mount_lakegcm,
+        "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    },
+    # "lake25aesni": {
+    #     "cryptomod_fn": load_lake_crypto_25aesni,
     #     "fsmod_fn": load_lake_ecryptfs,
     #     "mount_fn": mount_lakegcm,
     #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
