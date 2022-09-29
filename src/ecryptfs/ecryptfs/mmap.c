@@ -68,7 +68,7 @@ struct page *ecryptfs_get_locked_page(struct inode *inode, loff_t index)
 static int ecryptfs_writepage(struct page *page, struct writeback_control *wbc)
 {
 	int rc;
-	ecryptfs_printk(KERN_ERR, "~~~~ecryptfs_writepage\n");
+	lake_print(KERN_ERR, "~~~~ecryptfs_writepage\n");
 
 	rc = ecryptfs_encrypt_page(page);
 	if (rc) {
@@ -201,7 +201,7 @@ int ecryptfs_readpage(struct file *file, struct page *page)
 		&ecryptfs_inode_to_private(page->mapping->host)->crypt_stat;
 	int rc = 0;
 
-	ecryptfs_printk(KERN_ERR, "~~~~ecryptfs_readpage\n");
+	lake_print(KERN_ERR, "~~~~ecryptfs_readpage\n");
 
 	if (!crypt_stat || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)) {
 		rc = ecryptfs_read_lower_page_segment(page, page->index, 0,

@@ -57,6 +57,8 @@
 #define ECRYPTFS_MAX_NUM_USERS 32768
 #define ECRYPTFS_XATTR_NAME "user.ecryptfs"
 
+//#define LAKE_PRINT_DEBUG
+
 void ecryptfs_dump_auth_tok(struct ecryptfs_auth_tok *auth_tok);
 static inline void
 ecryptfs_to_hex(char *dst, char *src, size_t src_size)
@@ -564,6 +566,12 @@ ecryptfs_dentry_to_lower_path(struct dentry *dentry)
         __ecryptfs_printk(type "%s: " fmt, __func__, ## arg);
 __printf(1, 2)
 void __ecryptfs_printk(const char *fmt, ...);
+
+#ifdef LAKE_PRINT_DEBUG
+	#define lake_print(fmt, ...) ecryptfs_printk(fmt, __VA_ARGS__)
+#else
+	#define lake_print(fmt, ...) (void)0
+#endif
 
 extern const struct file_operations ecryptfs_main_fops;
 extern const struct file_operations ecryptfs_dir_fops;

@@ -8,7 +8,7 @@ sudo apt-get update
 sudo apt-get -y install build-essential tmux git pkg-config cmake zsh
 sudo apt-get install libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libiberty-dev autoconf zstd
 sudo apt-get install libreadline-dev binutils-dev libnl-3-dev
-sudo apt-get install libelf-dev libdwarf-dev libdw-dev
+sudo apt-get install libelf-dev libdwarf-dev libdw-dev ecryptfs-utils cpufrequtils 
 git clone https://github.com/acmel/dwarves.git 
 cd dwarves/
 git checkout tags/v1.22

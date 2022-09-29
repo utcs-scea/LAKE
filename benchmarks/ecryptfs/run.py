@@ -4,6 +4,22 @@ from subprocess import run, DEVNULL
 from time import sleep
 import os.path
 
+#TODO: check device, we only do sda and vda
+DRIVE="sda"
+ROOT_DIR="/disk/hfingler/crypto"
+
+if os.geteuid() != 0:
+    exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
+
+print(f"Script will run on drive {DRIVE}, mounting at dir {ROOT_DIR}")
+print(f"Please make sure that {ROOT_DIR} is at drive {DRIVE}.")
+print("You can do this by running sudo fdisk -l (dont append the partition number. e.g. for /dev/sda3 set DRIVE to sda")
+print("To check if the dir is in that drive, run sudo df -h . If you use lvm, run sudo pvdisplay -m\n")
+user_ok = input("Is this correct? y/n  ")
+if user_ok == "n":
+    print("Quiting..")
+    sys.exit(0)
+
 final = "Final average results:"
 read_pat = "Read Sequential\s*(\S*)"
 write_pat = "Write Sequential\s*(\S*)"
@@ -13,9 +29,6 @@ src_dir   = os.path.join(this_path, "..", "..", "src", "ecryptfs")
 ecryptfs_dir = os.path.join(src_dir, "ecryptfs")
 crypto_dir   = os.path.join(src_dir, "crypto")
 fileio_dir   = os.path.join(src_dir, "file_io")
-
-with open(os.path.join(this_path, "test.env")) as f:
-    mnt_dir = f.readline()
 
 #full check
 if os.geteuid() != 0:
@@ -67,13 +80,14 @@ def load_lake_crypto(aesni_fraction=0):
         print(f"Error {r.returncode} inserting mod {p}")
         sys.exit(1)
 
-def load_lake_crypto_75gpu():
+#i didnt want to mess with partials
+def load_lake_crypto_75aesni():
     load_lake_crypto(75)
 
-def load_lake_crypto_50gpu():
+def load_lake_crypto_50aesni():
     load_lake_crypto(50)
 
-def load_lake_crypto_25gpu():
+def load_lake_crypto_25aesni():
     load_lake_crypto(25)
 
 def mount_gcm(path, cipher="gcm"):
@@ -103,8 +117,7 @@ def umount(path):
 
 def set_readhead(bsize):
     #spray and pray
-    run(f"echo {bsize} | sudo tee /sys/block/vda/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
-    run(f"echo {bsize} | sudo tee /sys/block/sda/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
+    run(f"echo {bsize} | sudo tee /sys/block/{DRIVE}/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
 
 def to_bytes(sz):
     sz = sz.strip()
@@ -121,8 +134,7 @@ def reset():
     run("sudo rmmod lake_ecryptfs", shell=True)
     run("sudo rmmod lake_gcm", shell=True)
     run("sudo modprobe -r aesni_intel", shell=True)
-    run("echo 4096 | sudo tee /sys/block/vda/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
-    run("echo 4096 | sudo tee /sys/block/sda3/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
+    run(f"echo 4096 | sudo tee /sys/block/{DRIVE}/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
 
 def run_benchmark(p, sz):
     bsize = sz.split()[-1]
@@ -156,47 +168,54 @@ def parse_out(out):
     return rd, wt
 
 tests = {
-    # "cpu": {
-    #     "cryptomod_fn": load_cpu_crypto,
-    #     "fsmod_fn": load_ecryptfs,
-    #     "mount_fn": mount_gcm,
-    #     "mount_basepath": os.path.join(mnt_dir, "cpu")
-    # },
-    #"aesni": {
-    #    "cryptomod_fn": load_aesni_crypto,
-    #    "fsmod_fn": load_ecryptfs,
-    #    "mount_fn": mount_gcm,
-    #    "mount_basepath": os.path.join(mnt_dir, "cpu")
-    #},
+    "cpu": {
+        "cryptomod_fn": load_cpu_crypto,
+        "fsmod_fn": load_ecryptfs,
+        "mount_fn": mount_gcm,
+        "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    },
+    "aesni": {
+       "cryptomod_fn": load_aesni_crypto,
+       "fsmod_fn": load_ecryptfs,
+       "mount_fn": mount_gcm,
+       "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    },
     "lake": {
         "cryptomod_fn": load_lake_crypto,
         "fsmod_fn": load_lake_ecryptfs,
         "mount_fn": mount_lakegcm,
-        "mount_basepath": os.path.join(mnt_dir, "lake")
+        "mount_basepath": os.path.join(ROOT_DIR, "lake")
     },
-    #"lake50": {
-    #    "cryptomod_fn": load_lake_crypto_50gpu,
-    #    "fsmod_fn": load_lake_ecryptfs,
-    #    "mount_fn": mount_lakegcm,
-    #    "mount_basepath": os.path.join(mnt_dir, "lake")
-    #},
+    # "lake50aesni": {
+    #     "cryptomod_fn": load_lake_crypto_50aesni,
+    #     "fsmod_fn": load_lake_ecryptfs,
+    #     "mount_fn": mount_lakegcm,
+    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    # },
+    # "lake75aesni": {
+    #     "cryptomod_fn": load_lake_crypto_75aesni,
+    #     "fsmod_fn": load_lake_ecryptfs,
+    #     "mount_fn": mount_lakegcm,
+    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    # },
 }
 
 sizes = {
-    "16K": "1 1m 16k",
+    #"16K": "1 1m 16k",
     #"4K": "1 1m 4k",
     #"4M": "1 512m 4m",
-    # "4K": "1 1m 4k",
-    # "8K": "2 2m 8k",
-    #"16K": "2 4m 16k",
-    #"32K": "2 8m 32k",
-    # "64K": "2 16m 64k",
-    # "128K": "2 32m 128k",
-    # "256K": "2 64m 256k",
-    # "512K": "2 128m 512k",
-    # "1M": "2 256m 1m",
-    # "2M": "2 512m 2m",
-    # "4M": "2 1024m 4m",
+    
+    "4K": "1 1m 4k",
+    "8K": "2 2m 8k",
+    "16K": "2 4m 16k",
+    "32K": "2 8m 32k",
+    "64K": "2 16m 64k",
+    "128K": "2 32m 128k",
+    "256K": "2 64m 256k",
+    "512K": "2 128m 512k",
+    "1M": "2 256m 1m",
+    "2M": "2 512m 2m",
+    "4M": "2 1024m 4m",
 }
 
 results = {}
@@ -226,7 +245,7 @@ for name, args in tests.items():
         umount(args["mount_basepath"])
         sleep(0.5)
         reset()
-        sleep(0.5)
+        sleep(1)
 
 print("," + ",".join(sizes.keys()))
 for name in tests.keys():

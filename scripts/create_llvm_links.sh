@@ -3,6 +3,12 @@
 #     --slave /usr/bin/$1 $1 /usr/bin/$1-\${version} \\
 #https://gist.github.com/junkdog/70231d6953592cd6f27def59fe19e50d
 
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit
+fi
+
+
 function register_clang_version {
     local version=$1
     local priority=$2

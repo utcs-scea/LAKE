@@ -12,8 +12,17 @@
 
 #include <cuda.h>
 
+//#define LAKE_PRINT_DEBUG
+
 #ifdef __KERNEL__
+#ifdef LAKE_PRINT_DEBUG
+        #define lake_print(fmt, ...) pr_info(fmt, __VA_ARGS__)
+#else
+	#define lake_print(fmt, ...) (void)0
+#endif
+
 #define PRINT(...) do { printk(KERN_ERR __VA_ARGS__); } while (0)
+
 #else
 #define PRINT(...) do { printf(__VA_ARGS__); } while (0)
 #define kava_alloc(...) malloc(__VA_ARGS__)

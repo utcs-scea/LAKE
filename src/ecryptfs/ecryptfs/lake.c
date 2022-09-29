@@ -380,7 +380,7 @@ int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages)
 		return 0;
 	}
 
-	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_encrypt_pages %d pages\n", nr_pages);
+	lake_print(KERN_ERR, "[lake] lake_ecryptfs_encrypt_pages %d pages\n", nr_pages);
 
  	if (!nr_pages || !pgs || !pgs[0]) {
  		goto out;
@@ -552,7 +552,7 @@ ssize_t lake_ecryptfs_read_update_atime(struct kiocb *iocb, struct iov_iter *to)
 	struct path *path;
 	struct file *file = iocb->ki_filp;
 
-	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_read_update_atime\n");
+	lake_print(KERN_ERR, "[lake] start of lake_ecryptfs_read_update_atime\n");
 	rc = lake_ecryptfs_file_read_iter(iocb, to);
 	if (rc >= 0) {
 		path = ecryptfs_dentry_to_lower_path(file->f_path.dentry);
@@ -566,7 +566,7 @@ ssize_t lake_ecryptfs_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 	size_t count = iov_iter_count(iter);
 	ssize_t retval = 0;
 
-	ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_file_read_iter\n");
+	lake_print(KERN_ERR, "[lake] start of lake_ecryptfs_file_read_iter\n");
 
     if (!count) {
         goto out; /* skip atime */
@@ -632,7 +632,7 @@ ssize_t lake_ecryptfs_file_buffered_read(struct kiocb *iocb,
 	    goto out;
 	}
 
-	ecryptfs_printk(KERN_ERR, "[lake] reading %d pages\n", nr_pgs);
+	lake_print(KERN_ERR, "[lake] reading %d pages\n", nr_pgs);
 
 	index = *ppos >> PAGE_SHIFT;
 	last_index = (*ppos + iter->count + PAGE_SIZE-1) >> PAGE_SHIFT;
@@ -649,7 +649,7 @@ find_page:
 
 		page = find_get_page(mapping, index);
 		if (!page) {
-			ecryptfs_printk(KERN_ERR, "[lake] page not found in cache..\n");
+			lake_print(KERN_ERR, "[lake] page not found in cache..\n");
 			if (iocb->ki_flags & IOCB_NOWAIT)
 				goto would_block;
 			page_cache_sync_readahead(mapping,
@@ -675,7 +675,7 @@ no_cached_page:
 		 * Ok, it wasn't cached, so we need to create a new
 		 * page..
 		 */
-		ecryptfs_printk(KERN_ERR, "[lake] no_cached_page\n");
+		lake_print(KERN_ERR, "[lake] no_cached_page\n");
 		page = page_cache_alloc(mapping);
 		if (!page) {
 			error = -ENOMEM;
@@ -708,7 +708,7 @@ no_cached_page:
 	}
 
     /* Start the actual read. The read will unlock the page. */
-    pr_info("nr_pgs_no_cached = %x, nr_pgs_cached = %x\n", nr_pgs_no_cached, nr_pgs_cached);
+    lake_print("nr_pgs_no_cached = %x, nr_pgs_cached = %x\n", nr_pgs_no_cached, nr_pgs_cached);
     //error = mapping->a_ops->readpages(filp, mapping, pgs_no_cached, nr_pgs_no_cached);
 	// this would call ecryptfs_readpage in mmap.c
     if (nr_pgs_no_cached) {
@@ -890,7 +890,7 @@ int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
 	struct scatterlist *dst_sg = NULL;
     unsigned int i = 0;
 
-	ecryptfs_printk(KERN_ERR, "[lake] lake_ecryptfs_decrypt_pages %d pages\n", nr_pages);
+	lake_print(KERN_ERR, "[lake] lake_ecryptfs_decrypt_pages %d pages\n", nr_pages);
 
     if (!nr_pages || !pgs || !pgs[0]) {
         goto out;
@@ -1071,7 +1071,7 @@ int lake_ecryptfs_mmap_readpages(struct file *filp, struct address_space *mappin
 	int rc = 0;
 	int nodec = 0;	//no decryption needed flag
 
-	ecryptfs_printk(KERN_ERR, "[lake] ++++++  ecryptfs_readpages\n");
+	lake_print(KERN_ERR, "[lake] ++++++  ecryptfs_readpages\n");
 
 	if (!crypt_stat
 	    || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)

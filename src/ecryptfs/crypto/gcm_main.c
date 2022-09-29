@@ -57,7 +57,7 @@ static void extent_crypt_complete(struct crypto_async_request *req, int rc)
 	if (rc == -EINPROGRESS)
 		return;
 	ecr->rc = rc;
-	printk(KERN_ERR "completing.. \n");
+	lake_print(KERN_ERR "completing.. \n");
 	complete(&ecr->completion);
 }
 
@@ -136,8 +136,7 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 		aesni_n = get_aesni_fraction(npages);
 		lake_n = npages - aesni_n;
 	}
-	printk(KERN_ERR "encrypt: processing %d pages. %d on aesni" 
-		" %d on gpu\n", npages, aesni_n, lake_n);
+	lake_print("encrypt: processing %d pages. %d on aesni, %d on gpu\n", npages, aesni_n, lake_n);
 
 	if (lake_n > 0) {
 		lake_AES_GCM_alloc_pages(&d_src, lake_n*PAGE_SIZE);
@@ -263,7 +262,7 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 		aesni_n = get_aesni_fraction(npages);
 		lake_n = npages - aesni_n;
 	}
-	printk(KERN_ERR "decrypt: processing %d pages. %d on aesni" 
+	lake_print(KERN_ERR "decrypt: processing %d pages. %d on aesni" 
 		"%d on gpu\n", npages, aesni_n, lake_n);
 
 	if (lake_n > 0) {
