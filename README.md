@@ -30,7 +30,7 @@ tar xf linux-5.15.68.tar.xz
 cd linux-5.15.68/
 ```
 Manually copy a config or run `cp /boot/config-$(uname -r) .config`
-Copy `linux/set_configs.sh` into linux-5.15.68 dir and run it
+Copy `scripts/set_configs.sh` into linux-5.15.68 dir and run it
 Compile with `make -j$(nproc)` (you might have to press enter once)
 Then install:
 ```
