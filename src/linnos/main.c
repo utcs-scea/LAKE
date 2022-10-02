@@ -37,6 +37,7 @@ u64 get_tsns() {
 #define LEN_LAYER_1 2
 
 #define RUNS 3
+bool printResults = true; 
 
 static char *cubin_path = "linnos.cubin";
 #ifdef __KERNEL__
@@ -113,6 +114,22 @@ static void flatten_input(int batch_size, long* input_vec_i) {
 	}
 }
 
+static void flatten_input_test_output(int batch_size, long* input_vec_i) {
+    int j;
+    //long input_1[31] = {1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
+    long input_1[31] = {9,9,9,0,9,1,1,9,9,9,9,0,9,9,1,9,9,1,9,9,0,9,1,9,1,9,0,9,9,0,9};
+    long input_2[31] = {9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9};
+    long input_3[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+	for(j = 0; j < 31; j++)
+		parallel_input[ j ] = input_vec_i[j];
+    for(j = 0; j < 31; j++)
+		parallel_input[ 1*31 + j ] = input_1[j];
+    for(j = 0; j < 31; j++)
+		parallel_input[ 2*31 + j ] = input_2[j];
+    for(j = 0; j < 31; j++)
+		parallel_input[ 3*31 + j ] = input_3[j];
+}
+
 static void copy_batch_inputs(int batch_size) {
     check_error(cuMemcpyHtoDAsync(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size, 0), "cuMemcpyHtoD", __LINE__);
 }
@@ -169,6 +186,21 @@ void get_result_batch(int batch_size) {
 	}
 }
 
+void print_results(int batch_size) {
+    int i;
+    #ifdef __KERNEL__
+        PRINT(V_INFO, "GPU batch_%d results,\n", batch_size);
+        for(i = 0; i < batch_size; i++) {
+            PRINT(V_INFO, "%d\n", res[i]);
+        }
+    #else
+        printf("GPU batch_%d results\n", batch_size);
+        for(i = 0; i < batch_size; i++) {
+            printf("%d\n", res[i]);
+        }
+    #endif  
+}
+
 static int run_gpu(void) {
     int i, j;
     int batch_sizes[] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
@@ -212,6 +244,7 @@ static int run_gpu(void) {
 
         //warmup
         gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
+        get_result_batch(batch_size);
         cuCtxSynchronize();
         usleep_range(250, 1000);
     
@@ -251,6 +284,18 @@ static int run_gpu(void) {
         #endif
         clean_batch();
 	}
+
+    if(printResults) {
+        int batch_size = 4;
+        flatten_input_test_output(4, input);
+        setup_gpu(batch_size);    
+        copy_batch_inputs(batch_size);
+        gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
+        get_result_batch(batch_size);
+        cuCtxSynchronize();
+
+        print_results(batch_size);
+    }
 
     cleanup();
     vfree(comp_run_times);
