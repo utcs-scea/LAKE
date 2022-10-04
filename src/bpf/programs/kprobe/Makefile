@@ -11,22 +11,22 @@ ALL_LDFLAGS := $(LDFLAGS) $(EXTRA_LDFLAGS)
 CLANG_BPF_SYS_INCLUDES = $(shell $(CLANG) -v -E - </dev/null 2>&1 \
 	| sed -n '/<...> search starts here:/,/End of search list./{ s| \(/.*\)|-idirafter \1|p }')
 
-all: hello
+all: kprobe
 
 vmlinux.h:
 	bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
 
-hello.bpf.o: hello.bpf.c vmlinux.h
+kprobe.bpf.o: kprobe.bpf.c vmlinux.h
 	$(CLANG) -g -O2 -target bpf -D__TARGET_ARCH_$(ARCH) $(INCLUDES) $(CLANG_BPF_SYS_INCLUDES) -c $(filter %.c,$^) -o $@
 	$(Q)$(LLVM_STRIP) -g $@
 
-hello.skel.h: hello.bpf.o
+kprobe.skel.h: kprobe.bpf.o
 	$(BPFTOOL) gen skeleton $< > $@
  
-hello: hello.skel.h hello.c /home/hfingler/linux-6.0/tools/bpf/bpftool/libbpf/libbpf.a
+kprobe: kprobe.skel.h kprobe.c /home/hfingler/linux-6.0/tools/bpf/bpftool/libbpf/libbpf.a
 	$(CC) $(CFLAGS) $^ $(ALL_LDFLAGS) -lelf -lz -o $@
 
 clean:
-	rm -f hello.skel.h hello hello.bpf.o vmlinux.h
+	rm -f kprobe.skel.h kprobe kprobe.bpf.o vmlinux.h
 
 .PHONY: all clean

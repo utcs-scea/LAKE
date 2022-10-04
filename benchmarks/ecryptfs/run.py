@@ -5,8 +5,8 @@ from time import sleep
 import os.path
 
 #TODO: check device, we only do sda and vda
-DRIVE="sda"
-ROOT_DIR="/disk/hfingler/crypto"
+DRIVE="vda"
+ROOT_DIR="/home/hfingler/crypto"
 
 if os.geteuid() != 0:
     exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
@@ -173,12 +173,12 @@ tests = {
     #     "mount_fn": mount_gcm,
     #     "mount_basepath": os.path.join(ROOT_DIR, "cpu")
     # },
-    "aesni": {
-       "cryptomod_fn": load_aesni_crypto,
-       "fsmod_fn": load_ecryptfs,
-       "mount_fn": mount_gcm,
-       "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    },
+    # "aesni": {
+    #    "cryptomod_fn": load_aesni_crypto,
+    #    "fsmod_fn": load_ecryptfs,
+    #    "mount_fn": mount_gcm,
+    #    "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    # },
     "lake": {
         "cryptomod_fn": load_lake_crypto,
         "fsmod_fn": load_lake_ecryptfs,
@@ -191,12 +191,12 @@ tests = {
     #     "mount_fn": mount_lakegcm,
     #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
     # },
-    "lake75aesni": {
-        "cryptomod_fn": load_lake_crypto_75aesni,
-        "fsmod_fn": load_lake_ecryptfs,
-        "mount_fn": mount_lakegcm,
-        "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    },
+    # "lake75aesni": {
+    #     "cryptomod_fn": load_lake_crypto_75aesni,
+    #     "fsmod_fn": load_lake_ecryptfs,
+    #     "mount_fn": mount_lakegcm,
+    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    # },
     # "lake25aesni": {
     #     "cryptomod_fn": load_lake_crypto_25aesni,
     #     "fsmod_fn": load_lake_ecryptfs,
@@ -208,19 +208,19 @@ tests = {
 sizes = {
     #"16K": "1 1m 16k",
     #"4K": "1 1m 4k",
-    #"4M": "1 512m 4m",
+    "4M": "1 16m 4m",
     
-    "4K": "1 1m 4k",
-    "8K": "2 2m 8k",
-    "16K": "2 4m 16k",
-    "32K": "2 8m 32k",
-    "64K": "2 16m 64k",
-    "128K": "2 32m 128k",
-    "256K": "2 64m 256k",
-    "512K": "2 128m 512k",
-    "1M": "2 256m 1m",
-    "2M": "2 512m 2m",
-    "4M": "2 1024m 4m",
+    # "4K": "1 1m 4k",
+    # "8K": "2 2m 8k",
+    # "16K": "2 4m 16k",
+    # "32K": "2 8m 32k",
+    # "64K": "2 16m 64k",
+    # "128K": "2 32m 128k",
+    # "256K": "2 64m 256k",
+    # "512K": "2 128m 512k",
+    # "1M": "2 256m 1m",
+    # "2M": "2 512m 2m",
+    # "4M": "2 1024m 4m",
 }
 
 results = {}

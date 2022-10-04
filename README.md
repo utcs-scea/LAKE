@@ -70,24 +70,14 @@ For example, if you have llvm-config-15 and clang-15 but not llvm-config and cla
 `create_llvm_links.sh 15 1`
 
 
-Go to `linux-5.15.65/tools/bpf` (the linux source downloaded in the previous stap), and run `make && sudo make install`
-
-Install libbpf by running:
-
-```
-wget https://github.com/libbpf/libbpf/archive/refs/tags/v1.0.0.tar.gz
-tar xf v1.0.0.tar.gz
-cd libbpf-1.0.0/src
-make && sudo make install
-cd ../.. ; rm -rf libbpf-1.0.0
-```
+Go to `tools/bpf` in your linux dir (the linux source downloaded in the previous stap), and run `make && sudo make install`
 
 
 ## Install CUDA
 
 ```
-wget https://developer.download.nvidia.com/compute/cuda/11.7.1/local_installers/cuda_11.7.1_515.65.01_linux.run
-sudo sh ./cuda_11.7.1_515.65.01_linux.run
+wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run
+sudo sh ./cuda_11.8.0_520.61.05_linux.run
 ```
 Select driver and toolkit.
 Run `nvidia-smi` to make sure it's working.
