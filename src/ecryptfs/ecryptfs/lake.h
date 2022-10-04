@@ -6,13 +6,12 @@
 #include "ecryptfs_kernel.h"
 
 //fns that were static
-int ecryptfs_readpage(struct file *file, struct page *page);
+int ecryptfs_read_folio(struct file *file, struct folio *folio);
 int fill_zeros_to_end_of_page(struct page *page, unsigned int to);
 int ecryptfs_write_begin(struct file *file,
 			struct address_space *mapping,
-			loff_t pos, unsigned len, unsigned flags,
+			loff_t pos, unsigned len,
 			struct page **pagep, void **fsdata);
-
 
 ssize_t lake_generic_file_write_iter(struct kiocb *iocb, struct iov_iter *from);
 int lake_ecryptfs_encrypt_pages(struct page **pgs, unsigned int nr_pages);
@@ -23,11 +22,9 @@ ssize_t lake_ecryptfs_file_buffered_read(struct kiocb *iocb,
             struct iov_iter *iter, ssize_t written);
 int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages);
 
-//int lake_ecryptfs_mmap_writepages(struct address_space *mapping,
-//			       struct writeback_control *wbc);
+void lake_ecryptfs_readahead(struct readahead_control *ractl);
 
-int lake_ecryptfs_mmap_readpages(struct file *filp, struct address_space *mapping,
-			      struct list_head *pages, unsigned nr_pages);
+
 
 
 

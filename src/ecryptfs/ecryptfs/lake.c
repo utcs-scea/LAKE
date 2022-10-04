@@ -161,7 +161,7 @@ again:
 	
 		//status = a_ops->write_begin(file, mapping, pos, bytes, flags,
 		//ecryptfs_printk(KERN_ERR, "lake calling ecryptfs_write_begin\n");
-		status = ecryptfs_write_begin(file, mapping, pos, bytes, flags,
+		status = ecryptfs_write_begin(file, mapping, pos, bytes,
 						&page, &fsdata);
 		if (unlikely(status < 0))
 			break;
@@ -611,7 +611,7 @@ ssize_t lake_ecryptfs_file_buffered_read(struct kiocb *iocb,
 	//loff_t isize = i_size_read(inode);
     size_t real_count = iter->count;
 
-	////ecryptfs_printk(KERN_ERR, "[lake] start of lake_ecryptfs_file_buffered_read\n");
+	lake_print(KERN_ERR, "[lake] start of lake_ecryptfs_file_buffered_read\n");
 
     if (unlikely(*ppos >= i_size_read(inode))) {
         return 0;
@@ -660,8 +660,9 @@ find_page:
 				goto no_cached_page;
 		}
 		if (PageReadahead(page)) {
+			lake_print(KERN_ERR, "[lake] page FOUND in cache, doing async readahead\n");
 			page_cache_async_readahead(mapping,
-					ra, filp, page,
+					ra, filp, page_folio(page),
 					index, last_index - index);
 		}
 
@@ -708,7 +709,7 @@ no_cached_page:
 	}
 
     /* Start the actual read. The read will unlock the page. */
-    lake_print("nr_pgs_no_cached = %x, nr_pgs_cached = %x\n", nr_pgs_no_cached, nr_pgs_cached);
+    lake_print(KERN_ERR, "nr_pgs_no_cached = %d, nr_pgs_cached = %d\n", nr_pgs_no_cached, nr_pgs_cached);
     //error = mapping->a_ops->readpages(filp, mapping, pgs_no_cached, nr_pgs_no_cached);
 	// this would call ecryptfs_readpage in mmap.c
     if (nr_pgs_no_cached) {
@@ -942,22 +943,6 @@ int lake_ecryptfs_decrypt_pages(struct page **pgs, unsigned int nr_pages)
 	}
 
     for (i = 0; i < nr_pages; i++) {
-    	// char *page_virt;
-    	// loff_t lower_offset;
-    	// lower_offset = lower_offset_for_page(crypt_stat, pgs[i]);
-    	// page_virt = kmap(pgs[i]);
-
-    	// rc = ecryptfs_read_lower(page_virt, lower_offset, PAGE_SIZE,
-        //         ecryptfs_inode);
-        // if (rc < 0) {
-        //     //ecryptfs_printk(KERN_ERR, "Error attempting to read lower page; "
-        //             "rc = [%d] \n", rc);
-        // }
-
-        // kunmap(pgs[i]);
-        // flush_dcache_page(pgs[i]);
-        // sg_set_page(sgs + i, pgs[i], PAGE_SIZE, 0);
-
 		/*
 		* Lower offset must take into account the number of
 		* data extents, auth tag extents, and header size.
@@ -1061,52 +1046,49 @@ out:
  * 
  *********************************************/
 
-int lake_ecryptfs_mmap_readpages(struct file *filp, struct address_space *mapping,
-			      struct list_head *pages, unsigned nr_pages)
+void lake_ecryptfs_readahead(struct readahead_control *ractl)
 {
+	struct file *filp = ractl->file;
+	struct address_space *mapping = ractl->mapping;
 	struct ecryptfs_crypt_stat *crypt_stat =
 	    		&ecryptfs_inode_to_private(mapping->host)->crypt_stat;
+	unsigned int pgcount = readahead_count(ractl);
 	struct page **pgs = NULL;
+	int dont_decrypt = 0;	//no decryption needed flag
 	unsigned int page_idx = 0;
 	int rc = 0;
-	int nodec = 0;	//no decryption needed flag
-
-	lake_print(KERN_ERR, "[lake] ++++++  ecryptfs_readpages\n");
+	
+	lake_print(KERN_ERR, "[lake] ++++++  lake_ecryptfs_readahead %u pages\n", pgcount);
 
 	if (!crypt_stat
 	    || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)
 	    || (crypt_stat->flags & ECRYPTFS_VIEW_AS_ENCRYPTED)) {
-	    nodec = 1;
+	    dont_decrypt = 1;
 	}
 
-	if (!nodec) {
-	    pgs = (struct page **)kmalloc(nr_pages * sizeof(struct page *), GFP_KERNEL);
+	if (!dont_decrypt) {
+	    pgs = (struct page **)kmalloc(pgcount * sizeof(struct page *), GFP_KERNEL);
 	    if (!pgs) {
             return -EFAULT;
 	    }
 	}
 
-	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
-	    struct page *page = list_entry(pages->prev, struct page, lru);
-	    list_del(&page->lru);
-	    if (add_to_page_cache_lru(page, mapping, page->index, GFP_KERNEL)) {
-			printk(KERN_INFO "[kava] INFO: cannot add page %lu to cache lru\n",
-			       (unsigned long)(page->index));
-	    }
-        else {
-            if (nodec)
-                rc |= ecryptfs_readpage(filp, page);
-        }
+	for (page_idx = 0; page_idx < pgcount; page_idx++) {
+		//fetch next page we need to read
+		struct page *page = readahead_page(ractl);
 
-        if (nodec)
+        if (dont_decrypt) {
+			lake_print(KERN_ERR, "[lake] ++++++  dont_decrypt is set\n");
+			rc |= ecryptfs_read_folio(filp, page_folio(page));
             put_page(page);
+		}
         else
             pgs[page_idx] = page;
     }
 
-    if (!nodec) {
-        rc = lake_ecryptfs_decrypt_pages(pgs, nr_pages);
-        for (page_idx = 0; page_idx < nr_pages; page_idx++) {
+    if (!dont_decrypt) {
+        rc = lake_ecryptfs_decrypt_pages(pgs, pgcount);
+        for (page_idx = 0; page_idx < pgcount; page_idx++) {
             if (rc)
                 ClearPageUptodate(pgs[page_idx]);
             else
@@ -1118,6 +1100,65 @@ int lake_ecryptfs_mmap_readpages(struct file *filp, struct address_space *mappin
     }
 	return 0;
 }
+
+
+// int lake_ecryptfs_mmap_readpages(struct file *filp, struct address_space *mapping,
+// 			      struct list_head *pages, unsigned nr_pages)
+// {
+// 	struct ecryptfs_crypt_stat *crypt_stat =
+// 	    		&ecryptfs_inode_to_private(mapping->host)->crypt_stat;
+// 	struct page **pgs = NULL;
+// 	unsigned int page_idx = 0;
+// 	int rc = 0;
+// 	int nodec = 0;	//no decryption needed flag
+
+// 	lake_print(KERN_ERR, "[lake] ++++++  ecryptfs_readpages\n");
+
+// 	if (!crypt_stat
+// 	    || !(crypt_stat->flags & ECRYPTFS_ENCRYPTED)
+// 	    || (crypt_stat->flags & ECRYPTFS_VIEW_AS_ENCRYPTED)) {
+// 	    nodec = 1;
+// 	}
+
+// 	if (!nodec) {
+// 	    pgs = (struct page **)kmalloc(nr_pages * sizeof(struct page *), GFP_KERNEL);
+// 	    if (!pgs) {
+//             return -EFAULT;
+// 	    }
+// 	}
+
+// 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
+// 	    struct page *page = list_entry(pages->prev, struct page, lru);
+// 	    list_del(&page->lru);
+// 	    if (add_to_page_cache_lru(page, mapping, page->index, GFP_KERNEL)) {
+// 			printk(KERN_INFO "[kava] INFO: cannot add page %lu to cache lru\n",
+// 			       (unsigned long)(page->index));
+// 	    }
+//         else {
+//             if (nodec)
+//                 rc |= ecryptfs_readpage(filp, page);
+//         }
+
+//         if (nodec)
+//             put_page(page);
+//         else
+//             pgs[page_idx] = page;
+//     }
+
+//     if (!nodec) {
+//         rc = lake_ecryptfs_decrypt_pages(pgs, nr_pages);
+//         for (page_idx = 0; page_idx < nr_pages; page_idx++) {
+//             if (rc)
+//                 ClearPageUptodate(pgs[page_idx]);
+//             else
+//                 SetPageUptodate(pgs[page_idx]);
+//             unlock_page(pgs[page_idx]);
+//             put_page(pgs[page_idx]);
+//         }
+//         kfree(pgs);
+//     }
+// 	return 0;
+// }
 
 
 

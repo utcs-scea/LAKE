@@ -42157,7 +42157,9 @@ enum btf_kfunc_hook {
 	BTF_KFUNC_HOOK_STRUCT_OPS = 2,
 	BTF_KFUNC_HOOK_TRACING = 3,
 	BTF_KFUNC_HOOK_SYSCALL = 4,
-	BTF_KFUNC_HOOK_MAX = 5,
+	BTF_KFUNC_HOOK_TRACEPOINT = 5,
+	BTF_KFUNC_HOOK_KPROBE = 6,
+	BTF_KFUNC_HOOK_MAX = 7,
 };
 
 enum {
@@ -42166,7 +42168,7 @@ enum {
 };
 
 struct btf_kfunc_set_tab {
-	struct btf_id_set8 *sets[5];
+	struct btf_id_set8 *sets[7];
 };
 
 struct btf_id_dtor_kfunc_tab {

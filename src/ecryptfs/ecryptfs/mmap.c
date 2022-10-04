@@ -195,8 +195,9 @@ out:
  *
  * Returns zero on success; non-zero on error.
  */
-int ecryptfs_readpage(struct file *file, struct page *page)
+int ecryptfs_read_folio(struct file *file, struct folio *folio)
 {
+	struct page *page = &folio->page;
 	struct ecryptfs_crypt_stat *crypt_stat =
 		&ecryptfs_inode_to_private(page->mapping->host)->crypt_stat;
 	int rc = 0;
@@ -282,7 +283,7 @@ out:
  */
 int ecryptfs_write_begin(struct file *file,
 			struct address_space *mapping,
-			loff_t pos, unsigned len, unsigned flags,
+			loff_t pos, unsigned len, //unsigned flags,
 			struct page **pagep, void **fsdata)
 {
 	pgoff_t index = pos >> PAGE_SHIFT;
@@ -291,7 +292,7 @@ int ecryptfs_write_begin(struct file *file,
 	int rc = 0;
 
 	//ecryptfs_printk(KERN_ERR, "getting page idx %ld\n", index);
-	page = grab_cache_page_write_begin(mapping, index, flags);
+	page = grab_cache_page_write_begin(mapping, index); //, flags);
 	//ecryptfs_printk(KERN_ERR, "done\n");
 	if (!page)
 		return -ENOMEM;
@@ -562,11 +563,13 @@ static sector_t ecryptfs_bmap(struct address_space *mapping, sector_t block)
 
 const struct address_space_operations ecryptfs_aops = {
 #ifdef LAKE_ECRYPTFS
-	.readpages = lake_ecryptfs_mmap_readpages,
-//    .writepages = lake_ecryptfs_mmap_writepages,
+	//.readpages = lake_ecryptfs_mmap_readpages,
+	//.writepages = lake_ecryptfs_mmap_writepages,
+	.readahead = lake_ecryptfs_readahead,
 #endif
 	.writepage = ecryptfs_writepage,
-	.readpage = ecryptfs_readpage,
+	//.readpage = ecryptfs_readpage,
+	.read_folio = ecryptfs_read_folio,
 	.write_begin = ecryptfs_write_begin,
 	.write_end = ecryptfs_write_end,
 	.bmap = ecryptfs_bmap,

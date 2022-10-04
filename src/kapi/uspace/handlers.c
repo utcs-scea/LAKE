@@ -198,7 +198,6 @@ static int lake_handler_cuMemFree(void* buf, struct lake_cmd_ret* cmd_ret) {
     printf("Dry running cuMemFree\n");
     cmd_ret->res = CUDA_SUCCESS;
 #else
-    printf("cuMemFree %llx\n", cmd->dptr);
     cmd_ret->res = cuMemFree(cmd->dptr);
 #endif
     return 0;
