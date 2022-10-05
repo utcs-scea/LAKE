@@ -611,21 +611,16 @@ ssize_t lake_ecryptfs_file_buffered_read(struct kiocb *iocb,
     size_t real_count = iter->count;
 
 	lake_print(KERN_ERR, "[lake] start of lake_ecryptfs_file_buffered_read\n");
-	lake_print(KERN_ERR, "[lake] inode %p\n", inode);
 
     if (unlikely(*ppos >= i_size_read(inode))) {
         return 0;
 	}
-	lake_print(KERN_ERR, "[lake] i_size_read done\n");
 	if (unlikely(*ppos >= inode->i_sb->s_maxbytes)) {
 		return 0;
 	}
-	lake_print(KERN_ERR, "[lake] deref inode->i_sb->s_maxbytes\n");
 	iov_iter_truncate(iter, inode->i_sb->s_maxbytes);
-	lake_print(KERN_ERR, "[lake] iov_iter_truncate done\n");
     if (i_size_read(inode) - *ppos < real_count)
         real_count = i_size_read(inode) - *ppos;
-	lake_print(KERN_ERR, "[lake] i_size_read done\n");
 
     nr_pgs = DIV_ROUND_UP(real_count, PAGE_SIZE);
 	pgs_cached = kzalloc(nr_pgs * sizeof(struct page *), GFP_KERNEL);

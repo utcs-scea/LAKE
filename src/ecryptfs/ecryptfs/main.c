@@ -690,17 +690,12 @@ out:
  */
 static void ecryptfs_kill_block_super(struct super_block *sb)
 {
-	pr_warn("ecryptfs_kill_block_super\n");
 	struct ecryptfs_sb_info *sb_info = ecryptfs_superblock_to_private(sb);
-	pr_warn("ecryptfs_kill_block_super  ptr is %p\n", sb_info);
 	kill_anon_super(sb);
 	if (!sb_info)
 		return;
-	pr_warn(" sb killed\n");
 	ecryptfs_destroy_mount_crypt_stat(&sb_info->mount_crypt_stat);
-	pr_warn(" destroyed mount crypt\n");
 	kmem_cache_free(ecryptfs_sb_info_cache, sb_info);
-	pr_warn(" kmem_cache_free\n");
 }
 
 static struct file_system_type ecryptfs_fs_type = {

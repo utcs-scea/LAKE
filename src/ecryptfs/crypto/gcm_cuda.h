@@ -9,16 +9,16 @@
 #include <string.h>
 #define PAGE_SIZE 4096u
 #endif
-
 #include <cuda.h>
 
 //#define LAKE_PRINT_DEBUG
 
 #ifdef __KERNEL__
+
 #ifdef LAKE_PRINT_DEBUG
-        #define lake_print(fmt, ...) pr_info(fmt, __VA_ARGS__)
+        #define DBG_PRINT(...) do { printk(KERN_ERR __VA_ARGS__); } while (0)
 #else
-	#define lake_print(fmt, ...) (void)0
+	#define DBG_PRINT(...) (void)0
 #endif
 
 #define PRINT(...) do { printk(KERN_ERR __VA_ARGS__); } while (0)
@@ -97,7 +97,9 @@ struct AES_GCM_engine_ctx {
 
     CUdeviceptr buffer1;
     CUdeviceptr buffer2;
-
+    
+    CUdeviceptr d_src;
+    CUdeviceptr d_dst;
     //XXX
     //u8 key[AESGCM_KEYLEN];
     //u8 nonce_host[crypto_aead_aes256gcm_NPUBBYTES];

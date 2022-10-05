@@ -57,7 +57,7 @@
 #define ECRYPTFS_MAX_NUM_USERS 32768
 #define ECRYPTFS_XATTR_NAME "user.ecryptfs"
 
-#define LAKE_PRINT_DEBUG
+//#define LAKE_PRINT_DEBUG
 
 void ecryptfs_dump_auth_tok(struct ecryptfs_auth_tok *auth_tok);
 static inline void

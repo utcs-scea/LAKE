@@ -146,20 +146,24 @@ void Benchmark::run(){
             }
         }
 
+        //warm
+        writeSequential_c_warmup();
+        readSequential_c_warmup();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
         for(ulong repeatIdx = 0; repeatIdx < this->repeats; repeatIdx++) {
             this->dropCache();
-            this->writeSequential_c();
-            this->dropCache();
-            
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            
+            this->writeSequential_c();
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            this->dropCache();
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
             this->readSequential_c();
-
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
             //this->writeSequential();
             //this->readSequential();
             //this->writeRandom();
             //this->readRandom();
-
             cout << endl << "Repeat: " << repeatIdx + 1 << "/" << this->repeats << endl;
             this->getPartialResults();
             cout << endl;
@@ -277,6 +281,40 @@ void Benchmark::dropCache()
     //system("./drop_cache");
 }
 
+void Benchmark::writeSequential_c_warmup()
+{
+    // file handler
+    int file;
+    // open the file
+    file = open( this->testFilePath.c_str(), O_CREAT | O_WRONLY | O_TRUNC,
+            S_IRUSR | S_IWUSR | S_IWOTH | S_IROTH);
+
+    // size to use
+    ulong sizeToUse = sizeRWInMiB ? sizeRWInMiB : 1;
+    ulong amoutToDivideBy = sizeToUse == 1 ? 1024 / sizeRWInKiB : 1;
+
+    // Write this->fileContent to file in blocks
+    uint64_t left_size = sizeRWInKiB << 10;
+    uint64_t write_size;
+    uint64_t block_size = block_sizeRWInKiB << 10;
+    char *p = this->fileContent;
+
+    //ftruncate(file, left_size);
+    //fsync(file);
+
+    while (left_size > 0) {
+        write_size = (left_size >= block_size) ? block_size : left_size;
+        write(file, p, write_size);
+        p += write_size;
+        left_size -= write_size;
+    }
+
+    // close file
+    fsync(file);
+    close(file);
+}
+
+
 /**
  * Logic to write sequential and register with c write
  */
@@ -306,16 +344,14 @@ void Benchmark::writeSequential_c()
     //ftruncate(file, left_size);
     //fsync(file);
 
+    timer.start();
     while (left_size > 0) {
         write_size = (left_size >= block_size) ? block_size : left_size;
-
-        timer.start();
         write(file, p, write_size);
-        timer.stop();
-
         p += write_size;
         left_size -= write_size;
     }
+    timer.stop();
 
     // Get time of this action
     this->totalTime += timer.totalTime();
@@ -342,6 +378,40 @@ void Benchmark::writeSequential_c()
     timer.clear();
 }
 
+void Benchmark::readSequential_c_warmup()
+{
+    // file handler
+    int file;
+    // open the file    
+    file = open(this->testFilePath.c_str(), O_RDONLY, NULL);
+
+    // size to use
+    ulong sizeToUse = sizeRWInMiB ? sizeRWInMiB : 1;
+    ulong amoutToDivideBy = sizeToUse == 1 ? 1024 / sizeRWInKiB : 1;
+
+    // Write this->fileContent to file in blocks
+    ulong left_size = sizeRWInKiB;
+    ulong read_size;
+    char *p = this->fileContent;
+
+    while (left_size > 0) {
+        read_size = (left_size >= block_sizeRWInKiB) ?
+            (block_sizeRWInKiB << 10) : (left_size << 10);
+
+        read_size = read(file, p, read_size);
+
+        if (read_size <= 0) {
+            cout << "Error: Read from file " << this->testFilePath << endl;
+            break;
+        }
+        p += read_size;
+        left_size -= (read_size >> 10);
+    }
+
+    // close file 
+    close(file);
+}
+
 /**
  * Read from file byte by byte sequentially with c read
  */
@@ -365,13 +435,13 @@ void Benchmark::readSequential_c()
     ulong read_size;
     char *p = this->fileContent;
 
+    timer.start();
     while (left_size > 0) {
         read_size = (left_size >= block_sizeRWInKiB) ?
             (block_sizeRWInKiB << 10) : (left_size << 10);
 
-        timer.start();
         read_size = read(file, p, read_size);
-        timer.stop();
+        
 
         if (read_size <= 0) {
             cout << "Error: Read from file " << this->testFilePath << endl;
@@ -380,6 +450,7 @@ void Benchmark::readSequential_c()
         p += read_size;
         left_size -= (read_size >> 10);
     }
+    timer.stop();
 
     // Get time of this action
     this->totalTime += timer.totalTime();
@@ -396,7 +467,6 @@ void Benchmark::readSequential_c()
     this->averageReadSequential += averageReadSequentialPartial;
     this->defaulDevReadSequential += defaulDevReadSequentialPartial;
     this->execTimeReadSequential += execTimeReadSequentialPartial;    
-
 
     // close file 
     close(file);
@@ -483,7 +553,6 @@ void Benchmark::writeSequential()
     this->defaulDevWriteSequential += defaulDevWriteSequentialPartial;    
     this->throughputWriteSequential += throughputWriteSequentialPartial;
     this->execTimeWriteSequential += execTimeWriteSequentialPartial;
-
 
     // close file
     file.close();

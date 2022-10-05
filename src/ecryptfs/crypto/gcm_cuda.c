@@ -9,6 +9,7 @@
 #include <errno.h>
 #endif
 
+#define MAX_PAGES_PER_OP 4096
 
 static u64 gf_last4_host[16] = {
   0x0000, 0x1c20, 0x3840, 0x2460, 0x7080, 0x6ca0, 0x48c0, 0x54e0,
@@ -74,6 +75,9 @@ void lake_AES_GCM_init(struct AES_GCM_engine_ctx* d_engine) {
     gpuErrchk(cuMemAlloc(&d_engine->gf_last4,    AESGCM_BLOCK_SIZE));
     gpuErrchk(cuMemAlloc(&d_engine->nonce_device, 12));
     
+    gpuErrchk(cuMemAlloc(&d_engine->d_src, MAX_PAGES_PER_OP*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES)));
+    gpuErrchk(cuMemAlloc(&d_engine->d_dst, MAX_PAGES_PER_OP*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES)));
+
     gpuErrchk(cuMemAlloc(&d_engine->buffer1, AESGCM_BLOCK_SIZE * AES_GCM_STEP * AES_GCM_STEP));
     gpuErrchk(cuMemAlloc(&d_engine->buffer2, AESGCM_BLOCK_SIZE * AES_GCM_STEP));
 
@@ -110,6 +114,9 @@ void lake_AES_GCM_destroy(struct AES_GCM_engine_ctx* d_engine) {
     
     gpuErrchk(cuMemFree(d_engine->buffer1));
     gpuErrchk(cuMemFree(d_engine->buffer2));
+
+    gpuErrchk(cuMemFree(d_engine->d_src));
+    gpuErrchk(cuMemFree(d_engine->d_dst));
 }
 
 void lake_AES_GCM_setkey(struct AES_GCM_engine_ctx* d_engine, const u8* key) {
@@ -221,7 +228,7 @@ void lake_AES_GCM_free(CUdeviceptr src) {
 
 void lake_AES_GCM_copy_to_device(CUdeviceptr dst, u8* buf, u32 size) {
     int left = size;
-    int max = 256*PAGE_SIZE;
+    int max = 1024*PAGE_SIZE;
     CUdeviceptr cur = dst;
     u8* cur_buf = buf;
     while (1) {

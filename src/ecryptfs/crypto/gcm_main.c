@@ -57,7 +57,7 @@ static void extent_crypt_complete(struct crypto_async_request *req, int rc)
 	if (rc == -EINPROGRESS)
 		return;
 	ecr->rc = rc;
-	lake_print(KERN_ERR "completing.. \n");
+	DBG_PRINT("completing.. \n");
 	complete(&ecr->completion);
 }
 
@@ -110,10 +110,10 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 	struct aead_request **aead_req = NULL;
 	int count_dst = 0, lake_count = 0;
 	void* buf;
-	//unsigned int len;
 	struct scatterlist *src_sg = req->src;
 	struct scatterlist *dst_sg = req->dst;
-	CUdeviceptr d_src, d_dst;
+	CUdeviceptr d_src = ctx->cuda_ctx.d_src;
+	CUdeviceptr d_dst = ctx->cuda_ctx.d_dst;
 	char *pages_buf, *bad_iv;
 	int npages, i;
 	int *rcs;
@@ -126,31 +126,18 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 		return -1;
 	}
 
-	// let's use aesni if it's only one page
-	if (npages == 1) {
-		aesni_n = 1;
-		lake_n = 0;
-	}
-	// else, use fraction
-	else {
-		aesni_n = get_aesni_fraction(npages);
-		lake_n = npages - aesni_n;
-	}
-	lake_print("encrypt: processing %d pages. %d on aesni, %d on gpu\n", npages, aesni_n, lake_n);
+	aesni_n = get_aesni_fraction(npages);
+	lake_n = npages - aesni_n;
+	DBG_PRINT("encrypt: processing %d pages. %d on aesni, %d on gpu\n", npages, aesni_n, lake_n);
 
 	if (lake_n > 0) {
-		lake_AES_GCM_alloc_pages(&d_src, lake_n*PAGE_SIZE);
-		lake_AES_GCM_alloc_pages(&d_dst, lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
-		//TODO: switch between these
 		pages_buf = (char *)kava_alloc(lake_n*PAGE_SIZE);
-		//pages_buf = vmalloc(lake_n*PAGE_SIZE);
 
 		for(i = aesni_n ; i < npages ; i++) {
 			buf = sg_virt(&src_sg[i]);
 			memcpy(pages_buf+(lake_count*PAGE_SIZE), buf, PAGE_SIZE);
 			lake_count++;	
 		}
-
 		//TODO: copy IVs, set enc to use it. it's currently constant and set at setkey
 		lake_AES_GCM_copy_to_device(d_src, pages_buf, lake_count*PAGE_SIZE);
 		lake_AES_GCM_encrypt(&ctx->cuda_ctx, d_dst, d_src, lake_count*PAGE_SIZE);
@@ -199,10 +186,6 @@ static int crypto_gcm_encrypt(struct aead_request *req)
 			//memcpy(buf, pages_buf+((count_dst*PAGE_SIZE) + PAGE_SIZE), crypto_aead_aes256gcm_ABYTES);
 			count_dst++;
 		}
-
-		lake_AES_GCM_free(d_src);
-		lake_AES_GCM_free(d_dst);
-		//vfree(pages_buf);
 		kava_free(pages_buf);
 	}
 
@@ -238,7 +221,8 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 	void* buf;
 	struct scatterlist *src_sg = req->src; 
 	struct scatterlist *dst_sg = req->dst; 
-	CUdeviceptr d_src, d_dst;
+	CUdeviceptr d_src = ctx->cuda_ctx.d_src;
+	CUdeviceptr d_dst = ctx->cuda_ctx.d_dst;
 	char *pages_buf, *bad_iv;
 	int npages, i;
 	int *rcs;
@@ -252,25 +236,13 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 	}
 	npages = npages/2;
 
-	// let's use aesni if it's only one page
-	if (npages == 1) {
-		aesni_n = 1;
-		lake_n = 0;
-	}
-	// else, use fraction
-	else {
-		aesni_n = get_aesni_fraction(npages);
-		lake_n = npages - aesni_n;
-	}
-	lake_print(KERN_ERR "decrypt: processing %d pages. %d on aesni" 
+	aesni_n = get_aesni_fraction(npages);
+	lake_n = npages - aesni_n;
+	DBG_PRINT("decrypt: processing %d pages. %d on aesni" 
 		"%d on gpu\n", npages, aesni_n, lake_n);
 
 	if (lake_n > 0) {
-		lake_AES_GCM_alloc_pages(&d_src, lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
-		lake_AES_GCM_alloc_pages(&d_dst, lake_n*PAGE_SIZE);
-		//TODO: switch between these
 		pages_buf = (char *)kava_alloc(lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
-		//pages_buf = vmalloc(lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
 		if(!pages_buf) {
 			printk(KERN_ERR "decrypt: error allocating %ld bytes\n", 
 				lake_n*(PAGE_SIZE+crypto_aead_aes256gcm_ABYTES));
@@ -329,10 +301,7 @@ static int crypto_gcm_decrypt(struct aead_request *req)
 			memcpy(buf, pages_buf+(count_dst * PAGE_SIZE), PAGE_SIZE);
 			count_dst++;
 		}
-		//vfree(pages_buf);
 		kava_free(pages_buf);
-		lake_AES_GCM_free(d_src);
-		lake_AES_GCM_free(d_dst);
 	}
 	
 	if (aesni_n > 0) {

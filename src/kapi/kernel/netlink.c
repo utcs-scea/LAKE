@@ -14,13 +14,15 @@ static struct sock *sk = NULL;
 DEFINE_XARRAY_ALLOC(cmds_xa); 
 static struct kmem_cache *cmd_cache;
 static pid_t worker_pid = -1;
-
+static atomic_t seq_counter = ATOMIC_INIT(0);
+static int max_counter = (1<<10)-40; //give some room so we reset before we reach 1k
 
 struct cmd_data {
     struct completion cmd_done;
     char sync;
     struct lake_cmd_ret ret;
 } __attribute__ ((aligned (8)));
+
 
 // ret is only filled in case sync is CMD_SYNC
 void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
@@ -29,7 +31,7 @@ void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
     struct sk_buff *skb_out;
     struct nlmsghdr *nlh;
     struct cmd_data *cmd;
-    u32 xa_idx;
+    int xa_idx;
 
     //create a cmd struct
     //cmd = (struct cmd_data*) kmalloc(sizeof(struct cmd_data), GFP_KERNEL);
@@ -45,8 +47,13 @@ void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
     cmd->sync = sync;
 
     //insert cmd into xarray, getting idx  
-    err = xa_alloc(&cmds_xa, &xa_idx, (void*)cmd, XA_LIMIT(0, 2048), GFP_KERNEL); //xa_limit_31b
-    if (err < 0) {
+    //err = xa_alloc(&cmds_xa, &xa_idx, (void*)cmd, XA_LIMIT(0, 2048), GFP_KERNEL); //xa_limit_31b
+    xa_idx = atomic_add_return(1, &seq_counter);
+    if(unlikely(xa_idx >= max_counter))
+        atomic_set(&seq_counter, 0);
+
+    //if (err < 0) {
+    if(xa_err(xa_store(&cmds_xa, xa_idx, (void*)cmd, GFP_KERNEL))) {
         pr_alert("Error allocating xa_alloc: %d\n", err);
         ret->res = CUDA_ERROR_OPERATING_SYSTEM;
     }

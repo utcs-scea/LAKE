@@ -90,9 +90,11 @@ sudo mkfs.ext4 /dev/nvme0n1p1
 sudo mount /dev/nvme0n1p1 /disk/nvme0 -t ext4
 ```
 
-
 Make sure you have python3.8 or above.
 If you don't install it by running the command below. We require pip for installing matplotlib, if you already have it, you don't need to install pip.
 ```
 sudo apt install python3.10 python3-pip
 ```
+
+If the run command gives you `Unable to link the KEY_SPEC_USER_KEYRING into the KEY_SPEC_SESSION_KEYRING`,
+it's a bug from using tmux. Close all tmux panes and reopen it with the `tmux.sh` script

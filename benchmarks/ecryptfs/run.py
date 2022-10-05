@@ -9,12 +9,14 @@ import os.path
 #ROOT_DIR="/home/hfingler/crypto"
 
 #santacruz ssd
-DRIVE="sda"
-ROOT_DIR="/disk/hfingler/crypto"
+#DRIVE="sda"
+#ROOT_DIR="/disk/hfingler/crypto"
 
 #santacruz nvme
-#DRIVE="nvme0n1"
-#ROOT_DIR="/disk/nvme0/crypto"
+DRIVE="nvme0n1"
+ROOT_DIR="/disk/nvme0/crypto"
+
+READAHEAD_MULTIPLIER = 1
 
 if os.geteuid() != 0:
     exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
@@ -23,8 +25,10 @@ print(f"Script will run on drive {DRIVE}, mounting at dir {ROOT_DIR}\n")
 print(f"Please make sure that {ROOT_DIR} is at drive {DRIVE}.")
 print("You can do this by running sudo fdisk -l (dont append the partition number. e.g. for /dev/sda3 set DRIVE to sda")
 print("To check if the dir is in that drive, run sudo df -h . If you use lvm, run sudo pvdisplay -m\n")
-user_ok = input("Is this correct? y/n  ")
-if user_ok == "n":
+user_ok = input("Is this correct? y/n ")
+if user_ok == "y":
+    pass
+else:
     print("Quiting..")
     sys.exit(0)
 
@@ -146,7 +150,7 @@ def reset():
 def run_benchmark(p, sz):
     bsize = sz.split()[-1]
     bsize = to_bytes(bsize)
-    set_readhead(4*bsize)
+    set_readhead(READAHEAD_MULTIPLIER*bsize)
 
     b = os.path.join(fileio_dir, "fs_bench")
     out = run(f"sudo {b} {p} {sz}", shell=True, capture_output=True, text=True)
@@ -157,6 +161,7 @@ def run_benchmark(p, sz):
 def parse_out(out):
     capture_mode = False
     wt,val=None, None
+    #print(f"out : {out}")
     for line in out.splitlines():
         if final in line:
             capture_mode = True
@@ -175,19 +180,19 @@ def parse_out(out):
     return rd, wt
 
 tests = {
-    "cpu": {
-        "cryptomod_fn": load_cpu_crypto,
-        "fsmod_fn": load_ecryptfs,
-        "mount_fn": mount_gcm,
-        "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    },
-    # "aesni": {
+    # "CPU": {
+    #     "cryptomod_fn": load_cpu_crypto,
+    #     "fsmod_fn": load_ecryptfs,
+    #     "mount_fn": mount_gcm,
+    #     "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    # },
+    # "AESNI": {
     #    "cryptomod_fn": load_aesni_crypto,
     #    "fsmod_fn": load_ecryptfs,
     #    "mount_fn": mount_gcm,
     #    "mount_basepath": os.path.join(ROOT_DIR, "cpu")
     # },
-    # "lake": {
+    # "LAKE": {
     #     "cryptomod_fn": load_lake_crypto,
     #     "fsmod_fn": load_lake_ecryptfs,
     #     "mount_fn": mount_lakegcm,
@@ -205,30 +210,30 @@ tests = {
     #     "mount_fn": mount_lakegcm,
     #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
     # },
-    # "lake25aesni": {
-    #     "cryptomod_fn": load_lake_crypto_25aesni,
-    #     "fsmod_fn": load_lake_ecryptfs,
-    #     "mount_fn": mount_lakegcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    # },
+    "lake25aesni": {
+        "cryptomod_fn": load_lake_crypto_25aesni,
+        "fsmod_fn": load_lake_ecryptfs,
+        "mount_fn": mount_lakegcm,
+        "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    },
 }
 
 sizes = {
-    "16K": "1 1m 16k",
+    #"16K": "1 1m 16k",
     #"4K": "1 1m 4k",
     #"4M": "1 16m 4m",
     
-    # "4K": "1 1m 4k",
-    # "8K": "2 2m 8k",
-    # "16K": "2 4m 16k",
-    # "32K": "2 8m 32k",
-    # "64K": "2 16m 64k",
-    # "128K": "2 32m 128k",
-    # "256K": "2 64m 256k",
-    # "512K": "2 128m 512k",
-    # "1M": "2 256m 1m",
-    # "2M": "2 512m 2m",
-    # "4M": "2 1024m 4m",
+     "4K": "2 1m 4k",
+     "8K": "2 2m 8k",
+     "16K": "2 4m 16k",
+     "32K": "2 8m 32k",
+     "64K": "2 16m 64k",
+     "128K": "2 32m 128k",
+     "256K": "2 64m 256k",
+     "512K": "2 128m 512k",
+     "1M": "2 256m 1m",
+     "2M": "2 512m 2m",
+     "4M": "2 1024m 4m",
 }
 
 results = {}
@@ -251,10 +256,10 @@ for name, args in tests.items():
         out = run_benchmark(args["mount_basepath"]+"_plain", sz)
         rd, wt = parse_out(out)        
 
-        results[name]["rd"].append(rd)
-        results[name]["wt"].append(wt)
+        results[name]["R"].append(rd)
+        results[name]["W"].append(wt)
 
-        sleep(1.5)
+        sleep(1)
         umount(args["mount_basepath"])
         sleep(0.5)
         reset()

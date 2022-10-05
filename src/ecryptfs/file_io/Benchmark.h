@@ -136,7 +136,9 @@ private:
     void readRandom();
 
     void writeSequential_c();
+    void writeSequential_c_warmup();
     void readSequential_c();
+    void readSequential_c_warmup();
 
     bool envIsAlreadySet;
 

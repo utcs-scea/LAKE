@@ -9,8 +9,12 @@ fi
 
 # Trap Ctrl-C
 trap ctrl_c INT
+trap ctrl_c SIGINT
 function ctrl_c() {
-    sudo $ROOT/unload.sh
+  echo "** Trapped CTRL-C, cleaning up"
+  sudo pkill -2 lake_uspace
+  sudo rmmod lake_kapi
+  sudo rmmod lake_shm
 }
 
 cd ${ROOT}/kshm
