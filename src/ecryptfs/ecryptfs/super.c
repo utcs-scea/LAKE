@@ -52,7 +52,7 @@ static struct inode *ecryptfs_alloc_inode(struct super_block *sb)
 	struct ecryptfs_inode_info *inode_info;
 	struct inode *inode = NULL;
 
-	inode_info = kmem_cache_alloc(ecryptfs_inode_info_cache, GFP_KERNEL);
+	inode_info = alloc_inode_sb(sb, ecryptfs_inode_info_cache, GFP_KERNEL);
 	if (unlikely(!inode_info))
 		goto out;
 	if (ecryptfs_init_crypt_stat(&inode_info->crypt_stat)) {
@@ -66,15 +66,6 @@ static struct inode *ecryptfs_alloc_inode(struct super_block *sb)
 out:
 	return inode;
 }
-
-// static void ecryptfs_i_callback(struct rcu_head *head)
-// {
-// 	struct inode *inode = container_of(head, struct inode, i_rcu);
-// 	struct ecryptfs_inode_info *inode_info;
-// 	inode_info = ecryptfs_inode_to_private(inode);
-
-// 	kmem_cache_free(ecryptfs_inode_info_cache, inode_info);
-// }
 
 static void ecryptfs_free_inode(struct inode *inode)
 {
@@ -105,7 +96,7 @@ static void ecryptfs_destroy_inode(struct inode *inode)
 
 /**
  * ecryptfs_statfs
- * @sb: The ecryptfs super block
+ * @dentry: The ecryptfs dentry
  * @buf: The struct kstatfs to fill in with stats
  *
  * Get the filesystem statistics. Currently, we let this pass right through
@@ -132,7 +123,7 @@ static int ecryptfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 
 /**
  * ecryptfs_evict_inode
- * @inode - The ecryptfs inode
+ * @inode: The ecryptfs inode
  *
  * Called by iput() when the inode reference count reached zero
  * and the inode is not hashed anywhere.  Used to clear anything
@@ -147,7 +138,7 @@ static void ecryptfs_evict_inode(struct inode *inode)
 	iput(ecryptfs_inode_to_lower(inode));
 }
 
-/**
+/*
  * ecryptfs_show_options
  *
  * Prints the mount options for a given superblock.

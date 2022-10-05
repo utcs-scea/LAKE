@@ -116,7 +116,6 @@ int ecryptfs_write(struct inode *ecryptfs_inode, char *data, loff_t offset,
 	int rc = 0;
 
 	crypt_stat = &ecryptfs_inode_to_private(ecryptfs_inode)->crypt_stat;
-
 	/*
 	 * if we are writing beyond current size, then start pos
 	 * at the current size - we'll fill in zeros from there.
@@ -248,6 +247,8 @@ int ecryptfs_read_lower(char *data, loff_t offset, size_t size,
  * ecryptfs_read_lower_page_segment
  * @page_for_ecryptfs: The page into which data for eCryptfs will be
  *                     written
+ * @page_index: Page index in @page_for_ecryptfs from which to start
+ *		writing
  * @offset_in_page: Offset in @page_for_ecryptfs from which to start
  *                  writing
  * @size: The number of bytes to write into @page_for_ecryptfs

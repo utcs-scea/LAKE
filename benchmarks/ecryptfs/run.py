@@ -175,24 +175,24 @@ def parse_out(out):
     return rd, wt
 
 tests = {
-    # "cpu": {
-    #     "cryptomod_fn": load_cpu_crypto,
-    #     "fsmod_fn": load_ecryptfs,
-    #     "mount_fn": mount_gcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    # },
+    "cpu": {
+        "cryptomod_fn": load_cpu_crypto,
+        "fsmod_fn": load_ecryptfs,
+        "mount_fn": mount_gcm,
+        "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    },
     # "aesni": {
     #    "cryptomod_fn": load_aesni_crypto,
     #    "fsmod_fn": load_ecryptfs,
     #    "mount_fn": mount_gcm,
     #    "mount_basepath": os.path.join(ROOT_DIR, "cpu")
     # },
-    "lake": {
-        "cryptomod_fn": load_lake_crypto,
-        "fsmod_fn": load_lake_ecryptfs,
-        "mount_fn": mount_lakegcm,
-        "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    },
+    # "lake": {
+    #     "cryptomod_fn": load_lake_crypto,
+    #     "fsmod_fn": load_lake_ecryptfs,
+    #     "mount_fn": mount_lakegcm,
+    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    # },
     # "lake50aesni": {
     #     "cryptomod_fn": load_lake_crypto_50aesni,
     #     "fsmod_fn": load_lake_ecryptfs,

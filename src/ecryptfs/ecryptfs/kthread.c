@@ -25,7 +25,6 @@
 #include <linux/slab.h>
 #include <linux/wait.h>
 #include <linux/mount.h>
-#include <linux/delay.h>
 #include "ecryptfs_kernel.h"
 
 struct ecryptfs_open_req {
