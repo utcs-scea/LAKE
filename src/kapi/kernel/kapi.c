@@ -245,3 +245,17 @@ CUresult CUDAAPI cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, size_t 
 	return ret.res;
 }
 EXPORT_SYMBOL(cuMemcpyDtoHAsync);
+
+CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr* dptr, size_t* pPitch, 
+        size_t WidthInBytes, size_t Height, unsigned int ElementSizeBytes) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_cuMemAllocPitch cmd = {
+        .API_ID = LAKE_API_cuMemAllocPitch, .WidthInBytes = WidthInBytes,
+        .Height = Height, .ElementSizeBytes = ElementSizeBytes
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+    *dptr = ret.ptr;
+    *pPitch = ret.pPitch;
+	return ret.res;
+}
+EXPORT_SYMBOL(cuMemAllocPitch);

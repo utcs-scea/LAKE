@@ -6,8 +6,7 @@ ccflags-y += -I$(src)/../kapi/include -I$(KAVA_ROOT)/include -O3 -march=native -
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kshm/Module.symvers
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kernel/Module.symvers
 
-all:
-	make -f Makefile_cubin
+all: cubin
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 
 clean:

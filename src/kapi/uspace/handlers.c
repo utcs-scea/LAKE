@@ -274,6 +274,22 @@ static int lake_handler_cuMemcpyDtoHAsync(void* buf, struct lake_cmd_ret* cmd_re
 }
 
 /*********************
+ *  cuMemAllocPitch   
+ *********************/
+static int lake_handler_cuMemAllocPitch(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_cuMemAllocPitch *cmd = (struct lake_cmd_cuMemAllocPitch *) buf;
+#if DRY_RUN
+    printf("Dry running cuMemAllocPitch\n");
+    cmd_ret->res = CUDA_SUCCESS;
+#else
+    cmd_ret->res = cuMemAllocPitch(&cmd_ret->ptr, &cmd_ret->pPitch, cmd->WidthInBytes,
+        cmd->Height, cmd->ElementSizeBytes);
+#endif
+    return 0;
+}
+
+
+/*********************
  * 
  *  END OF HANDLERS
  *    
@@ -299,6 +315,7 @@ static int (*kapi_handlers[])(void* buf, struct lake_cmd_ret* cmd_ret) = {
     lake_handler_cuStreamDestroy,
     lake_handler_cuMemcpyHtoDAsync,
     lake_handler_cuMemcpyDtoHAsync,
+    lake_handler_cuMemAllocPitch,
 };
 
 void lake_handle_cmd(void* buf, struct lake_cmd_ret* cmd_ret) {

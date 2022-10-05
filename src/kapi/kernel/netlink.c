@@ -117,8 +117,8 @@ static void netlink_recv_msg(struct sk_buff *skb)
     complete(&cmd->cmd_done);
     //if the cmd is async, no one will read this cmd, so clear
     if (cmd->sync == CMD_ASYNC) {
-        if(unlikely(cmd->cmd_done.ret.res > 0)) {
-            last_cu_err = cmd->cmd_done.ret.res;
+        if(unlikely(cmd->ret.res > 0)) {
+            last_cu_err = cmd->ret.res;
         }
         //free from cache
         kmem_cache_free(cmd_cache, cmd);

@@ -52,7 +52,7 @@
     #define cuModuleGetGlobal                   cuModuleGetGlobal_v2
     #define cuMemGetInfo                        cuMemGetInfo_v2
     #define cuMemAlloc                          cuMemAlloc_v2
-    #define cuMemAllocPitch                     cuMemAllocPitch_v2
+    //#define cuMemAllocPitch                     cuMemAllocPitch
     #define cuMemFree                           cuMemFree_v2
     #define cuMemGetAddressRange                cuMemGetAddressRange_v2
     #define cuMemAllocHost                      cuMemAllocHost_v2
@@ -1058,7 +1058,7 @@ extern CUresult CUDAAPI cuMemcpyDtoHAsync(void *dstHost, CUdeviceptr srcDevice, 
 //extern CUresult CUDAAPI cuMemHostAlloc(void **pp, size_t bytesize, unsigned int Flags);
 //extern CUresult CUDAAPI cuMemFreeHost(void *p);
 //extern CUresult CUDAAPI cuMemHostGetDevicePointer(CUdeviceptr *pdptr, void *p, unsigned int Flags);
-//extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_t WidthInBytes, size_t Height, unsigned int ElementSizeBytes);
+extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_t WidthInBytes, size_t Height, unsigned int ElementSizeBytes);
 //extern CUresult CUDAAPI cuMemcpy2D(const CUDA_MEMCPY2D *pCopy);
 
 //extern CUresult CUDAAPI cuEventCreate(CUevent *phEvent, unsigned int Flags);

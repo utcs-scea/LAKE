@@ -27,6 +27,7 @@ enum lake_api_ids {
     LAKE_API_cuStreamDestroy,
     LAKE_API_cuMemcpyHtoDAsync,
     LAKE_API_cuMemcpyDtoHAsync,
+    LAKE_API_cuMemAllocPitch,
 };
 
 struct lake_cmd_ret {
@@ -39,6 +40,7 @@ struct lake_cmd_ret {
         CUfunction func; //ptr
         CUstream stream; //ptr
     };
+    size_t pPitch; //malloc pitch ruined everything
 };
 
 struct lake_cmd_cuInit {
@@ -159,6 +161,15 @@ struct lake_cmd_cuMemcpyDtoHAsync {
     CUdeviceptr srcDevice;
     size_t ByteCount;
     CUstream hStream;
+};
+
+struct lake_cmd_cuMemAllocPitch {
+    u32 API_ID;
+    //CUdeviceptr* dptr;
+    //size_t* pPitch;
+    size_t WidthInBytes; 
+    size_t Height;
+    unsigned int ElementSizeBytes;
 };
 
 

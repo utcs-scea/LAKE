@@ -11,7 +11,10 @@ else
 	GENCODE_FLAGS   := -gencode arch=compute_61,code=sm_61
 endif
 
-all: knncuda.cubin
+all: clean knncuda.cubin
 
-knncuda.cubin:
+knncuda.cubin: cuda/knncuda.cu
 	nvcc $(NVCCFLAGS) --cubin $(GENCODE_FLAGS) $(INCLUDES) -o $@ $+ $(LDFLAGS)
+
+clean:
+	rm -f knncuda.cubin
