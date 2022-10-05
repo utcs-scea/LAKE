@@ -5,13 +5,19 @@ from time import sleep
 import os.path
 
 #TODO: check device, we only do sda and vda
-DRIVE="vda"
-ROOT_DIR="/home/hfingler/crypto"
+#DRIVE="vda"
+#ROOT_DIR="/home/hfingler/crypto"
+
+#DRIVE="sda"
+#ROOT_DIR="/disk/hfingler/crypto"
+
+DRIVE="nvme0n1"
+ROOT_DIR="/disk/nvme0/crypto"
 
 if os.geteuid() != 0:
     exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
 
-print(f"Script will run on drive {DRIVE}, mounting at dir {ROOT_DIR}")
+print(f"Script will run on drive {DRIVE}, mounting at dir {ROOT_DIR}\n")
 print(f"Please make sure that {ROOT_DIR} is at drive {DRIVE}.")
 print("You can do this by running sudo fdisk -l (dont append the partition number. e.g. for /dev/sda3 set DRIVE to sda")
 print("To check if the dir is in that drive, run sudo df -h . If you use lvm, run sudo pvdisplay -m\n")
@@ -206,9 +212,9 @@ tests = {
 }
 
 sizes = {
-    #"16K": "1 1m 16k",
+    "16K": "1 1m 16k",
     #"4K": "1 1m 4k",
-    "4M": "1 16m 4m",
+    #"4M": "1 16m 4m",
     
     # "4K": "1 1m 4k",
     # "8K": "2 2m 8k",

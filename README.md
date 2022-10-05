@@ -85,6 +85,15 @@ Run `nvidia-smi` to make sure it's working.
 
 # eCryptfs
 
+Mount NVMe
+```
+sudo parted -a optimal /dev/nvme0n1 mklabel gpt
+sudo parted -a optimal /dev/nvme0n1 mkpart primary ext4 0% 100%
+sudo mkfs.ext4 /dev/nvme0n1p1
+sudo mount /dev/nvme0n1p1 /disk/nvme0 -t ext4
+```
+
+
 Make sure you have python3.8 or above.
 If you don't install it by running the command below. We require pip for installing matplotlib, if you already have it, you don't need to install pip.
 ```

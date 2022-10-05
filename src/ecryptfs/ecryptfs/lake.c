@@ -1069,7 +1069,8 @@ void lake_ecryptfs_readahead(struct readahead_control *ractl)
 	if (!dont_decrypt) {
 	    pgs = (struct page **)kmalloc(pgcount * sizeof(struct page *), GFP_KERNEL);
 	    if (!pgs) {
-            return -EFAULT;
+			pr_err("Cant allocate page strucs!\n");
+			return;
 	    }
 	}
 
@@ -1098,7 +1099,6 @@ void lake_ecryptfs_readahead(struct readahead_control *ractl)
         }
         kfree(pgs);
     }
-	return 0;
 }
 
 
