@@ -10,27 +10,17 @@
 #include <linux/ktime.h>
 #include "cuda.h"
 #include "lake_shm.h"
-#define PRINT(verbosity, ...)              \
-    do                                     \
-    {                                      \
-        if (verbosity <= VERBOSITY)        \
-            printk(KERN_INFO __VA_ARGS__); \
-    } while (0)
-
+#define PRINT(...) pr_warn(__VA_ARGS__)
 #else
 #include <stdint.h>
 #include <sys/time.h>
+#include <stdio.h>
 #define u64 uint64_t
 #define vmalloc(X) malloc(X)
 #define vfree(X) free((void *)X)
 #define kava_alloc(...) malloc(__VA_ARGS__)
 #define kava_free(...) free(__VA_ARGS__)
-#define PRINT(verbosity, ...)    \
-    do                           \
-    {                            \
-        if (1)                   \
-            printf(__VA_ARGS__); \
-    } while (0)
+#define PRINT(...) printf(__VA_ARGS__)
 #include <cuda.h>
 #endif
 
