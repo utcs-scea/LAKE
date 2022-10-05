@@ -115,7 +115,6 @@ static ssize_t lake_generic_perform_write(struct file *file,
 	//const struct address_space_operations *a_ops = mapping->a_ops;
 	long status = 0;
 	ssize_t written = 0;
-	unsigned int flags = 0;
 
 	//let's try to guess how many IOs we will do
 	unsigned int n_ios = DIV_ROUND_UP(iov_iter_count(i), PAGE_SIZE) + 1;

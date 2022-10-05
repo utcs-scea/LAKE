@@ -5,12 +5,12 @@ from time import sleep
 import os.path
 
 #hackvm
-DRIVE="vda"
-ROOT_DIR="/home/hfingler/crypto"
+#DRIVE="vda"
+#ROOT_DIR="/home/hfingler/crypto"
 
 #santacruz ssd
-#DRIVE="sda"
-#ROOT_DIR="/disk/hfingler/crypto"
+DRIVE="sda"
+ROOT_DIR="/disk/hfingler/crypto"
 
 #santacruz nvme
 #DRIVE="nvme0n1"
