@@ -304,4 +304,7 @@ static int (*kapi_handlers[])(void* buf, struct lake_cmd_ret* cmd_ret) = {
 void lake_handle_cmd(void* buf, struct lake_cmd_ret* cmd_ret) {
     uint32_t cmd_id = *((uint32_t*) buf);
     kapi_handlers[cmd_id](buf, cmd_ret);
+    if(cmd_ret->res != 0) {
+        printf("Command %u returned error %d\n", cmd_id, cmd_ret->res);
+    }
 }

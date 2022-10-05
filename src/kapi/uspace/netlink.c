@@ -47,6 +47,9 @@ static int netlink_recv_msg(struct nl_msg *msg, void *arg) {
     struct lake_cmd_ret cmd_ret;
     lake_handle_cmd(data, &cmd_ret);
     //printf("command handled, replying\n");
+    if (cmd_ret.res != 0) {
+        printf("CUDA API failed, returned %d\n", cmd_ret.res);
+    }
     lake_send_cmd(seq, &cmd_ret, sizeof(cmd_ret));
 }
 

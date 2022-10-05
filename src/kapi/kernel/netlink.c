@@ -17,6 +17,11 @@ static pid_t worker_pid = -1;
 static atomic_t seq_counter = ATOMIC_INIT(0);
 static int max_counter = (1<<10)-40; //give some room so we reset before we reach 1k
 
+//we can get away with an atomic here
+static CUresult last_cu_err = 0;
+//static atomic_t last_cu_err = ATOMIC_INIT(0);
+
+
 struct cmd_data {
     struct completion cmd_done;
     char sync;
@@ -79,8 +84,11 @@ void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
         kmem_cache_free(cmd_cache, cmd);
         xa_erase(&cmds_xa, xa_idx);
     }
-    else 
+
+    if (likely(last_cu_err == 0))
         ret->res = CUDA_SUCCESS;
+    else
+        ret->res = last_cu_err;
 }
 
 static void netlink_recv_msg(struct sk_buff *skb)
@@ -105,16 +113,17 @@ static void netlink_recv_msg(struct sk_buff *skb)
     memcpy((void*)&cmd->ret, (void*)ret, sizeof(struct lake_cmd_ret));
 
     //if there's anyone waiting, free them
-    complete(&cmd->cmd_done);
     //if the cmd is sync, whoever we woke up will clean up
-
+    complete(&cmd->cmd_done);
     //if the cmd is async, no one will read this cmd, so clear
     if (cmd->sync == CMD_ASYNC) {
+        if(unlikely(cmd->cmd_done.res > 0)) {
+            last_cu_err = cmd->cmd_done.res;
+        }
         //free from cache
         kmem_cache_free(cmd_cache, cmd);
         //erase from xarray
         xa_erase(&cmds_xa, xa_idx);
-        //TODO: accumulate error
     }
 }
 
