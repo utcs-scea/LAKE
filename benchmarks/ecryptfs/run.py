@@ -4,15 +4,17 @@ from subprocess import run, DEVNULL
 from time import sleep
 import os.path
 
-#TODO: check device, we only do sda and vda
-#DRIVE="vda"
-#ROOT_DIR="/home/hfingler/crypto"
+#hackvm
+DRIVE="vda"
+ROOT_DIR="/home/hfingler/crypto"
 
+#santacruz ssd
 #DRIVE="sda"
 #ROOT_DIR="/disk/hfingler/crypto"
 
-DRIVE="nvme0n1"
-ROOT_DIR="/disk/nvme0/crypto"
+#santacruz nvme
+#DRIVE="nvme0n1"
+#ROOT_DIR="/disk/nvme0/crypto"
 
 if os.geteuid() != 0:
     exit("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
@@ -252,7 +254,7 @@ for name, args in tests.items():
         results[name]["rd"].append(rd)
         results[name]["wt"].append(wt)
 
-        sleep(0.5)
+        sleep(1.5)
         umount(args["mount_basepath"])
         sleep(0.5)
         reset()
