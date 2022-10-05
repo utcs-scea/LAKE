@@ -31,16 +31,14 @@ cd linux-5.15.68/
 ```
 Manually copy a config or run `cp /boot/config-$(uname -r) .config`
 Copy `scripts/set_configs.sh` into linux-5.15.68 dir and run it
-Compile with `make -j$(nproc)` (you might have to press enter once)
-Then install:
+Compile and install:
 ```
-sudo make INSTALL_MOD_STRIP=1 modules_install
+make -j$(nproc)
+sudo make -j$(nproc) INSTALL_MOD_STRIP=1 modules_install
 sudo make install
 sudo make headers_install INSTALL_HDR_PATH=/usr
 ```
-
 Now make the new kernel the default if you are running headless:
-
 Open `/boot/grub/grub.cfg`, write down the id for the advanced menu and the id for the 5.15-hack.
 Join them, in that order with a `>`. For example:
 `gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-5.15.68-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1`
@@ -51,7 +49,6 @@ Since you are here, add to `GRUB_CMDLINE_LINUX_DEFAULT` (create if it doesnt exi
 `cma=128M@0-4G log_buf_len=16M`
 For example: `GRUB_CMDLINE_LINUX_DEFAULT="quiet splash cma=128M@0-4G log_buf_len=16M"`
 The last argument is optional for more log length
-
 Finally, run `sudo update-grub`.
 Reboot and make sure the kernel is right by running `uname -r`
 
