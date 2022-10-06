@@ -347,22 +347,16 @@ out:
 int run_knn(void)
 {
     int ret = 0;
-    //int *knn_index;
     FLOAT *ref;
     FLOAT *query;
-    //FLOAT *knn_dist;
-    //int knn_index_sz = query_nb * k * sizeof(int);
     int ref_sz;
     int query_sz;
-    //int knn_dist_sz = query_nb * k * sizeof(FLOAT);
     int i, dim;
-    //int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
-    //int ndims = 11;
-    int dims[] = {256,512,1024};
-    int ndims = 3;
+    int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
+    int ndims = 11;
+    //int dims[] = {256,512,1024};
+    //int ndims = 3;
 
-    //knn_index = (int *)kava_alloc(knn_index_sz);
-    //knn_dist = kava_alloc(knn_dist_sz);
     for (i = 0; i < ndims; i++) {
         dim = dims[i];
         ref_sz = ref_nb * dim * sizeof(FLOAT);
@@ -370,10 +364,8 @@ int run_knn(void)
         ref = (FLOAT *)kava_alloc(ref_sz);
         query = (FLOAT *)kava_alloc(query_sz);
 
-        PRINT("alloc %d + %d \n", ref_sz, query_sz);
         // Allocation checks
-        //if (!ref || !query || !knn_dist || !knn_index) {
-            if (!ref || !query) {
+        if (!ref || !query) {
             PRINT("Error allocating KNN CPU resources\n");
             ret = -ENOMEM;
             goto out;
@@ -390,9 +382,6 @@ out:
         kava_free(ref);
         kava_free(query);
     }
-
-    //kava_free(knn_dist);
-    //kava_free(knn_index);
 
     return 0;
 }
