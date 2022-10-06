@@ -307,8 +307,8 @@ bool test(const float * ref,
 int main(int argc, char** argv) {
 
     // Parameters
-    const int ref_nb   = 16384;
-    const int query_nb = 4096;
+    const int ref_nb   = 4096;
+    const int query_nb = 1024;
     //const int dim      = 128;  //features
     const int k        = 16;
 
@@ -319,7 +319,7 @@ int main(int argc, char** argv) {
     // printf("- Dimension of points     : %d\n",   dim);
     // printf("- Number of neighbors     : %d\n\n", k);
 
-    int dims[] = {1,2,48, 16, 32, 64, 128,256,512,1024};
+    int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
     //int dims[] = {16};
 
     for (int &dim : dims) {

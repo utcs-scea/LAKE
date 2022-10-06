@@ -74,9 +74,10 @@ typedef struct
 struct cuda_ctx ctx;
 
 // KNN vars
-static int ref_nb = 16384;
-//static int ref_nb = 2048;
-static int query_nb = 4096;
+//static int ref_nb = 16384;
+static int ref_nb = 4096;
+//static int query_nb = 4096;
+static int query_nb = 1024;
 static int k        = 16;
 
 int init_cuda(void)
