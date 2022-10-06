@@ -4,12 +4,8 @@
 #include <Python.h>
 #include <stdio.h>
 
-int load_model(const char *filepath);
-void dogc(void);
-void close_ctx(void);
-int standard_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
+int  kleio_load_model(const char *filepath);
+double  kleio_inference(const void *syscalls, unsigned int n);
+void kleio_force_gc(void);
 
-int kleio_load_model(const char *filepath);
-int kleio_inference(const void *syscalls, unsigned int num_syscall, unsigned int sliding_window);
-void kleio_close_ctx(void);
 #endif
