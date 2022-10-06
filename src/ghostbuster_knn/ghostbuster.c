@@ -77,6 +77,7 @@ struct cuda_ctx ctx;
 static int ref_nb = 16384;
 //static int ref_nb = 2048;
 static int query_nb = 4096;
+static int k        = 16;
 
 int init_cuda(void)
 {
@@ -185,7 +186,7 @@ int knn_cuda( const FLOAT *ref, int ref_nb, const FLOAT *query,
                             query_nb * sizeof( FLOAT ),
                             ref_nb, element_size_bytes );
     ret |= cuMemAllocPitch( &index_dev, &index_pitch_in_bytes,
-                            query_nb * sizeof( int ), dim, element_size_bytes );
+                            query_nb * sizeof( int ), k, element_size_bytes );
     if (ret) {
         PRINT( "Memory allocation error\n" );
         goto out;
@@ -243,7 +244,7 @@ int knn_cuda( const FLOAT *ref, int ref_nb, const FLOAT *query,
   
     void *args1[] = { &dist_dev, &dist_pitch, &index_dev,
                     &index_pitch, &query_nb, &ref_nb,
-                    &dim };
+                    &k };
     cuLaunchKernel( ctx.modified_insertion_sort, grid1.x, grid1.y,
                     grid1.z, block1.x, block1.y,
                     block1.z, 0, 0,
@@ -251,11 +252,11 @@ int knn_cuda( const FLOAT *ref, int ref_nb, const FLOAT *query,
 
     // Compute the square root of the k smallest distances
     block2 = (dim3) { 16, 16, 1 };
-    grid2 = (dim3) { query_nb / 16, dim / 16, 1 };
+    grid2 = (dim3) { query_nb / 16, k / 16, 1 };
     if ( query_nb % 16 != 0 ) {
         grid2.x += 1;
     }
-    if ( dim % 16 != 0 ) {
+    if ( k % 16 != 0 ) {
         grid2.y += 1;
     }
     void *args2[] = { &dist_dev, &query_nb, &query_pitch, &dim };
@@ -302,8 +303,8 @@ int test(const FLOAT *ref, int ref_nb, const FLOAT *query, int query_nb,
     u64 ctimes;
     u64 ttimes;
     // Allocate memory for computed k-NN neighbors
-    test_knn_dist = (FLOAT *)kava_alloc(query_nb * sizeof(FLOAT));
-    test_knn_index = (int *)kava_alloc(query_nb * sizeof(int));
+    test_knn_dist = (FLOAT *)kava_alloc(query_nb * k * sizeof(FLOAT));
+    test_knn_index = (int *)kava_alloc(query_nb * k * sizeof(int));
 
     // Allocation check
     if (!test_knn_dist || !test_knn_index) {

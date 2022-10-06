@@ -9,8 +9,8 @@
 
 #include "knncuda.h"
 
-#define WARMS 2
-#define RUNS 5
+#define WARMS 1
+#define RUNS 3
 
 
 /**
@@ -253,7 +253,6 @@ bool test(const float * ref,
 
     sleep(1);
 
-
     double sum = 0;
     // Compute k-NN several times
     for (int i=0; i<nb_iterations; ++i) {
@@ -286,7 +285,7 @@ bool test(const float * ref,
     // Display report
     if (precision_accuracy >= min_accuracy && index_accuracy >= min_accuracy ) {
         //printf("PASSED in %8.5f seconds (averaged over %3d iterations)\n", elapsed_time / nb_iterations, nb_iterations);
-        printf("%s_%d, %8.5f\n", name, dim, sum / nb_iterations);
+        printf("%s_%d, %.5f\n", name, dim, (sum / nb_iterations)*1000000);
     }
     else {
         printf("FAILED\n");
@@ -320,7 +319,7 @@ int main(int argc, char** argv) {
     // printf("- Dimension of points     : %d\n",   dim);
     // printf("- Number of neighbors     : %d\n\n", k);
 
-    int dims[] = {8, 16, 32, 64, 128};
+    int dims[] = {1,2,48, 16, 32, 64, 128,256,512,1024};
     //int dims[] = {16};
 
     for (int &dim : dims) {
