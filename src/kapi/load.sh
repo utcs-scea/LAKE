@@ -18,7 +18,7 @@ function ctrl_c() {
 }
 
 cd ${ROOT}/kshm
-sudo insmod lake_shm.ko shm_size=16
+sudo insmod lake_shm.ko shm_size=32
 
 cd ${ROOT}/kernel
 sudo insmod lake_kapi.ko

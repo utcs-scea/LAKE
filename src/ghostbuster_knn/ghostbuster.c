@@ -74,9 +74,9 @@ typedef struct
 struct cuda_ctx ctx;
 
 // KNN vars
-static int ref_nb = 16384;
+//static int ref_nb = 16384;
+static int ref_nb = 2048;
 static int query_nb = 4096;
-static int k = 16;
 
 int init_cuda(void)
 {
@@ -154,7 +154,7 @@ void initialize_data(FLOAT *ref, int ref_nb, FLOAT *query,
 static u64 ctime, ttime;
 
 int knn_cuda( const FLOAT *ref, int ref_nb, const FLOAT *query,
-              int query_nb, int dim, int k, FLOAT *knn_dist,
+              int query_nb, int dim, FLOAT *knn_dist,
               int *knn_index, int measure_compute)
 {
     int ret = 0;
@@ -185,7 +185,7 @@ int knn_cuda( const FLOAT *ref, int ref_nb, const FLOAT *query,
                             query_nb * sizeof( FLOAT ),
                             ref_nb, element_size_bytes );
     ret |= cuMemAllocPitch( &index_dev, &index_pitch_in_bytes,
-                            query_nb * sizeof( int ), k, element_size_bytes );
+                            query_nb * sizeof( int ), dim, element_size_bytes );
     if (ret) {
         PRINT( "Memory allocation error\n" );
         goto out;
@@ -244,7 +244,7 @@ int knn_cuda( const FLOAT *ref, int ref_nb, const FLOAT *query,
   
     void *args1[] = { &dist_dev, &dist_pitch, &index_dev,
                     &index_pitch, &query_nb, &ref_nb,
-                    &k };
+                    &dim };
     cuLaunchKernel( ctx.modified_insertion_sort, grid1.x, grid1.y,
                     grid1.z, block1.x, block1.y,
                     block1.z, 0, 0,
@@ -252,14 +252,14 @@ int knn_cuda( const FLOAT *ref, int ref_nb, const FLOAT *query,
 
     // Compute the square root of the k smallest distances
     block2 = (dim3) { 16, 16, 1 };
-    grid2 = (dim3) { query_nb / 16, k / 16, 1 };
+    grid2 = (dim3) { query_nb / 16, dim / 16, 1 };
     if ( query_nb % 16 != 0 ) {
         grid2.x += 1;
     }
-    if ( k % 16 != 0 ) {
+    if ( dim % 16 != 0 ) {
         grid2.y += 1;
     }
-    void *args2[] = { &dist_dev, &query_nb, &query_pitch, &k };
+    void *args2[] = { &dist_dev, &query_nb, &query_pitch, &dim };
     cuLaunchKernel( ctx.compute_sqrt, grid2.x, grid2.y,
                     grid2.z, block2.x, block2.y,
                     block2.z, 0, 0,
@@ -294,7 +294,7 @@ out:
 
 // XXX Should time at some point
 int test(const FLOAT *ref, int ref_nb, const FLOAT *query, int query_nb,
-         int dim, int k, FLOAT *gt_knn_dist, int *gt_knn_index)
+         int dim)
 {
     int ret = 0;
     int i, measure_comp;
@@ -303,8 +303,8 @@ int test(const FLOAT *ref, int ref_nb, const FLOAT *query, int query_nb,
     u64 ctimes;
     u64 ttimes;
     // Allocate memory for computed k-NN neighbors
-    test_knn_dist = (FLOAT *)kava_alloc(query_nb * k * sizeof(FLOAT));
-    test_knn_index = (int *)kava_alloc(query_nb * k * sizeof(int));
+    test_knn_dist = (FLOAT *)kava_alloc(query_nb * sizeof(FLOAT));
+    test_knn_index = (int *)kava_alloc(query_nb * sizeof(int));
 
     // Allocation check
     if (!test_knn_dist || !test_knn_index) {
@@ -320,7 +320,7 @@ int test(const FLOAT *ref, int ref_nb, const FLOAT *query, int query_nb,
     for (measure_comp = 0; measure_comp < 2; ++measure_comp) {
         for (i = 0; i < WARMS + RUNS; ++i) {
             if ((ret = knn_cuda(ref, ref_nb, query, query_nb, dim,
-                        k, test_knn_dist, test_knn_index, measure_comp))) {
+                        test_knn_dist, test_knn_index, measure_comp))) {
                 PRINT("Computation failed on round %d\n", i);
                 goto out;
             }
@@ -347,20 +347,22 @@ out:
 int run_knn(void)
 {
     int ret = 0;
-    int *knn_index;
+    //int *knn_index;
     FLOAT *ref;
     FLOAT *query;
-    FLOAT *knn_dist;
-    int knn_index_sz = query_nb * k * sizeof(int);
+    //FLOAT *knn_dist;
+    //int knn_index_sz = query_nb * k * sizeof(int);
     int ref_sz;
     int query_sz;
-    int knn_dist_sz = query_nb * k * sizeof(FLOAT);
+    //int knn_dist_sz = query_nb * k * sizeof(FLOAT);
     int i, dim;
-    int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
-    int ndims = 11;
+    //int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
+    //int ndims = 11;
+    int dims[] = {256,512,1024};
+    int ndims = 3;
 
-    knn_index = (int *)kava_alloc(knn_index_sz);
-    knn_dist = kava_alloc(knn_dist_sz);
+    //knn_index = (int *)kava_alloc(knn_index_sz);
+    //knn_dist = kava_alloc(knn_dist_sz);
     for (i = 0; i < ndims; i++) {
         dim = dims[i];
         ref_sz = ref_nb * dim * sizeof(FLOAT);
@@ -368,30 +370,29 @@ int run_knn(void)
         ref = (FLOAT *)kava_alloc(ref_sz);
         query = (FLOAT *)kava_alloc(query_sz);
 
+        PRINT("alloc %d + %d \n", ref_sz, query_sz);
         // Allocation checks
-        if (!ref || !query || !knn_dist || !knn_index)
-        {
+        //if (!ref || !query || !knn_dist || !knn_index) {
+            if (!ref || !query) {
             PRINT("Error allocating KNN CPU resources\n");
             ret = -ENOMEM;
             goto out;
         }
         // Initialize reference and query points with random values
         initialize_data(ref, ref_nb, query, query_nb, dim);
-        if ((ret = test(ref, ref_nb, query, query_nb, dim,
-                        k, knn_dist, knn_index)))
-        {
+        ret = test(ref, ref_nb, query, query_nb, dim);
+        if (ret) {
             PRINT("KNN execution test failed\n");
             ret = -ENOENT;
             goto out;
         }
-
-    out:
+out:
         kava_free(ref);
         kava_free(query);
     }
 
-    kava_free(knn_dist);
-    kava_free(knn_index);
+    //kava_free(knn_dist);
+    //kava_free(knn_index);
 
     return 0;
 }
