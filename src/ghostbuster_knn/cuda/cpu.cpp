@@ -323,7 +323,6 @@ int main(int argc, char** argv) {
     //int dims[] = {16};
 
     for (int &dim : dims) {
-
         // Sanity check
         if (ref_nb<k) {
             printf("Error: k value is larger that the number of reference points\n");
