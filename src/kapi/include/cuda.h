@@ -52,7 +52,7 @@
     #define cuModuleGetGlobal                   cuModuleGetGlobal_v2
     #define cuMemGetInfo                        cuMemGetInfo_v2
     #define cuMemAlloc                          cuMemAlloc_v2
-    //#define cuMemAllocPitch                     cuMemAllocPitch
+    #define cuMemAllocPitch                     cuMemAllocPitch_v2
     #define cuMemFree                           cuMemFree_v2
     #define cuMemGetAddressRange                cuMemGetAddressRange_v2
     #define cuMemAllocHost                      cuMemAllocHost_v2

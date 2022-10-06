@@ -1,4 +1,4 @@
 #!/bin/bash
 
-sudo insmod ghost_buster.ko cubin_path=$(readlink -f ./knncuda.cubin)
-sudo rmmod ghost_buster
+sudo insmod knn.ko cubin_path=$(readlink -f ./knncuda.cubin)
+sudo rmmod knn

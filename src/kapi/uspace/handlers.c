@@ -12,13 +12,8 @@
  *  cuInit    
  *********************/
 static int lake_handler_cuInit(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuInit *cmd = (struct lake_cmd_cuInit *) buf;
-#if DRY_RUN
-    printf("Dry running cuInit\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuInit *cmd = (struct lake_cmd_cuInit *) buf;
     cmd_ret->res = cuInit(cmd->flags);
-#endif
     return 0;
 }
 
@@ -26,13 +21,8 @@ static int lake_handler_cuInit(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuDeviceGet   
  *********************/
 static int lake_handler_cuDeviceGet(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuDeviceGet *cmd = (struct lake_cmd_cuDeviceGet *) buf;
-#if DRY_RUN
-    printf("Dry running cuDeviceGet\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuDeviceGet *cmd = (struct lake_cmd_cuDeviceGet *) buf;
     cmd_ret->res = cuDeviceGet(&cmd_ret->device, cmd->ordinal);
-#endif
     return 0;
 }
 
@@ -40,13 +30,8 @@ static int lake_handler_cuDeviceGet(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuCtxCreate   
  *********************/
 static int lake_handler_cuCtxCreate(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuCtxCreate *cmd = (struct lake_cmd_cuCtxCreate *) buf;
-#if DRY_RUN
-    printf("Dry running cuCtxCreate\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuCtxCreate *cmd = (struct lake_cmd_cuCtxCreate *) buf;
     cmd_ret->res = cuCtxCreate_v2(&cmd_ret->pctx, cmd->flags, cmd->dev);
-#endif
     return 0;
 }
 
@@ -54,15 +39,8 @@ static int lake_handler_cuCtxCreate(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuModuleLoad   
  *********************/
 static int lake_handler_cuModuleLoad(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuModuleLoad *cmd = (struct lake_cmd_cuModuleLoad *) buf;
-#if DRY_RUN
-    printf("Dry running cuModuleLoad\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
-    //printf("Running cuModuleLoad  %s\n", cmd->fname);
+        struct lake_cmd_cuModuleLoad *cmd = (struct lake_cmd_cuModuleLoad *) buf;
     cmd_ret->res = cuModuleLoad(&cmd_ret->module, cmd->fname);
-    //printf("cuModuleLoad ret %d\n", cmd_ret->res);
-#endif
     return 0;
 }
 
@@ -70,13 +48,8 @@ static int lake_handler_cuModuleLoad(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuModuleUnload   
  *********************/
 static int lake_handler_cuModuleUnload(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuModuleUnload *cmd = (struct lake_cmd_cuModuleUnload *) buf;
-#if DRY_RUN
-    printf("Dry running cuModuleUnload\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuModuleUnload *cmd = (struct lake_cmd_cuModuleUnload *) buf;
     cmd_ret->res = cuModuleUnload(cmd->hmod);
-#endif
     return 0;
 }
 
@@ -84,15 +57,10 @@ static int lake_handler_cuModuleUnload(void* buf, struct lake_cmd_ret* cmd_ret) 
  *  cuModuleGetFunction   
  *********************/
 static int lake_handler_cuModuleGetFunction(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuModuleGetFunction *cmd = (struct lake_cmd_cuModuleGetFunction *) buf;
-#if DRY_RUN
-    printf("Dry running cuModuleGetFunction\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuModuleGetFunction *cmd = (struct lake_cmd_cuModuleGetFunction *) buf;
     cmd_ret->res = cuModuleGetFunction(&cmd_ret->func, cmd->hmod, cmd->name);
     struct kernel_args_metadata* meta = get_kargs(cmd_ret->func);
     kava_parse_function_args(cmd->name, meta);
-#endif
     return 0;
 }
 
@@ -100,11 +68,7 @@ static int lake_handler_cuModuleGetFunction(void* buf, struct lake_cmd_ret* cmd_
  *  cuLaunchKernel   
  *********************/
 static int lake_handler_cuLaunchKernel(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuLaunchKernel *cmd = (struct lake_cmd_cuLaunchKernel *) buf;
-#if DRY_RUN
-    printf("Dry running cuLaunchKernel\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuLaunchKernel *cmd = (struct lake_cmd_cuLaunchKernel *) buf;
     struct kernel_args_metadata* meta = get_kargs(cmd->f);
     uint8_t *serialized = ((u8*)buf) + sizeof(struct lake_cmd_cuLaunchKernel);
     void* args = malloc(meta->func_argc * sizeof(void*));
@@ -113,8 +77,6 @@ static int lake_handler_cuLaunchKernel(void* buf, struct lake_cmd_ret* cmd_ret) 
         cmd->gridDimZ, cmd->blockDimX, cmd->blockDimY, cmd->blockDimZ, cmd->sharedMemBytes,
         cmd->hStream, args, cmd->extra);
     
-    //free(args);
-#endif
     return 0;
 }
 
@@ -122,13 +84,8 @@ static int lake_handler_cuLaunchKernel(void* buf, struct lake_cmd_ret* cmd_ret) 
  *  cuCtxDestroy   
  *********************/
 static int lake_handler_cuCtxDestroy(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuCtxDestroy *cmd = (struct lake_cmd_cuCtxDestroy *) buf;
-#if DRY_RUN
-    printf("Dry running cuCtxDestroy\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuCtxDestroy *cmd = (struct lake_cmd_cuCtxDestroy *) buf;
     cmd_ret->res = cuCtxDestroy(cmd->ctx);
-#endif
     return 0;
 }
 
@@ -136,14 +93,8 @@ static int lake_handler_cuCtxDestroy(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuMemAlloc   
  *********************/
 static int lake_handler_cuMemAlloc(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuMemAlloc *cmd = (struct lake_cmd_cuMemAlloc *) buf;
-#if DRY_RUN
-    printf("Dry running cuMemAlloc\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuMemAlloc *cmd = (struct lake_cmd_cuMemAlloc *) buf;
     cmd_ret->res = cuMemAlloc(&cmd_ret->ptr, cmd->bytesize);
-    //printf("cuMemAlloc ptr %lx\n", cmd_ret->ptr);
-#endif
     return 0;
 }
 
@@ -151,13 +102,8 @@ static int lake_handler_cuMemAlloc(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuMemcpyHtoD   
  *********************/
 static int lake_handler_cuMemcpyHtoD(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuMemcpyHtoD *cmd = (struct lake_cmd_cuMemcpyHtoD *) buf;
-#if DRY_RUN
-    printf("Dry running cuMemcpyHtoD\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuMemcpyHtoD *cmd = (struct lake_cmd_cuMemcpyHtoD *) buf;
     cmd_ret->res = cuMemcpyHtoD(cmd->dstDevice, lake_shm_address(cmd->srcHost), cmd->ByteCount);
-#endif
     return 0;
 }
 
@@ -165,13 +111,8 @@ static int lake_handler_cuMemcpyHtoD(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuMemcpyDtoH   
  *********************/
 static int lake_handler_cuMemcpyDtoH(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuMemcpyDtoH *cmd = (struct lake_cmd_cuMemcpyDtoH *) buf;
-#if DRY_RUN
-    printf("Dry running cuMemcpyDtoH\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuMemcpyDtoH *cmd = (struct lake_cmd_cuMemcpyDtoH *) buf;
     cmd_ret->res = cuMemcpyDtoH(lake_shm_address(cmd->dstHost), cmd->srcDevice, cmd->ByteCount);
-#endif
     return 0;
 }
 
@@ -179,13 +120,8 @@ static int lake_handler_cuMemcpyDtoH(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuCtxSynchronize   
  *********************/
 static int lake_handler_cuCtxSynchronize(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuCtxSynchronize *cmd = (struct lake_cmd_cuCtxSynchronize *) buf;
-#if DRY_RUN
-    printf("Dry running cuCtxSynchronize\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuCtxSynchronize *cmd = (struct lake_cmd_cuCtxSynchronize *) buf;
     cmd_ret->res = cuCtxSynchronize();
-#endif
     return 0;
 }
 
@@ -193,13 +129,8 @@ static int lake_handler_cuCtxSynchronize(void* buf, struct lake_cmd_ret* cmd_ret
  *  cuMemFree   
  *********************/
 static int lake_handler_cuMemFree(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuMemFree *cmd = (struct lake_cmd_cuMemFree *) buf;
-#if DRY_RUN
-    printf("Dry running cuMemFree\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuMemFree *cmd = (struct lake_cmd_cuMemFree *) buf;
     cmd_ret->res = cuMemFree(cmd->dptr);
-#endif
     return 0;
 }
 
@@ -207,13 +138,8 @@ static int lake_handler_cuMemFree(void* buf, struct lake_cmd_ret* cmd_ret) {
  *  cuStreamCreate   
  *********************/
 static int lake_handler_cuStreamCreate(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuStreamCreate *cmd = (struct lake_cmd_cuStreamCreate *) buf;
-#if DRY_RUN
-    printf("Dry running cuStreamCreate\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuStreamCreate *cmd = (struct lake_cmd_cuStreamCreate *) buf;
     cmd_ret->res = cuStreamCreate(&cmd_ret->stream, cmd->Flags);
-#endif
     return 0;
 }
 
@@ -221,13 +147,8 @@ static int lake_handler_cuStreamCreate(void* buf, struct lake_cmd_ret* cmd_ret) 
  *  cuStreamSynchronize   
  *********************/
 static int lake_handler_cuStreamSynchronize(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuStreamSynchronize *cmd = (struct lake_cmd_cuStreamSynchronize *) buf;
-#if DRY_RUN
-    printf("Dry running cuStreamSynchronize\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuStreamSynchronize *cmd = (struct lake_cmd_cuStreamSynchronize *) buf;
     cmd_ret->res = cuStreamSynchronize(cmd->hStream);
-#endif
     return 0;
 }
 
@@ -235,13 +156,8 @@ static int lake_handler_cuStreamSynchronize(void* buf, struct lake_cmd_ret* cmd_
  *  cuStreamDestroy   
  *********************/
 static int lake_handler_cuStreamDestroy(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuStreamDestroy *cmd = (struct lake_cmd_cuStreamDestroy *) buf;
-#if DRY_RUN
-    printf("Dry running cuStreamDestroy\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuStreamDestroy *cmd = (struct lake_cmd_cuStreamDestroy *) buf;
     cmd_ret->res = cuStreamDestroy(cmd->hStream);
-#endif
     return 0;
 }
 
@@ -249,13 +165,8 @@ static int lake_handler_cuStreamDestroy(void* buf, struct lake_cmd_ret* cmd_ret)
  *  cuMemcpyHtoDAsync   
  *********************/
 static int lake_handler_cuMemcpyHtoDAsync(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuMemcpyHtoDAsync *cmd = (struct lake_cmd_cuMemcpyHtoDAsync *) buf;
-#if DRY_RUN
-    printf("Dry running cuMemcpyHtoDAsync\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuMemcpyHtoDAsync *cmd = (struct lake_cmd_cuMemcpyHtoDAsync *) buf;
     cmd_ret->res = cuMemcpyHtoDAsync(cmd->dstDevice, lake_shm_address(cmd->srcHost), cmd->ByteCount, cmd->hStream);
-#endif
     return 0;
 }
 
@@ -263,13 +174,8 @@ static int lake_handler_cuMemcpyHtoDAsync(void* buf, struct lake_cmd_ret* cmd_re
  *  cuMemcpyDtoHAsync   
  *********************/
 static int lake_handler_cuMemcpyDtoHAsync(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuMemcpyDtoHAsync *cmd = (struct lake_cmd_cuMemcpyDtoHAsync *) buf;
-#if DRY_RUN
-    printf("Dry running cuMemcpyDtoHAsync\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuMemcpyDtoHAsync *cmd = (struct lake_cmd_cuMemcpyDtoHAsync *) buf;
     cmd_ret->res = cuMemcpyDtoHAsync(lake_shm_address(cmd->dstHost), cmd->srcDevice, cmd->ByteCount, cmd->hStream);
-#endif
     return 0;
 }
 
@@ -277,17 +183,11 @@ static int lake_handler_cuMemcpyDtoHAsync(void* buf, struct lake_cmd_ret* cmd_re
  *  cuMemAllocPitch   
  *********************/
 static int lake_handler_cuMemAllocPitch(void* buf, struct lake_cmd_ret* cmd_ret) {
-    struct lake_cmd_cuMemAllocPitch *cmd = (struct lake_cmd_cuMemAllocPitch *) buf;
-#if DRY_RUN
-    printf("Dry running cuMemAllocPitch\n");
-    cmd_ret->res = CUDA_SUCCESS;
-#else
+        struct lake_cmd_cuMemAllocPitch *cmd = (struct lake_cmd_cuMemAllocPitch *) buf;
     cmd_ret->res = cuMemAllocPitch(&cmd_ret->ptr, &cmd_ret->pPitch, cmd->WidthInBytes,
         cmd->Height, cmd->ElementSizeBytes);
-#endif
     return 0;
 }
-
 
 /*********************
  * 
