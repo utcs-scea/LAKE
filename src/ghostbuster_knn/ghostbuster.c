@@ -204,9 +204,8 @@ int knn_cuda( const FLOAT *ref, int ref_nb, const FLOAT *query,
     }
 
     // Copy reference and query data from the host to the device
-    ret |= cuMemcpyHtoDAsync(ref_dev, ref, ref_pitch_in_bytes, 0 );
-    ret |= cuMemcpyHtoDAsync(query_dev, query,
-                                query_pitch_in_bytes, 0 );
+    ret |= cuMemcpyHtoDAsync(ref_dev, ref, ref_pitch_in_bytes, 0);
+    ret |= cuMemcpyHtoDAsync(query_dev, query, query_pitch_in_bytes, 0);
     if (ret) {
         PRINT( "Unable to copy data from host to device\n" );
         goto out;
