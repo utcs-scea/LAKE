@@ -8,6 +8,7 @@ bool gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	//memcpyasync into device
 	//do inference
 	//copy back array of bools
+	return false;
 }
 
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {

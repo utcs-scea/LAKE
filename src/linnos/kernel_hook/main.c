@@ -5,6 +5,15 @@
 #include <linux/delay.h>
 #include <linux/blkdev.h>
 
+#include "predictors.h"
+
+#define LINNOS_DISABLE 0
+#define LINNOS_ENABLE 1
+
+static int action = LINNOS_DISABLE;
+module_param(linnos_action, int, 0444);
+MODULE_PARM_DESC(linnos_action, "0 for disabling, 1 for enabling");
+
 //adding a model to a device requires:
 // 1. include the header with the weights
 // 2. put device name in devices
@@ -21,19 +30,19 @@ static long *weights[][4] = {
 	{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
 };
 
-static void test(void) {
-	struct block_device *dev;
-	struct request_queue *q;
-	pr_warn("trying to get by path\n");
-	dev = blkdev_get_by_path("/dev/vda", FMODE_READ|FMODE_WRITE, THIS_MODULE);
-	if (IS_ERR(dev)) {
-		pr_warn("didnt work, err %ld\n", PTR_ERR(dev));
-		return;
-	}
-	pr_warn("worked! disk name: %s\n", dev->bd_disk->disk_name);
-	q = bdev_get_queue(dev);
-	pr_warn("is queue ml enabled? %d\n", q->ml_enabled);
-}
+// static void test(void) {
+// 	struct block_device *dev;
+// 	struct request_queue *q;
+// 	pr_warn("trying to get by path\n");
+// 	dev = blkdev_get_by_path("/dev/vda", FMODE_READ|FMODE_WRITE, THIS_MODULE);
+// 	if (IS_ERR(dev)) {
+// 		pr_warn("didnt work, err %ld\n", PTR_ERR(dev));
+// 		return;
+// 	}
+// 	pr_warn("worked! disk name: %s\n", dev->bd_disk->disk_name);
+// 	q = bdev_get_queue(dev);
+// 	pr_warn("is queue ml enabled? %d\n", q->ml_enabled);
+// }
 
 static void attach_to_queue(int idx) {
 	struct block_device *dev;
@@ -43,8 +52,6 @@ static void attach_to_queue(int idx) {
 	pr_warn("Attaching to queue on %s\n", devices[idx]);
 	dev = blkdev_get_by_path(devices[idx], FMODE_READ|FMODE_WRITE, THIS_MODULE);
 	q = bdev_get_queue(dev);
-
-	pr_warn("is queue ml enabled? %d\n", q->ml_enabled);
 	pr_warn("wt test  %ld %ld %ld %ld \n", wts[0][0], wts[1][0], wts[2][0], wts[3][0]);
 	pr_warn("test done\n");
 
@@ -52,7 +59,28 @@ static void attach_to_queue(int idx) {
 	q->weight_1_T = wts[1];
 	q->bias_0 = wts[1];
 	q->bias_1 = wts[2];
+	q->predictor = cpu_prediction_model
 	q->ml_enabled = true;
+	pr_warn("Attached!\n");
+}
+
+static void dettach_queue(int idx) {
+	struct block_device *dev;
+	struct request_queue *q;
+	long **wts = weights[idx];
+
+	pr_warn("Dettaching queue on %s\n", devices[idx]);
+	dev = blkdev_get_by_path(devices[idx], FMODE_READ|FMODE_WRITE, THIS_MODULE);
+	q = bdev_get_queue(dev);
+
+	q->ml_enabled = false;
+	usleep_range(100,200);
+	q->predictor = 0
+	q->weight_0_T = 0;
+	q->weight_1_T = 0;
+	q->bias_0 = 0;
+	q->bias_1 = 0;
+	pr_warn("Dettached!\n");
 }
 
 static int run_hook(void)
@@ -62,8 +90,10 @@ static int run_hook(void)
 	int i;
 
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
-		pr_warn("dev %i  %p\n", i, devs);
-		attach_to_queue(i);
+		if(action == LINNOS_DISABLE) 
+			dettach_queue(i)
+		else 
+			attach_to_queue(i);
 	}
 
 	return 0;

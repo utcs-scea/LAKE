@@ -304,7 +304,7 @@ static int run_gpu(void) {
             gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
             get_result_batch(batch_size);
             cuCtxSynchronize();
-            int cpu_result = prediction_model((char*)parallel_input, test_weights);
+            int cpu_result = cpu_prediction_model((char*)parallel_input, 1, test_weights);
     
             #ifdef __KERNEL__
                 PRINT(V_INFO, "GPU results %d,\n", res[0]);
