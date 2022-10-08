@@ -5,6 +5,11 @@
 #include <linux/delay.h>
 #include <linux/blkdev.h>
 
+//adding a model to a device requires:
+// 1. include the header with the weights
+// 2. put device name in devices
+// 3. set the pointers into a new array in weights (dont mess with the ending 0)
+
 #include "sde.h"
 
 const char *devices[] = {
@@ -42,6 +47,12 @@ static void attach_to_queue(int idx) {
 	pr_warn("is queue ml enabled? %d\n", q->ml_enabled);
 	pr_warn("wt test  %ld %ld %ld %ld \n", wts[0][0], wts[1][0], wts[2][0], wts[3][0]);
 	pr_warn("test done\n");
+
+	q->weight_0_T = wts[0];
+	q->weight_1_T = wts[1];
+	q->bias_0 = wts[1];
+	q->bias_1 = wts[2];
+	q->ml_enabled = true;
 }
 
 static int run_hook(void)

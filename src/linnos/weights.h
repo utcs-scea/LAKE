@@ -1,9 +1,10 @@
 #ifndef __WEIGHTS_H
 #define __WEIGHTS_H
 
-extern long bias_i_0[256];
-extern long bias_i_1[2];
-extern long weight_i_1[256][2];
-extern long weight_i_0_T[256][31];
+//this is from sde headers in linnos
+extern long weight_0_T[256*31];
+extern long weight_1_T[256*31];
+extern long bias_0[1*256];
+extern long bias_1[1*2];
 
 #endif
