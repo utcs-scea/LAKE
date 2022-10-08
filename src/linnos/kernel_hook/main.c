@@ -11,8 +11,8 @@
 #define LINNOS_ENABLE 1
 
 static int action = LINNOS_DISABLE;
-module_param(linnos_action, int, 0444);
-MODULE_PARM_DESC(linnos_action, "0 for disabling, 1 for enabling");
+module_param(action, int, 0444);
+MODULE_PARM_DESC(action, "0 for disabling, 1 for enabling");
 
 //adding a model to a device requires:
 // 1. include the header with the weights
@@ -59,7 +59,7 @@ static void attach_to_queue(int idx) {
 	q->weight_1_T = wts[1];
 	q->bias_0 = wts[1];
 	q->bias_1 = wts[2];
-	q->predictor = cpu_prediction_model
+	q->predictor = cpu_prediction_model;
 	q->ml_enabled = true;
 	pr_warn("Attached!\n");
 }
@@ -75,7 +75,7 @@ static void dettach_queue(int idx) {
 
 	q->ml_enabled = false;
 	usleep_range(100,200);
-	q->predictor = 0
+	q->predictor = 0;
 	q->weight_0_T = 0;
 	q->weight_1_T = 0;
 	q->bias_0 = 0;
@@ -91,7 +91,7 @@ static int run_hook(void)
 
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
 		if(action == LINNOS_DISABLE) 
-			dettach_queue(i)
+			dettach_queue(i);
 		else 
 			attach_to_queue(i);
 	}
