@@ -98,3 +98,8 @@ sudo apt install python3.10 python3-pip
 
 If the run command gives you `Unable to link the KEY_SPEC_USER_KEYRING into the KEY_SPEC_SESSION_KEYRING`,
 it's a bug from using tmux. Close all tmux panes and reopen it with the `tmux.sh` script
+
+
+#### TODO
+
+plot linnos batch size, color where cpu is used and where gpu is used
