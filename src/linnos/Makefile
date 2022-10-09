@@ -1,5 +1,5 @@
 obj-m += linnos.o
-linnos-objs := weights.o helpers.o main.o predictors.o
+linnos-objs := variables.o weights.o helpers.o main.o predictors.o
 
 ccflags-y += -I$(src)/../kapi/include -I$(KAVA_ROOT)/include -I$(src)/.. -O3 -march=native -mhard-float -msse
 
@@ -15,7 +15,7 @@ clean:
 	rm -f utest
 
 uspace:
-	nvcc weights.c main.c helpers.c kernels.cu predictors.c -o utest -lcuda
+	nvcc variables.c weights.c main.c helpers.c kernels.cu predictors.c -o utest -lcuda
 
 cubin:
 	make -f Makefile.cubin

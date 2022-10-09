@@ -1,14 +1,150 @@
 #include "predictors.h"
+#include "variables.h"
+#include "helpers.h"
+
+#ifdef __KERNEL__
+#include <linux/delay.h>
+#include <linux/ktime.h>
+#include <linux/vmalloc.h>
+#include <asm/fpu/api.h>
+#include "cuda.h"
+#include "lake_shm.h"
+//uspace
+#else
+#define kava_free(X) free(X)
+#define kava_alloc(X) malloc(X)
+#define vfree(X) free(X)
+#define vmalloc(X) malloc(X)
+#include <stdint.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdbool.h>
+#include <stdbool.h>
+#endif
+
+static char *cubin_path = "linnos.cubin";
+#ifdef __KERNEL__
+module_param(cubin_path, charp, 0444);
+MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin");
+#endif
 
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
 
-bool gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
+inline void check_malloc(void *p, const char* error_str, int line) {
+    #ifdef __KERNEL__
+	if (p == NULL) printk(KERN_ERR "ERROR: Failed to allocate %s (line %d)\n", error_str, line);
+    #else
+    if (p == NULL) printf("ERROR: Failed to allocate %s (line %d)\n", error_str, line);
+    #endif
+}
+
+void intialize(long **weights, int n_vecs) {
+	//intialize kernels
+	CUcontext cuContext;
+    gpu_init(0, &cuContext);
+
+    gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
+    gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
+
+	//initialize variables
+	long *kbuf_weight_0_T_ent = (long*) kava_alloc(256*31*sizeof(long));
+    memcpy(kbuf_weight_0_T_ent, weights[0], 256*31*sizeof(long));
+
+    long *kbuf_weight_1_T_ent = (long*) kava_alloc(256*2*sizeof(long));
+    memcpy(kbuf_weight_1_T_ent, weights[1], 256*2*sizeof(long));
+
+    long *kbuf_bias_0_ent = (long*) kava_alloc(256*sizeof(long));
+    memcpy(kbuf_bias_0_ent, weights[2], 256*sizeof(long));
+
+    long *kbuf_bias_1_ent = (long*) kava_alloc(2*sizeof(long));
+    memcpy(kbuf_bias_1_ent, weights[3], 2*sizeof(long));
+	
+	check_error(cuMemAlloc((CUdeviceptr*) &d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
+    
+    check_error(cuMemAlloc((CUdeviceptr*) &d_input_vec_i, sizeof(long) * 31 * n_vecs), "cuMemAlloc ", __LINE__);
+
+    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * n_vecs), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * n_vecs *32), "cuMemAlloc ", __LINE__);
+
+    check_error(cuMemcpyHtoD(d_weight_0_T_ent, kbuf_weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(d_weight_1_T_ent, kbuf_weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(d_bias_0_ent, kbuf_bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(d_bias_1_ent, kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
+
+    kava_free(kbuf_weight_0_T_ent);
+    kava_free(kbuf_weight_1_T_ent);
+    kava_free(kbuf_bias_0_ent);
+    kava_free(kbuf_bias_1_ent);
+}
+
+void unallocate(void) {
+	cuMemFree(d_input_vec_i);
+	cuMemFree(d_weight_0_T_ent);
+	cuMemFree(d_weight_1_T_ent);
+	cuMemFree(d_bias_0_ent);
+	cuMemFree(d_bias_1_ent);
+	cuMemFree(d_mid_res_i);
+	cuMemFree(d_final_res_i);
+}
+
+bool* gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
+	intialize(weights, n_vecs);
 	//memcpyasync into device
+	int i;
+	long input_vec_i[LEN_INPUT * n_vecs];
+	for (i=0 ; i<LEN_INPUT * n_vecs; i++) {
+		input_vec_i[i] = (long)(feat_vec[i]);
+	}
+
+	long *kbuf_parallel_input = (long*) kava_alloc(LEN_INPUT * n_vecs * sizeof(long));
+    memcpy(kbuf_parallel_input, input_vec_i, LEN_INPUT * n_vecs * sizeof(long));
+
+	check_error(cuMemcpyHtoDAsync(d_input_vec_i, kbuf_parallel_input, sizeof(long) * LEN_INPUT * n_vecs, 0), "cuMemcpyHtoD", __LINE__);
+	kava_free(kbuf_parallel_input);
+
 	//do inference
-	//copy back array of bools
-	return false;
+	void *args[] = {
+		&d_weight_0_T_ent, &d_bias_0_ent, &d_input_vec_i, &d_mid_res_i
+	};
+
+    check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
+				n_vecs, 1, 1,          //blocks
+				256, 1, 1,   //threads per block
+				0,   //shared mem
+                NULL, args, NULL),
+			"cuLaunchKernel", __LINE__);
+
+    void *args1[] = {
+		&d_weight_1_T_ent, &d_bias_1_ent, &d_mid_res_i, &d_final_res_i
+	};
+
+    check_error(cuLaunchKernel(batch_linnos_final_layer_kernel, 
+				n_vecs, 1, 1,          //blocks
+				64, 1, 1,   //threads per block
+				0,   //shared mem
+                NULL, args1, NULL),
+			"cuLaunchKernel", __LINE__);
+
+	
+	long *final_res_i;
+	final_res_i = (long*) kava_alloc(n_vecs * 64 * sizeof(long));
+    check_malloc(final_res_i, "check_malloc", __LINE__);
+    check_error(cuMemcpyDtoHAsync(final_res_i, d_final_res_i, sizeof(long) * 64 * n_vecs, 0), "cuMemcpyDtoH", __LINE__);
+	bool *res;
+	res = (bool*) kava_alloc(n_vecs * sizeof(bool));
+    check_malloc(res, "check_malloc", __LINE__);
+	for(i = 0; i < n_vecs; i++) {
+		res[i] = final_res_i[i*64]>=(final_res_i[i *64 + 32])? false: true;
+	}
+	kava_free(final_res_i);
+	//cleanup
+	unallocate(); 
+	return res;
 }
 
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {

@@ -31,6 +31,7 @@ u64 get_tsns() {
 #include "weights.h"
 #include "helpers.h"
 #include "predictors.h"
+#include "variables.h"
 
 //#include <asm/fpu/api.h>
 #define LEN_INPUT 31
@@ -53,15 +54,15 @@ static int run_cpu(void) {
     return 0;
 }
 
-static inline void check_malloc(void *p, const char* error_str, int line) {
-    #ifdef __KERNEL__
-	if (p == NULL) printk(KERN_ERR "ERROR: Failed to allocate %s (line %d)\n", error_str, line);
-    #else
-    if (p == NULL) printf("ERROR: Failed to allocate %s (line %d)\n", error_str, line);
-    #endif
-}
+// static inline void check_malloc(void *p, const char* error_str, int line) {
+//     #ifdef __KERNEL__
+// 	if (p == NULL) printk(KERN_ERR "ERROR: Failed to allocate %s (line %d)\n", error_str, line);
+//     #else
+//     if (p == NULL) printf("ERROR: Failed to allocate %s (line %d)\n", error_str, line);
+//     #endif
+// }
 
-CUdeviceptr d_weight_0_T_ent, d_weight_1_T_ent, d_bias_0_ent, d_bias_1_ent, d_input_vec_i, d_mid_res_i, d_final_res_i;
+//CUdeviceptr d_weight_0_T_ent, d_weight_1_T_ent, d_bias_0_ent, d_bias_1_ent, d_input_vec_i, d_mid_res_i, d_final_res_i;
 static long *final_res_i;
 
 static void setup_gpu(int batch_size) {
@@ -110,11 +111,11 @@ static void setup_gpu(int batch_size) {
 static long *parallel_input;
 static bool *res;
 
-static void flatten_input(int batch_size, long* input_vec_i) {
+static void flatten_input(int batch_size, char* input_vec_i) {
     int b, j;
 	for(b = 0 ; b < batch_size; b++) {
 		for(j = 0; j < 31; j++)
-			parallel_input[ b*31 + j ] = input_vec_i[j];
+			parallel_input[ b*31 + j ] =  (long *) input_vec_i[j];
 	}
 }
 
@@ -213,7 +214,7 @@ static int run_gpu(void) {
     const int n = 1024;
     
     int batch_size;
-    long input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
+    char input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
     u64 t_start, t_stop, c_start, c_stop;
     u64* comp_run_times;
     u64* total_run_times;
@@ -223,7 +224,7 @@ static int run_gpu(void) {
     CUcontext cuContext;
     gpu_init(0, &cuContext);
 
-    CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
+    //CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
@@ -306,19 +307,20 @@ static int run_gpu(void) {
             get_result_batch(batch_size);
             cuCtxSynchronize();
             int cpu_result = cpu_prediction_model((char*)parallel_input, 1, test_weights);
+            bool* gpu_result = gpu_prediction_model((char*)parallel_input, 1, test_weights);;
     
             #ifdef __KERNEL__
-                PRINT(V_INFO, "GPU results %d,\n", res[0]);
+                PRINT(V_INFO, "GPU results %d,\n", (int)gpu_result[0]);
                 PRINT(V_INFO, "CPU results %d,\n", cpu_result);
-                if (res[0] == cpu_result) {
+                if ((int)gpu_result[0] == cpu_result) {
                     PRINT(V_INFO, "Equal! \n");
                 } else {
                     PRINT(V_INFO, " Not Equal! \n");
                 }
             #else
-                printf("GPU results %d\n", res[0]);
+                printf("GPU results %d\n", (int)gpu_result[0]);
                 printf("CPU results %d\n", cpu_result);
-                if (res[0] == cpu_result) {
+                if ((int)gpu_result[0] == cpu_result) {
                     printf("Equal! \n");
                 } else {
                     printf("Not Equal! \n");
