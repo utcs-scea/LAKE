@@ -5,6 +5,7 @@
 #include <asm/fpu/api.h>
 #include "cuda.h"
 #include "lake_shm.h"
+//uspace
 #else
 #define kava_free(X) free(X)
 #define kava_alloc(X) malloc(X)
@@ -22,8 +23,8 @@ u64 get_tsns() {
     gettimeofday(&current_time, NULL);
     return current_time.tv_sec*1000000000 + current_time.tv_usec*1000;
 }
-
 #define ktime_get_ns() get_tsns()
+#include <stdbool.h>
 #endif
 
 #define FEAT_31
