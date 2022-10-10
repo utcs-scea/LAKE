@@ -18,6 +18,7 @@
 #include <stdbool.h>
 #define usleep_range(X,Y) sleep(X/1000)
 #include <sys/time.h>
+#include <sys/random.h>
 u64 get_tsns() {
     struct timeval current_time;
     gettimeofday(&current_time, NULL);
@@ -298,16 +299,23 @@ static int run_gpu(void) {
             {9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9},
             {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
         };
-        for(int k = 0; k < 4; k++) {
+        for(int k = 0; k < 100; k++) {
             setup_gpu(batch_size);
             for(j = 0; j < 31; j++)
 		        parallel_input[j] = input[k][j];    
-            copy_batch_inputs(batch_size);
-            gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
-            get_result_batch(batch_size);
-            cuCtxSynchronize();
-            int cpu_result = cpu_prediction_model((char*)parallel_input, 1, test_weights);
-            bool* gpu_result = gpu_prediction_model((char*)parallel_input, 1, test_weights);;
+            // copy_batch_inputs(batch_size);
+            // gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
+            // get_result_batch(batch_size);
+            // cuCtxSynchronize();
+
+            unsigned  char uuid[31]; 
+            #ifdef __KERNEL__ 
+                get_random_bytes(uuid, sizeof(uuid));
+            #else
+                getrandom(uuid, sizeof (uuid), 0);
+            #endif
+            int cpu_result = cpu_prediction_model(uuid, 1, test_weights);
+            bool* gpu_result = gpu_prediction_model(uuid, 1, test_weights);
     
             #ifdef __KERNEL__
                 PRINT(V_INFO, "GPU results %d,\n", (int)gpu_result[0]);
@@ -323,7 +331,7 @@ static int run_gpu(void) {
                 if ((int)gpu_result[0] == cpu_result) {
                     printf("Equal! \n");
                 } else {
-                    printf("Not Equal! \n");
+                    printf("Not Equal :( \n");
                 }
             #endif
         }
