@@ -1,7 +1,7 @@
 all: replayer
 
-replayer: replay_failover.c
-	gcc @^ -o replayer -lpthread
+replayer: replayer.c io_ops.c
+	gcc $^ -o replayer -lpthread
 
 clean:
 	rm -rf *.o  replayer
