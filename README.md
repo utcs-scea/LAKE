@@ -1,8 +1,9 @@
 # Instructions for compiling kernel
 
-## Install BPF and other dependencies
-
 Start with Ubuntu 20 or 22. We assume gcc is installed.
+
+## Install dependencies
+
 ```
 sudo apt-get update
 sudo apt-get -y install build-essential tmux git pkg-config cmake zsh
@@ -23,61 +24,58 @@ rm -rf dwarves
 
 ## Compile kernel
 
-Download the linux kernel 
-```
-wget https://cdn.kernel.org/pub/linux/kernel/v5.x/linux-5.15.68.tar.xz
-tar xf linux-5.15.68.tar.xz
-cd linux-5.15.68/
-```
-Manually copy a config or run `cp /boot/config-$(uname -r) .config`
-Copy `scripts/set_configs.sh` into linux-5.15.68 dir and run it
-Compile and install:
-```
-make -j$(nproc)
-sudo make -j$(nproc) INSTALL_MOD_STRIP=1 modules_install
-sudo make install
-sudo make headers_install INSTALL_HDR_PATH=/usr
-```
-Now make the new kernel the default if you are running headless:
-Open `/boot/grub/grub.cfg`, write down the id for the advanced menu and the id for the 5.15-hack.
-Join them, in that order with a `>`. For example:
-`gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-5.15.68-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1`
-Open `/etc/default/grub` and at the top add a default option, using the string above. For example:
-`GRUB_DEFAULT="gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-5.15.68-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1"`
+Clone `git@github.com:hfingler/linux-6.0.git`.
+Go in the directory and run `compile_install.sh`, it should do everything.
 
-Since you are here, add to `GRUB_CMDLINE_LINUX_DEFAULT` (create if it doesnt exist):
-`cma=128M@0-4G log_buf_len=16M`
+If you are running with a monitor, choose the new kernel in grub.
+Otherwise, make the new kernel the default by:
+1. Open `/boot/grub/grub.cfg`, write down the id for the advanced menu and the id for the 6.0-lake.
+2. Join them (advanced menu and kernel id), in that order with a `>`. For example:
+`gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-6.0-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1`
+3. Open `/etc/default/grub` and, at the top of the file, add a default option using the string above. For example:
+`GRUB_DEFAULT="gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-5.15.68-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1"`
+4. Add to `GRUB_CMDLINE_LINUX_DEFAULT` (create if it doesnt exist): `cma=128M@0-4G log_buf_len=16M`
 For example: `GRUB_CMDLINE_LINUX_DEFAULT="quiet splash cma=128M@0-4G log_buf_len=16M"`
-The last argument is optional for more log length
-Finally, run `sudo update-grub`.
-Reboot and make sure the kernel is right by running `uname -r`
+5. Finally, run `sudo update-grub`. Reboot and make sure the kernel is right by running `uname -r`
+
 
 ## More BPF stuff
 
-Install llvm and clang.
-Add to /etc/apt/sources.list:
+Go to `tools/bpf` in the kernel repo you set up above (the `linux-6.0` repo).
+and run `make && sudo make install`
+
+Now we need to install llvm and clang.
+Add to `/etc/apt/sources.list` (if you're using Ubuntu 22.04, replace `bionic` with `jammy`)
 ```
 deb http://archive.ubuntu.com/ubuntu bionic-updates main multiverse restricted universe
 deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-15 main
 deb-src http://apt.llvm.org/bionic/ llvm-toolchain-bionic-15 main
 ```
 
-Clang might not be in path or have its name versioned. If this is true, run the script in scripts/create_llvm_links.sh to rename.
-For example, if you have llvm-config-15 and clang-15 but not llvm-config and clang, run:
-`create_llvm_links.sh 15 1`
+Then install it:
+```
+sudo apt update
+sudo apt install llvm-15 clang-15
+```
 
-
-Go to `tools/bpf` in your linux dir (the linux source downloaded in the previous stap), and run `make && sudo make install`
+Logout and back in to update path. Try running  `llvm-config --version`.
+If it shows `15.0.2`, you are done.
+If it does not, make sure `llvm-config-15 --version` works.
+This means that the links weren't created, so do it using a script:
+go to the `scripts` dir and run `sudo ./create_llvm_links.sh 15 1`.
+This will create links to every tool with a `-15` suffix to one without.
 
 
 ## Install CUDA
 
 ```
+wget https://us.download.nvidia.com/XFree86/Linux-x86_64/515.76/NVIDIA-Linux-x86_64-515.76.run
+sudo ./NVIDIA-Linux-x86_64-515.76.run -s
 wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run
-sudo sh ./cuda_11.8.0_520.61.05_linux.run
+sudo sh ./cuda_11.8.0_520.61.05_linux.run --toolkit --silent --override
 ```
-Select driver and toolkit.
-Run `nvidia-smi` to make sure it's working.
+Run `nvidia-smi` to make sure it's working. If it isn't, the CUDA installer probably uninstalled the driver.
+If so, run the second command again (`sudo ./NVIDIA-Linux-x86_64-515.76.run -s`).
 
 
 # eCryptfs
