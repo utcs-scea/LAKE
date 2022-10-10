@@ -14,6 +14,8 @@ static int action = LINNOS_DISABLE;
 module_param(action, int, 0444);
 MODULE_PARM_DESC(action, "0 for disabling, 1 for enabling");
 
+extern unsigned long sysctl_lake_enable_linnos;
+
 //adding a model to a device requires:
 // 1. include the header with the weights
 // 2. put device name in devices
@@ -22,7 +24,7 @@ MODULE_PARM_DESC(action, "0 for disabling, 1 for enabling");
 #include "sde.h"
 
 const char *devices[] = {
-    "/dev/vda1",
+    "/dev/vdb",
 	0
 };
 
@@ -61,19 +63,20 @@ static void attach_to_queue(int idx) {
 	q->bias_1 = wts[2];
 	q->predictor = cpu_prediction_model;
 	q->ml_enabled = true;
+	sysctl_lake_enable_linnos = true;
 	pr_warn("Attached!\n");
 }
 
 static void dettach_queue(int idx) {
 	struct block_device *dev;
 	struct request_queue *q;
-	long **wts = weights[idx];
 
 	pr_warn("Dettaching queue on %s\n", devices[idx]);
 	dev = blkdev_get_by_path(devices[idx], FMODE_READ|FMODE_WRITE, THIS_MODULE);
 	q = bdev_get_queue(dev);
 
 	q->ml_enabled = false;
+	sysctl_lake_enable_linnos = false;
 	usleep_range(100,200);
 	q->predictor = 0;
 	q->weight_0_T = 0;
@@ -85,10 +88,10 @@ static void dettach_queue(int idx) {
 
 static int run_hook(void)
 {
-	long *wts;
 	const char *devs;
 	int i;
 
+	pr_warn("Running with action: %d\n", action);
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
 		if(action == LINNOS_DISABLE) 
 			dettach_queue(i);
