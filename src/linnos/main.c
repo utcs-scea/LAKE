@@ -76,69 +76,98 @@ static int run_gpu(void) {
 
     //ISHA: watchout, I changed  input[31] from long to char, we need to check we convert char to long in this
 
-    //CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
-
-    // comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
-    // total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
-
-    //flatten n inputs, which is enough for all batches
-    // parallel_input = (long*) kava_alloc(n*31*sizeof(long));
-    // check_malloc(parallel_input, "check_malloc", __LINE__);
+    comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
+    total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
 
     // flatten_input(n, input);
+    expand_input_n_times(input, n);
+    // measuring GPU time
+    for (i = 0 ; i < n_batches ; i++) {
+        batch_size = batch_sizes[i];
 
-    // res = (bool*) kava_alloc(n*sizeof(bool));
-    // check_malloc(res, "check_malloc", __LINE__);
+        // copy inputs to GPU each time we run
+        copy_inputs_to_gpu(batch_size);
 
-    // for (i = 0 ; i < n_batches ; i++) {
-    //     batch_size = batch_sizes[i];
-    //     // setup is only run once per batch size (cuda mallocs)
-    //     setup_gpu(batch_size);    
-    //     // copy inputs to GPU each time we run
-    //     copy_batch_inputs(batch_size);
-
-    //     //warmup
-    //     gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
-    //     get_result_batch(batch_size);
-    //     cuCtxSynchronize();
-    //     usleep_range(250, 1000);
+        //warmup
+        gpu_prediction_model(input, batch_size, test_weights);
+        copy_results_from_gpu(batch_size);
+        
+        cuCtxSynchronize();
+        usleep_range(250, 1000);
     
-    //     for (j = 0 ; j < RUNS ; j++) {
-    //         //PRINT(V_INFO, "Runing batch %d/%d for batch size %d\n", k+1, n/batch_size, batch_size);
-    //         t_start = ktime_get_ns();
-    //         copy_batch_inputs(batch_size);
-    //         gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 0);
-    //         get_result_batch(batch_size);
-    //         t_stop = ktime_get_ns();
+        for (j = 0 ; j < RUNS ; j++) {
+            t_start = ktime_get_ns();
+            copy_inputs_to_gpu(batch_size);
+            gpu_prediction_model(input, batch_size, test_weights);
+            copy_results_from_gpu(batch_size);
+            t_stop = ktime_get_ns();
             
-    //         usleep_range(500, 2000);
+            usleep_range(500, 2000);
 
-    //         c_start = ktime_get_ns();
-    //         gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
-    //         c_stop = ktime_get_ns();
+            c_start = ktime_get_ns();
+            gpu_prediction_model(input, batch_size, test_weights);
+            c_stop = ktime_get_ns();
             
-    //         usleep_range(500, 2000);
-    //         comp_run_times[j] = (c_stop - c_start);
-    //         total_run_times[j] = (t_stop - t_start);
-	//     }
+            usleep_range(500, 2000);
+            comp_run_times[j] = (c_stop - c_start);
+            total_run_times[j] = (t_stop - t_start);
+	    }
 
-	//     avg = 0; avg_total = 0;
-    //     best = 0; best_total = 0;
-    //     for (j = 0 ; j < RUNS ; j++) {
-    //         avg += comp_run_times[j];
-    //         avg_total += total_run_times[j];
-    //         if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
-    //         if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
-    //     }
-    //     avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
-    //     best = best / 1000; best_total = best_total / 1000;
-    //     #ifdef __KERNEL__
-    //         PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-    //     #else
-    //         printf("GPU batch_%d, %ld, %ld, %ld, %ld\n", batch_size, avg, avg_total, best, best_total);
-    //     #endif
-    //     clean_batch();
-	// }
+	    avg = 0; avg_total = 0;
+        best = 0; best_total = 0;
+        for (j = 0 ; j < RUNS ; j++) {
+            avg += comp_run_times[j];
+            avg_total += total_run_times[j];
+            if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
+            if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
+        }
+        avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
+        best = best / 1000; best_total = best_total / 1000;
+
+        PRINT("GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+	}
+
+    // measuring cpu time
+    for (i = 0 ; i < n_batches ; i++) {
+        batch_size = batch_sizes[i];
+
+        //warmup
+        cpu_prediction_model(input, 1, test_weights);
+        
+        usleep_range(250, 1000);
+    
+        for (j = 0 ; j < RUNS ; j++) {
+            t_start = ktime_get_ns();
+            for(int k = 0; k < batch_size; k++) {
+                char input_copy[31];
+                memcpy (input_copy, input, sizeof(input));
+                cpu_prediction_model(input, 1, test_weights);
+            }
+            t_stop = ktime_get_ns();
+            
+            usleep_range(500, 2000);
+
+            // c_start = t_start;
+            // c_stop = t_stop;
+            
+            usleep_range(500, 2000);
+            comp_run_times[j] = (c_stop - c_start);
+            total_run_times[j] = comp_run_times[j];//(t_stop - t_start);
+	    }
+
+	    avg = 0; avg_total = 0;
+        best = 0; best_total = 0;
+        for (j = 0 ; j < RUNS ; j++) {
+            avg += comp_run_times[j];
+            avg_total += total_run_times[j];
+            if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
+            if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
+        }
+        avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
+        best = best / 1000; best_total = best_total / 1000;
+
+        PRINT("CPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+	}
 
     if(check_correctness) {
         for(int k = 0; k < CORRECTNESS_CHECKS; k++) {
@@ -160,7 +189,7 @@ static int run_gpu(void) {
             //ISHA: please check, this is out of bounds
             //check copy_results_from_gpu, we only copy  sizeof(long) * 64 * n_inputs
             //res = gpu_outputs[1*64]>=(gpu_outputs[1 *64 + 32])? false: true;
-            res = gpu_outputs[1*64]>=1? false: true;
+            res = gpu_outputs[0]>=(gpu_outputs[32])? false: true;
 
             PRINT("Test [%d]: (%d) %s\n", k, res, res==cpu_result ? "Ok" : "WRONG");
             if (cpu_result) true_count++;
@@ -171,8 +200,8 @@ static int run_gpu(void) {
 
 
     gpu_cuda_cleanup();
-    // vfree(comp_run_times);
-    // vfree(total_run_times);
+    vfree(comp_run_times);
+    vfree(total_run_times);
     return 0;
 }
 

@@ -19,6 +19,8 @@
 #else
 #include <cuda.h>
 #include <stdio.h>
+#include<stdint.h>
+#define u64 uint64_t
 #endif
 
 
