@@ -27,24 +27,22 @@ bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 }
 
 bool* gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
-	//intialize(weights, n_vecs);
-	PRINT(V_INFO, "intialize done\n");
-	//memcpyasync into device
+	PRINT("intialize done\n");
 	int i;
 	
-	PRINT(V_INFO, "input copy done\n");
+	PRINT("input copy done\n");
 	long *kbuf_parallel_input = (long*) kava_alloc(LEN_INPUT * n_vecs * sizeof(long));
 	if (!kbuf_parallel_input) pr_err("kavaalloc returned null\n");
 	for (i=0 ; i < LEN_INPUT * n_vecs; i++) {
 		kbuf_parallel_input[i] = (long)(feat_vec[i]);
 	}
 
-	PRINT(V_INFO, "input copy done 2\n");
+	PRINT("input copy done 2\n");
 	//check_error(cuMemcpyHtoDAsync(d_input_vec_i, kbuf_parallel_input, sizeof(long) * LEN_INPUT * n_vecs, 0), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD(d_input_vec_i, kbuf_parallel_input, sizeof(long) * LEN_INPUT * n_vecs), "cuMemcpyHtoD", __LINE__);
 	kava_free(kbuf_parallel_input);
 
-	PRINT(V_INFO, "input copy done\n");
+	PRINT("input copy done\n");
 
 	//do inference
 	void *args[] = {
@@ -58,7 +56,7 @@ bool* gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
 
-	PRINT(V_INFO, "kernel launch 1\n");
+	PRINT("kernel launch 1\n");
 
     void *args1[] = {
 		&d_weight_1_T_ent, &d_bias_1_ent, &d_mid_res_i, &d_final_res_i
@@ -71,25 +69,25 @@ bool* gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
                 NULL, args1, NULL),
 			"cuLaunchKernel", __LINE__);
 
-	PRINT(V_INFO, "kernel launch 2\n");
+	PRINT("kernel launch 2\n");
 
 	long *final_res_i;
 	final_res_i = (long*) kava_alloc(n_vecs * 64 * sizeof(long));
     check_malloc(final_res_i, "check_malloc", __LINE__);
-    check_error(cuMemcpyDtoHAsync(final_res_i, d_final_res_i, sizeof(long) * 64 * n_vecs, 0), "cuMemcpyDtoH", __LINE__);
-	PRINT(V_INFO, "result copied\n");
+    check_error(cuMemcpyDtoH(final_res_i, d_final_res_i, sizeof(long) * 64 * n_vecs), "cuMemcpyDtoH", __LINE__);
+	PRINT("result copied\n");
 	bool *res;
 	res = (bool*) kava_alloc(n_vecs * sizeof(bool));
     check_malloc(res, "check_malloc", __LINE__);
 	for(i = 0; i < n_vecs; i++) {
 		res[i] = final_res_i[i*64]>=(final_res_i[i *64 + 32])? false: true;
 	}
-	PRINT(V_INFO, "result generated\n");
+	PRINT("result generated\n");
 	kava_free(final_res_i);
-	PRINT(V_INFO, "getting result\n");
+	PRINT("getting result\n");
 	//cleanup
 	//unallocate(); 
-	PRINT(V_INFO, "unallocated\n");
+	PRINT("unallocated\n");
 	return res;
 }
 

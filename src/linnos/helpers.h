@@ -16,33 +16,30 @@
 // CUDA driver
 #include "cuda.h"
 #include "lake_shm.h"
-
-#define V_ERROR 0
-#define V_INFO 1
-#define V_DEBUG_TIMING 2
-#define V_DEBUG 3
-#define VERBOSITY V_INFO
-#define PRINT(verbosity, ...) do { if (verbosity <= VERBOSITY) printk(KERN_INFO __VA_ARGS__); } while (0)
-
 #else
 #include <cuda.h>
 #include <stdio.h>
 #endif
 
+
+#ifdef __KERNEL__
+#define PRINT(...) do { if (1) printk(KERN_INFO __VA_ARGS__); } while (0)
+#else
+#define PRINT(...) do { if (1) printf(__VA_ARGS__); } while (0)
+#define kava_alloc(...) malloc(__VA_ARGS__)
+#define kava_free(...) free(__VA_ARGS__)
+#endif
+
 static inline CUresult check_error(CUresult error, const char* error_str, int line)
 {
-	if (error != CUDA_SUCCESS) {
-        #ifdef __KERNEL__
-        printk(KERN_ERR "ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
-        #else
-        printf("ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
-        #endif
+    if (error != CUDA_SUCCESS) {
+        PRINT("ERROR: %s returned error (line %d): %s\n", error_str, line, error_str);
 	}
 	return error;
 }
 
 void initialize_gpu(const char* cubin_path, long **weights, int n_vecs);
-void unallocate(void);
+void gpu_cuda_cleanup(void);
 void check_malloc(void *p, const char* error_str, int line);
 
 #endif

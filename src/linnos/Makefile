@@ -1,7 +1,7 @@
 obj-m += linnos.o
 linnos-objs := variables.o weights.o helpers.o main.o predictors.o
 
-ccflags-y += -I$(src)/../kapi/include -I$(KAVA_ROOT)/include -I$(src)/.. -O3 -march=native -mhard-float -msse
+ccflags-y += -I$(src)/../kapi/include -I$(KAVA_ROOT)/include -I$(src)/.. -O3 -march=native -mhard-float -msse -Wno-declaration-after-statement
 
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kshm/Module.symvers
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kernel/Module.symvers

@@ -1,6 +1,5 @@
 #ifdef __KERNEL__
 #include "cuda.h"
-#include "lake_shm.h"
 #else
 #include <cuda.h>
 #include <stdio.h>

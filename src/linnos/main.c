@@ -41,7 +41,7 @@ u64 get_tsns() {
 #define LEN_LAYER_1 2
 
 #define RUNS 3
-bool printResults = true; 
+bool check_correctness = true; 
 
 static char *cubin_path = "linnos.cubin";
 #ifdef __KERNEL__
@@ -55,60 +55,8 @@ static int run_cpu(void) {
     return 0;
 }
 
-// static inline void check_malloc(void *p, const char* error_str, int line) {
-//     #ifdef __KERNEL__
-// 	if (p == NULL) printk(KERN_ERR "ERROR: Failed to allocate %s (line %d)\n", error_str, line);
-//     #else
-//     if (p == NULL) printf("ERROR: Failed to allocate %s (line %d)\n", error_str, line);
-//     #endif
-// }
 
-//CUdeviceptr d_weight_0_T_ent, d_weight_1_T_ent, d_bias_0_ent, d_bias_1_ent, d_input_vec_i, d_mid_res_i, d_final_res_i;
 static long *final_res_i;
-
-static void setup_gpu_memory(int batch_size) {
-    static long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
-    weight_0_T_ent = weight_0_T;
-    weight_1_T_ent = weight_1_T;
-    bias_0_ent = bias_0;
-    bias_1_ent = bias_1;
-
-    long *kbuf_weight_0_T_ent = (long*) kava_alloc(256*31*sizeof(long));
-    memcpy(kbuf_weight_0_T_ent, weight_0_T_ent, 256*31*sizeof(long));
-
-    long *kbuf_weight_1_T_ent = (long*) kava_alloc(256*2*sizeof(long));
-    memcpy(kbuf_weight_1_T_ent, weight_1_T_ent, 256*2*sizeof(long));
-
-    long *kbuf_bias_0_ent = (long*) kava_alloc(256*sizeof(long));
-    memcpy(kbuf_bias_0_ent, bias_0_ent, 256*sizeof(long));
-
-    long *kbuf_bias_1_ent = (long*) kava_alloc(2*sizeof(long));
-    memcpy(kbuf_bias_1_ent, bias_1_ent, 2*sizeof(long));
-	
-	check_error(cuMemAlloc((CUdeviceptr*) &d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
-    
-    check_error(cuMemAlloc((CUdeviceptr*) &d_input_vec_i, sizeof(long) * 31 * batch_size), "cuMemAlloc ", __LINE__);
-
-    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * batch_size *32), "cuMemAlloc ", __LINE__);
-
-    check_error(cuMemcpyHtoD(d_weight_0_T_ent, kbuf_weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_weight_1_T_ent, kbuf_weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_bias_0_ent, kbuf_bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_bias_1_ent, kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
-
-    kava_free(kbuf_weight_0_T_ent);
-    kava_free(kbuf_weight_1_T_ent);
-    kava_free(kbuf_bias_0_ent);
-    kava_free(kbuf_bias_1_ent);
-
-    // final_res_i = (long*) kava_alloc(batch_size*64*sizeof(long));
-    // check_malloc(final_res_i, "check_malloc", __LINE__);
-}
-
 static long *parallel_input;
 static bool *res;
 
@@ -143,17 +91,6 @@ static void copy_batch_inputs(int batch_size) {
 static void cleanup(void) {
     kava_free(parallel_input);
     kava_free(res);
-}
-
-void clean_batch(void) {
-	cuMemFree(d_input_vec_i);
-	cuMemFree(d_weight_0_T_ent);
-	cuMemFree(d_weight_1_T_ent);
-	cuMemFree(d_bias_0_ent);
-	cuMemFree(d_bias_1_ent);
-	cuMemFree(d_mid_res_i);
-	cuMemFree(d_final_res_i);
-	kava_free(final_res_i);
 }
 
 int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size, int sync) {
@@ -194,36 +131,33 @@ void get_result_batch(int batch_size) {
 
 void print_results(int batch_size) {
     int i;
-    #ifdef __KERNEL__
-        PRINT(V_INFO, "GPU batch_%d results,\n", batch_size);
-        for(i = 0; i < batch_size; i++) {
-            PRINT(V_INFO, "%d\n", res[i]);
-        }
-    #else
-        printf("GPU batch_%d results\n", batch_size);
-        for(i = 0; i < batch_size; i++) {
-            printf("%d\n", res[i]);
-        }
-    #endif  
+    PRINT("GPU batch_%d results,\n", batch_size);
+    for(i = 0; i < batch_size; i++) {
+        PRINT("%d\n", res[i]);
+    }
 }
 
 static int run_gpu(void) {
     int i, j;
-    PRINT(V_INFO, "Starting\n");
+    PRINT("Starting\n");
     int batch_sizes[] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     int n_batches = 12;
+    int max_batch_size = 1024;
     // n needs to be at least as large as the largest batch size
     const int n = 1024;
     
     int batch_size;
-    long input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
+    char input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
     u64 t_start, t_stop, c_start, c_stop;
     u64* comp_run_times;
     u64* total_run_times;
     u64 avg, avg_total;
     u64 best, best_total;
   
-    initialize_gpu(cubin_path, test_weights, 1);
+    initialize_gpu(cubin_path, test_weights, max_batch_size);
+
+
+    //ISHA: watchout, I changed  input[31] from long to char, we need to check we convert char to long in this
 
     //CUfunction batch_linnos_final_layer_kernel, batch_linnos_mid_layer_kernel;
 
@@ -289,56 +223,31 @@ static int run_gpu(void) {
     //     clean_batch();
 	// }
 
-    if(printResults) {
-        int batch_size = 1;
-        char input[4][31] = {
-            {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9},
-            {9,9,9,0,9,1,1,9,9,9,9,0,9,9,1,9,9,1,9,9,0,9,1,9,1,9,0,9,9,0,9},
-            {9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9},
-            {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
-        };
-        unsigned  char uuid[31];
-        setup_gpu_memory(1);
+    if(check_correctness) {
         for(int k = 0; k < 5; k++) {
-            //setup_gpu(batch_size);
-            // for(j = 0; j < 31; j++)
-		    //     parallel_input[j] = input[k][j];    
-            // copy_batch_inputs(batch_size);
-            // gpu_inference(&batch_linnos_mid_layer_kernel, &batch_linnos_final_layer_kernel, batch_size, 1);
-            // get_result_batch(batch_size);
-            // cuCtxSynchronize();
-
+            //generate random input
             #ifdef __KERNEL__ 
-                get_random_bytes(uuid, sizeof(uuid));
+                get_random_bytes(input, LEN_INPUT);
             #else
-                getrandom(uuid, sizeof (uuid), 0);
+                getrandom(input, LEN_INPUT, 0);
             #endif
-            int cpu_result = cpu_prediction_model(uuid, 1, test_weights);
-            PRINT(V_INFO, "CPU prediction done!\n");
-            bool* gpu_result = gpu_prediction_model(uuid, 1, test_weights);
+
+            int cpu_result = cpu_prediction_model(input, 1, test_weights);
+            PRINT("CPU prediction done!\n");
+            bool* gpu_result = gpu_prediction_model(input, 1, test_weights);
     
-            #ifdef __KERNEL__
-                PRINT(V_INFO, "GPU results %d,\n", (int)gpu_result[0]);
-                PRINT(V_INFO, "CPU results %d,\n", cpu_result);
-                if ((int)gpu_result[0] == cpu_result) {
-                    PRINT(V_INFO, "Equal! \n");
-                } else {
-                    PRINT(V_INFO, " Not Equal! \n");
-                }
-            #else
-                printf("GPU results %d\n", (int)gpu_result[0]);
-                printf("CPU results %d\n", cpu_result);
-                if ((int)gpu_result[0] == cpu_result) {
-                    printf("Equal! \n");
-                } else {
-                    printf("Not Equal :( \n");
-                }
-            #endif
+            PRINT("GPU results %d\n", (int)gpu_result[0]);
+            PRINT("CPU results %d\n", cpu_result);
+            if ((int)gpu_result[0] == cpu_result) 
+                PRINT("Equal! \n");
+            else 
+                PRINT(" Not Equal! \n");
+        
             kava_free(gpu_result);
         }
-        clean_batch();
     }
-    //cleanup();
+
+    gpu_cuda_cleanup();
     // vfree(comp_run_times);
     // vfree(total_run_times);
     return 0;
