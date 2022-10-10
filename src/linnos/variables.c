@@ -16,3 +16,6 @@ CUdeviceptr d_final_res_i;
 CUfunction batch_linnos_final_layer_kernel;
 CUfunction batch_linnos_mid_layer_kernel;
 CUcontext cuctx;
+
+long *inputs_to_gpu;
+long *gpu_outputs;

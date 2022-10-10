@@ -44,6 +44,9 @@ void initialize_gpu(const char* cubin_path, long **weights, int max_batch_size) 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
 
+    inputs_to_gpu = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
+    gpu_outputs = kava_alloc(64 * max_batch_size * sizeof(long));
+
 	PRINT("cubin load done\n");
 	//initialize variables
 	kbuf_weight_0_T_ent = (long*) kava_alloc(256*31*sizeof(long));
@@ -84,9 +87,28 @@ void gpu_cuda_cleanup(void) {
 	cuMemFree(d_bias_1_ent);
 	cuMemFree(d_mid_res_i);
 	cuMemFree(d_final_res_i);
+    kava_free(inputs_to_gpu);
+    kava_free(gpu_outputs);
 }
 
 void check_malloc(void *p, const char* error_str, int line) {
 	if (p == NULL) PRINT("ERROR: Failed to allocate %s (line %d)\n", error_str, line);
 }
 
+//this takes one input array (with LEN_INPUT bytes) and
+//expands it to N inputs, while converting to longs
+void expand_input_n_times(char* input, int n) {
+    int b, j;
+	for(b = 0 ; b < n; b++) 
+		for(j = 0; j < LEN_INPUT; j++)
+			inputs_to_gpu[b*31 + j] =  (long) input[j];
+}
+
+//pass number of inputs, not bytes
+void copy_inputs_to_gpu(u64 n_inputs) {
+    cuMemcpyHtoDAsync(d_input_vec_i, inputs_to_gpu, sizeof(long) * LEN_INPUT * n_inputs, 0);
+}
+
+void copy_results_from_gpu(u64 n_inputs) {
+    cuMemcpyDtoH(gpu_outputs, d_final_res_i, sizeof(long) * 64 * n_inputs);
+}

@@ -28,13 +28,11 @@ u64 get_tsns() {
 #include <stdbool.h>
 #endif
 
-#define FEAT_31
 #include "weights.h"
 #include "helpers.h"
 #include "predictors.h"
 #include "variables.h"
-
-//#include <asm/fpu/api.h>
+#define FEAT_31
 #define LEN_INPUT 31
 #define LEN_LAYER_0 256
 #define LEN_LAYER_0_HALF 128
@@ -42,6 +40,7 @@ u64 get_tsns() {
 
 #define RUNS 3
 bool check_correctness = true; 
+#define CORRECTNESS_CHECKS 10
 
 static char *cubin_path = "linnos.cubin";
 #ifdef __KERNEL__
@@ -55,88 +54,6 @@ static int run_cpu(void) {
     return 0;
 }
 
-
-static long *final_res_i;
-static long *parallel_input;
-static bool *res;
-
-static void flatten_input(int batch_size, long* input_vec_i) {
-    int b, j;
-	for(b = 0 ; b < batch_size; b++) {
-		for(j = 0; j < 31; j++)
-			parallel_input[ b*31 + j ] =  input_vec_i[j];
-	}
-}
-
-static void flatten_input_test_output(int batch_size, long* input_vec_i) {
-    int j;
-    //long input_1[31] = {1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
-    long input_1[31] = {9,9,9,0,9,1,1,9,9,9,9,0,9,9,1,9,9,1,9,9,0,9,1,9,1,9,0,9,9,0,9};
-    long input_2[31] = {9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9,9};
-    long input_3[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
-	for(j = 0; j < 31; j++)
-		parallel_input[ j ] = input_vec_i[j];
-    for(j = 0; j < 31; j++)
-		parallel_input[ 1*31 + j ] = input_1[j];
-    for(j = 0; j < 31; j++)
-		parallel_input[ 2*31 + j ] = input_2[j];
-    for(j = 0; j < 31; j++)
-		parallel_input[ 3*31 + j ] = input_3[j];
-}
-
-static void copy_batch_inputs(int batch_size) {
-    check_error(cuMemcpyHtoDAsync(d_input_vec_i, parallel_input, sizeof(long) * 31 * batch_size, 0), "cuMemcpyHtoD", __LINE__);
-}
-
-static void cleanup(void) {
-    kava_free(parallel_input);
-    kava_free(res);
-}
-
-int gpu_inference(CUfunction* cufunc1, CUfunction* cufunc2, int batch_size, int sync) {
-    void *args[] = {
-		&d_weight_0_T_ent, &d_bias_0_ent, &d_input_vec_i, &d_mid_res_i
-	};
-
-    check_error(cuLaunchKernel(*cufunc1, 
-				batch_size, 1, 1,          //blocks
-				256, 1, 1,   //threads per block
-				0,   //shared mem
-                NULL, args, NULL),
-			"cuLaunchKernel", __LINE__);
-
-    void *args1[] = {
-		&d_weight_1_T_ent, &d_bias_1_ent, &d_mid_res_i, &d_final_res_i
-	};
-
-    int zg = sync == 0 ? 1 : 69; 
-
-    check_error(cuLaunchKernel(*cufunc2, 
-				batch_size, 1, zg,          //blocks
-				64, 1, 1,   //threads per block
-				0,   //shared mem
-                NULL, args1, NULL),
-			"cuLaunchKernel", __LINE__);
-
-    return 0;
-}
-
-void get_result_batch(int batch_size) {
-    int i;
-    check_error(cuMemcpyDtoHAsync(final_res_i, d_final_res_i, sizeof(long) * 64 * batch_size, 0), "cuMemcpyDtoH", __LINE__);
-	for(i = 0; i < batch_size; i++) {
-		res[i] = final_res_i[i*64]>=(final_res_i[i *64 + 32])? false: true;
-	}
-}
-
-void print_results(int batch_size) {
-    int i;
-    PRINT("GPU batch_%d results,\n", batch_size);
-    for(i = 0; i < batch_size; i++) {
-        PRINT("%d\n", res[i]);
-    }
-}
-
 static int run_gpu(void) {
     int i, j;
     PRINT("Starting\n");
@@ -145,7 +62,8 @@ static int run_gpu(void) {
     int max_batch_size = 1024;
     // n needs to be at least as large as the largest batch size
     const int n = 1024;
-    
+    bool res;
+    u64 false_count=0, true_count=0;
     int batch_size;
     char input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
     u64 t_start, t_stop, c_start, c_stop;
@@ -155,7 +73,6 @@ static int run_gpu(void) {
     u64 best, best_total;
   
     initialize_gpu(cubin_path, test_weights, max_batch_size);
-
 
     //ISHA: watchout, I changed  input[31] from long to char, we need to check we convert char to long in this
 
@@ -224,7 +141,7 @@ static int run_gpu(void) {
 	// }
 
     if(check_correctness) {
-        for(int k = 0; k < 5; k++) {
+        for(int k = 0; k < CORRECTNESS_CHECKS; k++) {
             //generate random input
             #ifdef __KERNEL__ 
                 get_random_bytes(input, LEN_INPUT);
@@ -233,19 +150,25 @@ static int run_gpu(void) {
             #endif
 
             int cpu_result = cpu_prediction_model(input, 1, test_weights);
-            PRINT("CPU prediction done!\n");
-            bool* gpu_result = gpu_prediction_model(input, 1, test_weights);
-    
-            PRINT("GPU results %d\n", (int)gpu_result[0]);
-            PRINT("CPU results %d\n", cpu_result);
-            if ((int)gpu_result[0] == cpu_result) 
-                PRINT("Equal! \n");
-            else 
-                PRINT(" Not Equal! \n");
-        
-            vfree(gpu_result);
+
+            //the 1's here mean we only do 1 input, easy to adapt to n
+            expand_input_n_times(input, 1);
+            copy_inputs_to_gpu(1);
+            gpu_prediction_model(input, 1, test_weights);
+            copy_results_from_gpu(1);
+            
+            //ISHA: please check, this is out of bounds
+            //check copy_results_from_gpu, we only copy  sizeof(long) * 64 * n_inputs
+            //res = gpu_outputs[1*64]>=(gpu_outputs[1 *64 + 32])? false: true;
+            res = gpu_outputs[1*64]>=1? false: true;
+
+            PRINT("Test [%d]: (%d) %s\n", k, res, res==cpu_result ? "Ok" : "WRONG");
+            if (cpu_result) true_count++;
+            else false_count++;
         }
+        PRINT("CPU prediction summary: %llu trues, %llu falses\n", true_count, false_count);
     }
+
 
     gpu_cuda_cleanup();
     // vfree(comp_run_times);

@@ -15,3 +15,5 @@ extern CUdeviceptr d_final_res_i;
 extern CUfunction batch_linnos_final_layer_kernel;
 extern CUfunction batch_linnos_mid_layer_kernel;
 extern CUcontext cuctx;
+extern long *inputs_to_gpu;
+extern long *gpu_outputs;

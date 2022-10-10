@@ -26,16 +26,8 @@ bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
 
-bool* gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
+void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	int i;
-	
-	long *kbuf_parallel_input = (long*) kava_alloc(LEN_INPUT * n_vecs * sizeof(long));
-	if (!kbuf_parallel_input) pr_err("kava alloc returned null\n");
-	for (i=0 ; i < LEN_INPUT * n_vecs; i++) {
-		kbuf_parallel_input[i] = (long)(feat_vec[i]);
-	}
-
-	check_error(cuMemcpyHtoDAsync(d_input_vec_i, kbuf_parallel_input, sizeof(long) * LEN_INPUT * n_vecs, 0), "cuMemcpyHtoD", __LINE__);
 	
 	//do inference
 	void *args[] = {
@@ -59,22 +51,6 @@ bool* gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 				0,   //shared mem
                 NULL, args1, NULL),
 			"cuLaunchKernel", __LINE__);
-
-	long *final_res_i;
-	final_res_i = (long*) kava_alloc(n_vecs * 64 * sizeof(long));
-    check_malloc(final_res_i, "check_malloc", __LINE__);
-    check_error(cuMemcpyDtoH(final_res_i, d_final_res_i, sizeof(long) * 64 * n_vecs), "cuMemcpyDtoH", __LINE__);
-
-	bool *res;
-	res = (bool*) vmalloc(n_vecs * sizeof(bool));
-    check_malloc(res, "check_malloc", __LINE__);
-	for(i = 0; i < n_vecs; i++) {
-		res[i] = final_res_i[i*64]>=(final_res_i[i *64 + 32])? false: true;
-	}
-
-	kava_free(final_res_i);
-	kava_free(kbuf_parallel_input);
-	return res;
 }
 
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
