@@ -243,7 +243,7 @@ static int run_gpu(void) {
             else 
                 PRINT(" Not Equal! \n");
         
-            kava_free(gpu_result);
+            vfree(gpu_result);
         }
     }
 
