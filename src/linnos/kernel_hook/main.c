@@ -22,6 +22,9 @@ extern unsigned long sysctl_lake_enable_linnos;
 // 3. set the pointers into a new array in weights (dont mess with the ending 0)
 
 #include "sde.h"
+#include "weights_header/w_nvme0n1.h"
+#include "weights_header/w_nvme1n1.h"
+#include "weights_header/w_nvme2n1.h"
 
 const char *devices[] = {
     "/dev/vdb",
