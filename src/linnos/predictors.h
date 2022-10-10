@@ -13,9 +13,6 @@
 #include <stdbool.h>
 #endif
 
-void intialize(long **weights, int n_vecs);
-void unallocate(void);
-void check_malloc(void *p, const char* error_str, int line);
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights);
 bool* gpu_prediction_model(char *feat_vec, int n_vecs, long **weights);
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights);

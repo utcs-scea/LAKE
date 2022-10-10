@@ -41,7 +41,8 @@ static inline CUresult check_error(CUresult error, const char* error_str, int li
 	return error;
 }
 
-void gpu_init(int dev, CUcontext* cuctx);
-void gpu_get_cufunc(char* cubin, char* kname, CUfunction *func);
+void initialize_gpu(const char* cubin_path, long **weights, int n_vecs);
+void unallocate(void);
+void check_malloc(void *p, const char* error_str, int line);
 
 #endif
