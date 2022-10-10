@@ -147,8 +147,8 @@ static int run_gpu(void) {
             
             usleep_range(500, 2000);
 
-            // c_start = t_start;
-            // c_stop = t_stop;
+            c_start = t_start;
+            c_stop = t_stop;
             
             usleep_range(500, 2000);
             comp_run_times[j] = (c_stop - c_start);
