@@ -27,12 +27,18 @@ extern unsigned long sysctl_lake_enable_linnos;
 #include "weights_header/w_nvme2n1.h"
 
 const char *devices[] = {
-    "/dev/vdb",
+    //"/dev/vdb",
+	"/dev/nvme0n0",
+	"/dev/nvme1n0",
+	"/dev/nvme2n0",
 	0
 };
 
 static long *weights[][4] = {
-	{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
+	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
+	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
+	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
+	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
 };
 
 // static void test(void) {

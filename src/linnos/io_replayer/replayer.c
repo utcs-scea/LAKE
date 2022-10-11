@@ -334,11 +334,20 @@ int main (int argc, char **argv)
         parse_io(request[i], i);
     }
 
-    //prepare_metrics(logfile, "failover");
-    //do_replay(perform_io_failover);
+    printf("About to run baseline, which means the linnos hook should NOT be loaded\n");
+    printf("Press any key to continue\n");  
+    getchar();  
+
 
     prepare_metrics(logfile, "baseline");
     do_replay(perform_io_baseline);
+    
+    printf("About to run failover, which means the linnos hook SHOULD be loaded\n");
+    printf("Press any key to continue\n");  
+    getchar();
+
+    prepare_metrics(logfile, "failover");
+    do_replay(perform_io_failover);
 
     return 0;
 }
