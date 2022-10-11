@@ -25,18 +25,18 @@ rm -rf dwarves
 ## Compile kernel
 
 Clone `git@github.com:hfingler/linux-6.0.git`.
-Go in the directory and run `compile_install.sh`, it should do everything.
+Go in the directory and run `full_compilation.sh`, it should do everything.
 
-If you are running with a monitor, choose the new kernel in grub.
+If you are running with a monitor, reboot and choose the new kernel in grub.
 Otherwise, make the new kernel the default by:
-1. Open `/boot/grub/grub.cfg`, write down the id for the advanced menu and the id for the 6.0-lake.
+1. Open `/boot/grub/grub.cfg`, scroll down until you see boot options, then write down the id for the advanced menu and the id for the 6.0-lake.
 2. Join them (advanced menu and kernel id), in that order with a `>`. For example:
 `gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-6.0-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1`
 3. Open `/etc/default/grub` and, at the top of the file, add a default option using the string above. For example:
 `GRUB_DEFAULT="gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-5.15.68-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1"`
-4. Add to `GRUB_CMDLINE_LINUX_DEFAULT` (create if it doesnt exist): `cma=128M@0-4G log_buf_len=16M`
+4. Add to `GRUB_CMDLINE_LINUX_DEFAULT` (create if it doesn't exist): `cma=128M@0-4G log_buf_len=16M`
 For example: `GRUB_CMDLINE_LINUX_DEFAULT="quiet splash cma=128M@0-4G log_buf_len=16M"`
-5. Finally, run `sudo update-grub`. Reboot and make sure the kernel is right by running `uname -r`
+5. Finally, run `sudo update-grub`. Reboot and make sure the lake kernel is right by running `uname -r`
 
 
 ## More BPF stuff

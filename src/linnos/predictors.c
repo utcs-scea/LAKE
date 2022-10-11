@@ -140,5 +140,6 @@ bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	// apply bias
 	final_res_i[1] += bias_1_ent[1];
 
+	//printk("Predictor returning %d\n",final_res_i[0]>=(final_res_i[1])? false: true);
     return final_res_i[0]>=(final_res_i[1])? false: true;
 }

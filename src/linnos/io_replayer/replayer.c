@@ -21,11 +21,11 @@
 
 int LARGEST_REQUEST_SIZE = (16*1024*1024); //blocks
 int MEM_ALIGN = 4096*8; //bytes
-int nr_workers[NR_DEVICE] = {1, 1, 1};
+int nr_workers[NR_DEVICE] = {16, 16, 16};
 int printlatency = 1; //print every io latency
 int respecttime = 1;
 int block_size = 1; // by default, one sector (512 bytes)
-int single_io_limit = (1024); // the size limit of a single IOs request, used to break down large IOs
+int single_io_limit = (1024*1024); // the size limit of a single IOs request, used to break down large IOs
 
 // int LARGEST_REQUEST_SIZE = (16*1024*1024); //blocks
 // int MEM_ALIGN = 4096*8; //bytes
@@ -235,12 +235,12 @@ void do_replay(void* (*io_func)(void*))
     assert(pthread_mutex_init(&lock, NULL) == 0);
     // assert(pthread_mutex_init(&lock_sub, NULL) == 0);
 
-    for (int i=0; i<NR_DEVICE; i++) {
+    for (i=0; i<NR_DEVICE; i++) {
         for (t = 0; t < nr_workers[i]; t++) {
             assert(pthread_create(&(tid[i][t]), NULL, io_func, &(dev_idx_enum[i])) == 0);
         } 
     }
-    assert(pthread_create(&track_thread, NULL, pr_progress, NULL) == 0);
+    //assert(pthread_create(&track_thread, NULL, pr_progress, NULL) == 0);
 
     sleep(1);
     gettimeofday(&t1, NULL);
@@ -256,7 +256,7 @@ void do_replay(void* (*io_func)(void*))
     }
     
     gettimeofday(&t2, NULL);
-    pthread_join(track_thread, NULL); //progress
+    //pthread_join(track_thread, NULL); //progress
 
     // calculate something
     totaltime = (t2.tv_sec - t1.tv_sec) * 1e3 + (t2.tv_usec - t1.tv_usec) / 1e3;
@@ -268,12 +268,17 @@ void do_replay(void* (*io_func)(void*))
         printf("Slack rate: %.2f%%\n", 100 * (float)atomic_read(&slackcount) / nr_tt_ios);
     }
 
-    fclose(metrics);
     assert(pthread_mutex_destroy(&lock) == 0);
     // assert(pthread_mutex_destroy(&lock_sub) == 0);
 
     //run statistics
     //system("python statistics.py");
+
+    //reset
+    for(i = 0 ; i < NR_DEVICE ; i++) {
+        jobtracker[i] = 0;
+    }
+
 }
 
 int parse_device(char *dev_list) {
@@ -301,17 +306,17 @@ int main (int argc, char **argv)
     char tracefile[NR_DEVICE][256], logfile[256];
     char **request[NR_DEVICE];
 
-    if (argc != 6) {
-        printf("Usage: ./replayer /dev/tgt0 tracefile0 tracefile1 tracefile2 logfile\n");
+    if (argc != 7) {
+        printf("Usage: ./replayer <baseline|failover> /dev/tgt0-/dev/tgt1-/dev/tgt2 tracefile0 tracefile1 tracefile2 logfile\n");
         exit(1);
     } else {
-        sprintf(device, "%s", argv[1]);
+        sprintf(device, "%s", argv[2]);
         printf("Disk ==> %s\n", device);
         for (int i=0; i<NR_DEVICE; i++) {
-            sprintf(tracefile[i], "%s", argv[2+i]);
+            sprintf(tracefile[i], "%s", argv[3+i]);
             printf("Trace #%d ==> %s\n", i, tracefile[i]);
         }
-        sprintf(logfile, "%s", argv[2+NR_DEVICE]);
+        sprintf(logfile, "%s", argv[3+NR_DEVICE]);
         printf("Logfile ==> %s\n", logfile);
     }
 
@@ -334,20 +339,22 @@ int main (int argc, char **argv)
         parse_io(request[i], i);
     }
 
-    printf("About to run baseline, which means the linnos hook should NOT be loaded\n");
-    printf("Press any key to continue\n");  
-    getchar();  
+    if(!strcmp(argv[1], "baseline")) {
+        // printf("About to run baseline, which means the linnos hook should NOT be loaded\n");
+        // printf("Press any key to continue\n");  
+        // getchar();  
+        prepare_metrics(logfile, "baseline");
+        do_replay(perform_io_baseline);
+    } else if(!strcmp(argv[1], "baseline")) {
+        // printf("About to run failover, which means the linnos hook SHOULD be loaded\n");
+        // printf("Press any key to continue\n");  
+        // getchar();
+        prepare_metrics(logfile, "failover");
+        do_replay(perform_io_failover);
+    }
 
-
-    prepare_metrics(logfile, "baseline");
-    do_replay(perform_io_baseline);
-    
-    printf("About to run failover, which means the linnos hook SHOULD be loaded\n");
-    printf("Press any key to continue\n");  
-    getchar();
-
-    prepare_metrics(logfile, "failover");
-    do_replay(perform_io_failover);
+    fclose(metrics);
+    fclose(metrics_sub);
 
     return 0;
 }

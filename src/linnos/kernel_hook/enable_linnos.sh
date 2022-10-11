@@ -1,4 +1,4 @@
 #!/bin/bash
 
-sudo insmod linnos_hook.ko action=1
+sudo insmod linnos_hook.ko
 

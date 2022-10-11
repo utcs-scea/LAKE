@@ -108,7 +108,6 @@ void *perform_io_failover(void *input)
         // respect time part
         if (respecttime == 1) {
             int ret = sleep_until(dev_trace_timestamps[cur_idx]);
-
             if(ret == 1) myslackcount++;
             if(ret == -1) mylatecount++;
         }
@@ -123,7 +122,6 @@ void *perform_io_failover(void *input)
 		while (request_io_size > 0) {
             int nr_fail;
             for (nr_fail = 0 ; nr_fail < MAX_FAIL; nr_fail++) {
-                int ret;
                 uint32_t this_io_size = request_io_size_limit > request_io_size ? request_io_size : request_io_size_limit;
                 if(dev_trace_req_type == WRITE) {
                     ret = pwrite( fd[(dev_index+nr_fail)%NR_DEVICE], 
@@ -136,10 +134,10 @@ void *perform_io_failover(void *input)
                         this_io_size, 
                         request_offset);
                 }
-
                 if (ret > 0) {
                     goto success;
                 }
+                printf("IO failed, re-issuing\n");
             }
 
             if (ret <= 0) {
@@ -261,12 +259,12 @@ void *perform_io_baseline(void *input)
         // respect time part
         if (respecttime == 1) {
             int is_slack = sleep_until(dev_trace_timestamps[cur_idx]);
-            if (is_slack) myslackcount++;
-            else mylatecount++;
+            if(ret == 1) myslackcount++;
+            if(ret == -1) mylatecount++;
         }
 		
         // do the job
-		printf("IO %lu: size: %d; offset: %lu\n", cur_idx, request_io_size, request_offset);
+		//printf("IO %lu: size: %d; offset: %lu\n", cur_idx, request_io_size, request_offset);
         gettimeofday(&t1, NULL); //reset the start time to before start doing the job
         /* the submission timestamp */
         float submission_ts = (t1.tv_sec * 1e6 + t1.tv_usec - starttime) / 1000;
