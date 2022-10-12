@@ -141,6 +141,7 @@ void *perform_io_failover(void *input)
                 if (ret > 0) {
                     goto success;
                 }
+                io_rejections++;
                 //printf("IO fail [%d] with err %d, re-issuing\n", nr_fail, errno);
                 if(nr_fail == MAX_FAIL) {
                     printf("hail mary\n");
@@ -150,6 +151,8 @@ void *perform_io_failover(void *input)
                         0);
                 }
             }
+            if (nr_fail != 0)
+                unique_io_rejections++;
 
             if (ret <= 0) {
                 printf("ERR: final try not successful\n");

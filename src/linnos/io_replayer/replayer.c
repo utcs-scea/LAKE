@@ -20,6 +20,7 @@
 
 
 int io_rejections=0;
+int unique_io_rejections=0;
 int trace_line_count = 0;
 
 int LARGEST_REQUEST_SIZE = (16*1024*1024); //blocks
@@ -352,8 +353,9 @@ int main (int argc, char **argv)
         // getchar();
         prepare_metrics(logfile, "failover");
         do_replay(perform_io_failover);
-        printf("IOs rejected: [%d]   percentage:  [%.2f]\n", 
-                trace_line_count, ((float)io_rejections/trace_line_count));
+        printf("IOs rejected: [%d]  percentage rej.:  [%.2f]  unique rej. percentage:  [%.2f]\n", 
+                trace_line_count, ((float)io_rejections/trace_line_count),
+                ((float)unique_io_rejections/trace_line_count));
     } else {
         printf("Invalid type to run");
         return 1;
