@@ -7,6 +7,7 @@ from operator import itemgetter
 from re import I
 import sys, math
 import numpy as np
+import statistics
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
@@ -14,6 +15,7 @@ if __name__ == '__main__':
 
     sorted_io = []
     inters = []
+    read_latencies = []
 
     readbandwidth = 0
     readlatency = 0
@@ -21,6 +23,8 @@ if __name__ == '__main__':
     writebandwidth = 0
     writelatency = 0
     totalwrite = 0
+
+    total_read_bytes = []
 
     last_io_time = -1
     last_write_time = -1
@@ -39,7 +43,10 @@ if __name__ == '__main__':
         if (io[2] == 1): #read
             readbandwidth += (io[3]/1024) / (io[1]/1000000.0)
             readlatency += io[1]
+            read_latencies.append(io[1])
             totalread += 1
+            total_read_bytes.append(io[3]/1024)
+
         else: #write
             div = 1 if (io[1]/1000000.0) == 0 else (io[1]/1000000.0)
             writebandwidth += (io[3]/1024) / div
@@ -55,6 +62,9 @@ if __name__ == '__main__':
             inter_io_time += io[0] - last_io_time
         last_io_time = io[0]
 
+
+    np_read_latencies = np.array(read_latencies)
+
     print ("==========Statistics==========")
     print(f"total read {totalread} totalwrite {totalwrite} ")
     print (f"Last time {str(last_io_time)}")
@@ -68,7 +78,14 @@ if __name__ == '__main__':
     print (f"Average write bandwidth: {(writebandwidth / totalwrite):.2f} KB/s")
     print (f"Average write latency: {(writelatency / totalwrite):.2f} us")
     print (f"Average read bandwidth: {(readbandwidth / totalread):.2f} KB/s")
+    print (f"Median/Stddev read latency: {statistics.median(read_latencies):.2f} us / {statistics.pstdev(read_latencies):.2f} us")
+    print (f"Min/Max read latency: {min(read_latencies):.2f} us / {max(read_latencies):.2f} us")
     print (f"Average read latency: {(readlatency / totalread):.2f} us")
+    print (f"Average read size: {(sum(total_read_bytes) / totalread):.2f} KB")
+    print (f"Read latency p95: {np.percentile(np_read_latencies, 95)} us")
+    print (f"Read latency p99: {np.percentile(np_read_latencies, 99)} us")
+    print (f"Read latency p99.5: {np.percentile(np_read_latencies, 99.5)} us")
+    print (f"Read latency p99.9: {np.percentile(np_read_latencies, 99.9)} us")
     print (f"==============================")
 
     # count, x = np.histogram(inters, bins=500)
