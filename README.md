@@ -101,3 +101,67 @@ it's a bug from using tmux. Close all tmux panes and reopen it with the `tmux.sh
 #### TODO
 
 plot linnos batch size, color where cpu is used and where gpu is used
+
+# Train the LinnOS Model
+
+## Creating traces
+
+cd LinnOSWriterReplayer
+TraceTag='trace'
+nohup sudo ./writer /dev/nvme0n1 'testTraces/anonymous.drive0.'$TraceTag &
+nohup sudo ./writer /dev/nvme1n1 'testTraces/anonymous.drive1.'$TraceTag &
+nohup sudo ./writer /dev/nvme2n1 'testTraces/anonymous.drive2.'$TraceTag &
+
+sudo ./replayer_fail /dev/nvme0n1-/dev/nvme0n1-/dev/nvme2n1 \
+ 'testTraces/testdrive0.'$TraceTag \
+ 'testTraces/testdrive1.'$TraceTag \
+ 'testTraces/testdrive2.'$TraceTag py/TestTraceOutput
+ 
+python3 -m venv linnOSvenv
+source linnOSvenv/bin/activate
+pip3 install numpy
+ 
+python3 py/percentile.py 2 read \
+py/TestTraceOutput py/BaselineData
+
+sudo ./replayer_fail /dev/nvme0n1-/dev/nvme0n1-/dev/nvme2n1 \
+ 'testTraces/traindrive0.'$TraceTag \
+ 'testTraces/traindrive1.'$TraceTag \
+ 'testTraces/traindrive2.'$TraceTag py/TrainTraceOutput
+ 
+## Parse traces and train the model
+
+pip3 install --upgrade pip
+pip3 install tensorflow
+pip3 install keras
+pip3 install pandas
+pip3 install scikit-learn
+
+for i in 0 1 2 
+do
+   python3 py/traceParser.py direct 3 4 \
+   py/TrainTraceOutput mlData/temp1 \
+   mlData/"mldrive${i}.csv" "$i"
+done
+
+for i in 0 1 2 
+do
+   python3 py/pred1.py \
+   mlData/"mldrive${i}.csv" > "mldrive${i}results".txt
+done
+
+## Converting the weights to linux header file
+
+cd mlData
+mkdir -p drive0weights
+mkdir -p drive1weights
+mkdir -p drive2weights
+cp mldrive0.csv.* drive0weights
+cp mldrive1.csv.* drive1weights
+cp mldrive2.csv.* drive2weights
+ 
+python3 mlHeaderGen/mlHeaderGen.py Trace nvme0n1 mlData/drive0weights weights_header
+python3 mlHeaderGen/mlHeaderGen.py Trace nvme1n1 mlData/drive0weights weights_header
+python3 mlHeaderGen/mlHeaderGen.py Trace nvme2n1 mlData/drive0weights weights_header
+
+
