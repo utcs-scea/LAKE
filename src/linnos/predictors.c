@@ -22,6 +22,7 @@
 #include <stdbool.h>
 #endif
 
+#define SYNC 0
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
@@ -51,6 +52,9 @@ void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 				0,   //shared mem
                 NULL, args1, NULL),
 			"cuLaunchKernel", __LINE__);
+	if(SYNC == 1) {
+		check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
+	}
 }
 
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {

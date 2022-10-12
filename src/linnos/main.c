@@ -40,7 +40,7 @@ u64 get_tsns() {
 
 #define RUNS 3
 bool check_correctness = true; 
-#define CORRECTNESS_CHECKS 10
+#define CORRECTNESS_CHECKS 10000
 
 static char *cubin_path = "linnos.cubin";
 #ifdef __KERNEL__
@@ -64,6 +64,7 @@ static int run_gpu(void) {
     const int n = 1024;
     bool res;
     u64 false_count=0, true_count=0;
+    u64 result_mismatches = 0;
     int batch_size;
     char input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
     u64 t_start, t_stop, c_start, c_stop;
@@ -190,12 +191,12 @@ static int run_gpu(void) {
             //check copy_results_from_gpu, we only copy  sizeof(long) * 64 * n_inputs
             //res = gpu_outputs[1*64]>=(gpu_outputs[1 *64 + 32])? false: true;
             res = gpu_outputs[0]>=(gpu_outputs[32])? false: true;
-
             PRINT("Test [%d]: (%d) %s\n", k, res, res==cpu_result ? "Ok" : "WRONG");
+            if (res!=cpu_result) result_mismatches++;
             if (cpu_result) true_count++;
             else false_count++;
         }
-        PRINT("CPU prediction summary: %llu trues, %llu falses\n", true_count, false_count);
+        PRINT("CPU prediction summary: %llu trues, %llu falses %llu result_mismatches\n", true_count, false_count, result_mismatches);
     }
 
 
