@@ -44,7 +44,7 @@ u32* window_size_hist; //allocated in main.c hook, 128 elements
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_id, my_arrival;
 	bool completer = false;
-
+	u32 err;
 	my_arrival = ktime_get_ns();
 
 	spin_lock(&batch_lock);
@@ -69,7 +69,21 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	spin_unlock(&batch_lock);
 
 	if (!completer) {
-		wait_for_completion(&batch_barrier);
+		//if we are the first of this batch, we need to have a timeout
+		if(my_id == 0) {
+			err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/1000));
+			if (err == 0) {  //this was a timeout
+				spin_lock(&batch_lock);
+				//XXX: theres a chance someone gets in right after the timeout
+				//realize execution here, including our data, and fill gpu_results
+				//unblock everyone in this batch
+				complete(&batch_barrier);
+				spin_unlock(&batch_lock);
+			}
+		}
+		else
+			wait_for_completion(&batch_barrier);
+
 		//read and return from gpu_results
 	}
 
@@ -118,7 +132,6 @@ bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 
 	for (i=0 ; i<LEN_INPUT; i++) {
 		input_vec_i[i] = (long)(feat_vec[i]);
-		// input_vec_i[i] = (long)(test_input[index][i]);
 	}
 
 	weight_0_T_ent = weights[0];

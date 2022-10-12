@@ -11,7 +11,7 @@ enum {
 };
 
 #define NR_DEVICE 3
-#define MAX_FAIL 4
+#define MAX_FAIL 3
 
 extern int LARGEST_REQUEST_SIZE; //blocks
 extern int MEM_ALIGN; //bytes
@@ -21,10 +21,9 @@ extern int respecttime;
 extern int block_size; // by default, one sector (512 bytes)
 extern int single_io_limit;
 
-
 extern int dev_idx_enum[NR_DEVICE];
 extern int fd[NR_DEVICE];
-extern int64_t DISKSZ[NR_DEVICE];
+extern uint64_t DISKSZ[NR_DEVICE];
 extern int64_t nr_tt_ios;
 extern int64_t nr_ios[NR_DEVICE];
 extern int64_t latecount;

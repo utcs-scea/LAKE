@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+ #include <errno.h>
 #include "io_ops.h"
 #include "globals.h"
 
@@ -120,13 +121,19 @@ void *perform_io_failover(void *input)
             int nr_fail;
             for (nr_fail = 0 ; nr_fail < MAX_FAIL; nr_fail++) {
                 uint32_t this_io_size = request_io_size_limit > request_io_size ? request_io_size : request_io_size_limit;
+                int cur_dev = (dev_index+nr_fail)%NR_DEVICE;
+                if(request_offset+this_io_size >= DISKSZ[cur_dev]) {
+                    printf("reading more than device.. skipping\n");
+                    continue;
+                }
+
                 if(dev_trace_req_type == WRITE) {
-                    ret = pwrite(fd[(dev_index+nr_fail)%NR_DEVICE], 
+                    ret = pwrite(fd[cur_dev], 
                             buff, 
                             this_io_size, 
                             request_offset);
                 } else {
-                    ret = pread(fd[(dev_index+nr_fail)%NR_DEVICE], 
+                    ret = pread(fd[cur_dev], 
                         buff, 
                         this_io_size, 
                         request_offset);
@@ -134,13 +141,23 @@ void *perform_io_failover(void *input)
                 if (ret > 0) {
                     goto success;
                 }
-                //printf("IO failed, re-issuing\n");
+                //printf("IO fail [%d] with err %d, re-issuing\n", nr_fail, errno);
+                if(nr_fail == MAX_FAIL) {
+                    printf("hail mary\n");
+                    ret = pread(fd[cur_dev], 
+                        buff, 
+                        this_io_size, 
+                        0);
+                }
             }
 
             if (ret <= 0) {
                 printf("ERR: final try not successful\n");
-                exit(1);
+                continue;
             }
+            //XXX lets try to avoid too many fails fast
+            //usleep(2*nr_fail);
+            
 success:
             gettimeofday(&t2, NULL);
             lat = (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_usec - t1.tv_usec);

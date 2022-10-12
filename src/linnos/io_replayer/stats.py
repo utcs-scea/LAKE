@@ -71,10 +71,9 @@ if __name__ == '__main__':
     print (f"Average read latency: {(readlatency / totalread):.2f} us")
     print (f"==============================")
 
-    count, x = np.histogram(inters, bins=500)
-
-    print("Inter arrival histogram (ms):")
-    #for i in range(len(x)-1):
-    for i in range(30):
-        print(f"{x[i]}: {count[i]}")
+    # count, x = np.histogram(inters, bins=500)
+    # print("Inter arrival histogram (ms):")
+    # #for i in range(len(x)-1):
+    # for i in range(30):
+    #     print(f"{x[i]}: {count[i]}")
 

@@ -39,7 +39,7 @@ int single_io_limit = (1024*1024); // the size limit of a single IOs request, us
 // ANOTHER GLOBAL VARIABLES
 int dev_idx_enum[NR_DEVICE] = {0, 1, 2};
 int fd[NR_DEVICE];
-int64_t DISKSZ[NR_DEVICE];
+uint64_t DISKSZ[NR_DEVICE];
 int64_t nr_tt_ios;
 int64_t nr_ios[NR_DEVICE];
 int64_t latecount = 0;
@@ -63,9 +63,9 @@ int64_t jobtracker[NR_DEVICE] = {0, 0, 0};
 
 /*=============================================================*/
 
-static int64_t get_disksz(int devfd)
+static uint64_t get_disksz(int devfd)
 {
-    int64_t sz;
+    uint64_t sz;
     ioctl(devfd, BLKGETSIZE64, &sz);
     printf("Disk size is %"PRId64" MB\n", sz / 1024 / 1024);
     return sz;
