@@ -13,6 +13,8 @@ enum {
 #define NR_DEVICE 3
 #define MAX_FAIL 3
 
+extern int io_rejections;
+
 extern int LARGEST_REQUEST_SIZE; //blocks
 extern int MEM_ALIGN; //bytes
 extern int nr_workers[NR_DEVICE];

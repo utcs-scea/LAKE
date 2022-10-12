@@ -19,6 +19,9 @@
 #include "io_ops.h"
 
 
+int io_rejections=0;
+int trace_line_count = 0;
+
 int LARGEST_REQUEST_SIZE = (16*1024*1024); //blocks
 int MEM_ALIGN = 4096*8; //bytes
 int nr_workers[NR_DEVICE] = {16, 16, 16};
@@ -113,7 +116,7 @@ int64_t read_trace(char ***req, char *tracefile)
         }
     }
     printf("there are [%lu] IOs in total in trace:%s\n", nr_lines, tracefile);
-
+    trace_line_count = nr_lines;
     rewind(trace);
 
     // then, start parsing
@@ -349,6 +352,8 @@ int main (int argc, char **argv)
         // getchar();
         prepare_metrics(logfile, "failover");
         do_replay(perform_io_failover);
+        printf("IOs rejected: [%d]   percentage:  [%.2f]\n", 
+                trace_line_count, ((float)io_rejections/trace_line_count));
     } else {
         printf("Invalid type to run");
         return 1;
