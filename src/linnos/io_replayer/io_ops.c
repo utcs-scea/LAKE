@@ -79,14 +79,12 @@ void *perform_io_failover(void *input)
 
     //hit barrier when we are ready
     pthread_barrier_wait(&sync_barrier);
-
     while (1) {
         //get the index of an io in the trace
         cur_idx = atomic_fetch_inc(&(jobtracker[dev_index]));
         if (cur_idx >= nr_ios[dev_index]) {
             break;
         }
-
         myslackcount = 0;
         mylatecount = 0;
         //this is always true, single_io_limit is 1024 
@@ -107,11 +105,10 @@ void *perform_io_failover(void *input)
 
         // respect time part
         if (respecttime == 1) {
-            int ret = sleep_until(dev_trace_timestamps[cur_idx]);
-            if(ret == 1) myslackcount++;
-            if(ret == -1) mylatecount++;
+            int is_slack = sleep_until(dev_trace_timestamps[cur_idx]);
+            if(is_slack == 1) myslackcount++;
+            if(is_slack == -1) mylatecount++;
         }
-		
         // do the job
 		//printf("IO %lu: size: %d; offset: %lu\n", cur_idx, request_io_size, request_offset);
         gettimeofday(&t1, NULL); //reset the start time to before start doing the job
@@ -119,17 +116,17 @@ void *perform_io_failover(void *input)
         float submission_ts = (t1.tv_sec * 1e6 + t1.tv_usec - starttime) / 1000;
         int current_sub_io = 0, lat, total_latency = 0;
         
-		while (request_io_size > 0) {
+        while (request_io_size > 0) {
             int nr_fail;
             for (nr_fail = 0 ; nr_fail < MAX_FAIL; nr_fail++) {
                 uint32_t this_io_size = request_io_size_limit > request_io_size ? request_io_size : request_io_size_limit;
                 if(dev_trace_req_type == WRITE) {
-                    ret = pwrite( fd[(dev_index+nr_fail)%NR_DEVICE], 
+                    ret = pwrite(fd[(dev_index+nr_fail)%NR_DEVICE], 
                             buff, 
                             this_io_size, 
                             request_offset);
                 } else {
-                    ret = pread( fd[(dev_index+nr_fail)%NR_DEVICE], 
+                    ret = pread(fd[(dev_index+nr_fail)%NR_DEVICE], 
                         buff, 
                         this_io_size, 
                         request_offset);
@@ -137,7 +134,7 @@ void *perform_io_failover(void *input)
                 if (ret > 0) {
                     goto success;
                 }
-                printf("IO failed, re-issuing\n");
+                //printf("IO failed, re-issuing\n");
             }
 
             if (ret <= 0) {
@@ -270,7 +267,7 @@ void *perform_io_baseline(void *input)
         float submission_ts = (t1.tv_sec * 1e6 + t1.tv_usec - starttime) / 1000;
         int current_sub_io = 0, lat, total_latency = 0;
         
-		while (request_io_size > 0) {
+        while (request_io_size > 0) {
             uint32_t this_io_size = request_io_size_limit > request_io_size ? request_io_size : request_io_size_limit;
             if(dev_trace_req_type == WRITE) {
                 ret = pwrite(fd[(dev_index)%NR_DEVICE], 

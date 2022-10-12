@@ -4,13 +4,16 @@
 #==============================================================================
 
 from operator import itemgetter
-import sys
+from re import I
+import sys, math
+import numpy as np
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print("Need path to log file to parse")
 
     sorted_io = []
+    inters = []
 
     readbandwidth = 0
     readlatency = 0
@@ -47,6 +50,8 @@ if __name__ == '__main__':
             last_write_time = io[0]
 
         if last_io_time != -1:
+            inter = io[0] - last_io_time
+            inters.append(inter)
             inter_io_time += io[0] - last_io_time
         last_io_time = io[0]
 
@@ -55,6 +60,7 @@ if __name__ == '__main__':
     print (f"Last time {str(last_io_time)}")
     print (f"IO inter arrival time average {(inter_io_time / (totalread + totalwrite - 1)):.2f}ms")
     print (f"Write inter arrival time average {(inter_write_time / (totalwrite - 1)):.2f}")
+    print (f"Min/Max inter arrival time  {min(inters)}, {max(inters)}")
     print (f"Total writes: {str(totalwrite)}")
     print (f"Total reads: {str(totalread)}")
     print (f"Write iops: {(float(totalwrite) / (last_io_time / 1000)):.2f}")
@@ -64,4 +70,11 @@ if __name__ == '__main__':
     print (f"Average read bandwidth: {(readbandwidth / totalread):.2f} KB/s")
     print (f"Average read latency: {(readlatency / totalread):.2f} us")
     print (f"==============================")
+
+    count, x = np.histogram(inters, bins=500)
+
+    print("Inter arrival histogram (ms):")
+    #for i in range(len(x)-1):
+    for i in range(30):
+        print(f"{x[i]}: {count[i]}")
 

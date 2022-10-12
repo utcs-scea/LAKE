@@ -9,8 +9,17 @@
 
 #ifdef __KERNEL__
 #include <linux/types.h>
+#include <linux/completion.h>
 #else
 #include <stdbool.h>
+#endif
+
+#ifdef __KERNEL__
+//these externs are for batching
+extern struct completion batch_barrier;
+extern bool* gpu_results;
+extern u32* window_size_hist;
+bool batch_test(char *feat_vec, int n_vecs, long **weights);
 #endif
 
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights);

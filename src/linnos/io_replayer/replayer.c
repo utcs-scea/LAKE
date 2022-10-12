@@ -210,7 +210,6 @@ void do_replay(void* (*io_func)(void*))
     float totaltime;
     int i, t, err;
     int thread_count=0;
-
     for(i = 0; i < NR_DEVICE ; i++) {
         thread_count += nr_workers[i];
     }
@@ -220,8 +219,6 @@ void do_replay(void* (*io_func)(void*))
         printf("Error creating barrier\n");
         exit(1);
     }
-
-    printf("Starting IO replay\n");
 
     // thread creation
     for (i=0; i<NR_DEVICE; i++) {
@@ -243,6 +240,7 @@ void do_replay(void* (*io_func)(void*))
     //assert(pthread_create(&track_thread, NULL, pr_progress, NULL) == 0);
 
     sleep(1);
+    printf("Starting IO replay\n");
     gettimeofday(&t1, NULL);
     starttime = t1.tv_sec * 1000000 + t1.tv_usec;
     //hit the barrier so they all start
@@ -340,18 +338,22 @@ int main (int argc, char **argv)
     }
 
     if(!strcmp(argv[1], "baseline")) {
-        // printf("About to run baseline, which means the linnos hook should NOT be loaded\n");
+        printf("About to run baseline, which means the linnos hook should NOT be loaded\n");
         // printf("Press any key to continue\n");  
         // getchar();  
         prepare_metrics(logfile, "baseline");
         do_replay(perform_io_baseline);
-    } else if(!strcmp(argv[1], "baseline")) {
-        // printf("About to run failover, which means the linnos hook SHOULD be loaded\n");
+    } else if(!strcmp(argv[1], "failover")) {
+        printf("About to run failover, which means the linnos hook SHOULD be loaded\n");
         // printf("Press any key to continue\n");  
         // getchar();
         prepare_metrics(logfile, "failover");
         do_replay(perform_io_failover);
+    } else {
+        printf("Invalid type to run");
+        return 1;
     }
+    
 
     fclose(metrics);
     fclose(metrics_sub);

@@ -23,13 +23,67 @@
 #endif
 
 #define SYNC 0
+
+
+#ifdef __KERNEL__
+#include <linux/completion.h>
+//this is tough and rough
+DEFINE_SPINLOCK(batch_lock);
+const u64 window_size_ns = 100*1000;
+const u64 max_batch_size = 32;
+u64 last_arrival_ns = 0;
+u64 window_start_ns = 0;
+u64 waiting = 0;
+struct completion batch_barrier; //inited in hook
+bool* gpu_results = 0; //allocated in main.c hook, 128 elements
+u32* window_size_hist; //allocated in main.c hook, 128 elements
+//we cant go over 128 batch bc we only alloc for 128
+//unsigned long wait_for_completion_timeout(struct completion *done, unsigned long timeout)
+//usecs_to_jiffies()
+
+bool batch_test(char *feat_vec, int n_vecs, long **weights) {
+	u64 my_id, my_arrival;
+	bool completer = false;
+
+	my_arrival = ktime_get_ns();
+
+	spin_lock(&batch_lock);
+	my_id = waiting++;
+	//we are the first in this window
+	if (my_id == 0)
+		window_start_ns = my_arrival;
+
+	//we are the last to arrive so far, lets account for possible out of order
+	if(likely(my_arrival > last_arrival_ns))
+		last_arrival_ns = my_arrival;
+
+	//if more than window time passed or window is full
+	if(last_arrival_ns - window_start_ns >= window_size_ns || waiting == max_batch_size) {
+		completer = true;
+		window_size_hist[waiting] += 1;
+		waiting = 0;
+		//realize execution here, including our data, and fill gpu_results
+		//unblock everyone in this batch
+		complete(&batch_barrier);
+	}
+	spin_unlock(&batch_lock);
+
+	if (!completer) {
+		wait_for_completion(&batch_barrier);
+		//read and return from gpu_results
+	}
+
+	return false;
+}
+#endif
+
+
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
 
+
 void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
-	int i;
-	
 	//do inference
 	void *args[] = {
 		&d_weight_0_T_ent, &d_bias_0_ent, &d_input_vec_i, &d_mid_res_i
@@ -144,6 +198,8 @@ bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	// apply bias
 	final_res_i[1] += bias_1_ent[1];
 
-	//printk("Predictor returning %d\n",final_res_i[0]>=(final_res_i[1])? false: true);
-    return final_res_i[0]>=(final_res_i[1])? false: true;
+	// printk("Predictor returning %ld >= %ld = %d\n",
+	// 	final_res_i[0], final_res_i[1],
+	// 	(final_res_i[0] >= final_res_i[1]) ? false: true);
+    return (final_res_i[0]>=final_res_i[1])? false: true;
 }

@@ -11,7 +11,7 @@ enum {
 };
 
 #define NR_DEVICE 3
-#define MAX_FAIL 3
+#define MAX_FAIL 4
 
 extern int LARGEST_REQUEST_SIZE; //blocks
 extern int MEM_ALIGN; //bytes
