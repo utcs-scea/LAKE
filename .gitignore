@@ -151,3 +151,4 @@ modules.order
 */uspace
 src/kapi/uspace/lake_uspace
 lake_uspace
+src/linnos/io_replayer/replayer
