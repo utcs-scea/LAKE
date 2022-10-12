@@ -41,8 +41,10 @@ u32* window_size_hist; //allocated in main.c hook, 128 elements
 
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_id;
-	bool completer = false;
+	bool is_last_arrival = false;
 	u64 my_arrival;
+	u32 err;
+	pr_warn("wat");
 
 	spin_lock(&batch_lock);
 	my_arrival = ktime_get_ns();
@@ -57,8 +59,9 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 
 	//if more than window time passed or window is full
 	if(last_arrival_ns - window_start_ns >= window_size_ns || waiting == max_batch_size) {
-		completer = true;
+		is_last_arrival = true;
 		window_size_hist[waiting] += 1;
+		pr_warn("last, completing with waiting %d\n", waiting);
 		waiting = 0;
 		//realize execution here, including our data, and fill gpu_results
 		//unblock everyone in this batch
@@ -66,24 +69,28 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	}
 	spin_unlock(&batch_lock);
 
-	if (!completer) {
+	if (!is_last_arrival) {
 		//if we are the first of this batch, we need to have a timeout
 		if(my_id == 0) {
+			pr_warn("first\n");
 			err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/1000));
 			if (err == 0) {  //this was a timeout
 				spin_lock(&batch_lock);
 				//XXX: theres a chance someone gets in right after the timeout
 				//realize execution here, including our data, and fill gpu_results
 				//unblock everyone in this batch
+				window_size_hist[waiting] += 1;
+				waiting = 0;
 				complete(&batch_barrier);
 				spin_unlock(&batch_lock);
 			}
 		}
-		else
+		else{ //if not first or last, just wait
 			wait_for_completion(&batch_barrier);
-
-		//read and return from gpu_results
+			pr_warn("some dude just let go\n");
+		}
 	}
+	//read and return from gpu_results
 
 	return false;
 }

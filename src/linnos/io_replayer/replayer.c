@@ -21,11 +21,11 @@
 
 int LARGEST_REQUEST_SIZE = (16*1024*1024); //blocks
 int MEM_ALIGN = 4096*8; //bytes
-int nr_workers[NR_DEVICE] = {16, 16, 16};
+int nr_workers[NR_DEVICE] = {1, 1, 1};
 int printlatency = 1; //print every io latency
 int respecttime = 1;
 int block_size = 1; // by default, one sector (512 bytes)
-int single_io_limit = (1024*1024); // the size limit of a single IOs request, used to break down large IOs
+int single_io_limit = (1024); // the size limit of a single IOs request, used to break down large IOs
 
 // int LARGEST_REQUEST_SIZE = (16*1024*1024); //blocks
 // int MEM_ALIGN = 4096*8; //bytes

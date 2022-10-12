@@ -10,7 +10,7 @@
 #include "predictors.h"
 #include "lake_shm.h"
 
-#define SET_SYSCTL_DEBUG 0
+#define SET_SYSCTL_DEBUG 2
 
 extern unsigned long sysctl_lake_enable_linnos;
 extern unsigned long sysctl_lake_linnos_debug;
@@ -57,8 +57,9 @@ void batch_test_attach(void) {
 }
 void batch_test_dettach(void) {
 	int i;
-	for (i=0;i<128;i++) 
-		pr_warn("%d:\t%u\n", i, window_size_hist[i]);
+	for (i=0;i<128;i++)
+		if (window_size_hist[i] != 0)
+			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
 	kava_free(gpu_results);
 	vfree(window_size_hist);
 }
@@ -68,9 +69,11 @@ static int parse_arg(void) {
 		fptr = fake_prediction_model;
 	} else if (!strcmp("cpu", predictor_str)) {
 		fptr = cpu_prediction_model;
+		pr_warn("Inserting CPU prediction\n");
 	}else if (!strcmp("gpu", predictor_str)) {
 		//fptr = gpu_prediction_model;
 	} else if (!strcmp("batchtest", predictor_str)) {
+		pr_warn("Inserting batch test prediction\n");
 		is_batch_test = true;
 		fptr = batch_test;
 	} else {	

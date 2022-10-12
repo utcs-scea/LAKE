@@ -277,8 +277,6 @@ void *perform_io_baseline(void *input)
             if(ret == -1) mylatecount++;
         }
 		
-        // do the job
-		//printf("IO %lu: size: %d; offset: %lu\n", cur_idx, request_io_size, request_offset);
         gettimeofday(&t1, NULL); //reset the start time to before start doing the job
         /* the submission timestamp */
         float submission_ts = (t1.tv_sec * 1e6 + t1.tv_usec - starttime) / 1000;
@@ -286,22 +284,29 @@ void *perform_io_baseline(void *input)
         
         while (request_io_size > 0) {
             uint32_t this_io_size = request_io_size_limit > request_io_size ? request_io_size : request_io_size_limit;
+            int cur_dev = dev_index;
+            if(request_offset+this_io_size >= DISKSZ[cur_dev]) {
+                printf("reading more than device.. fixing\n");
+                request_offset = this_io_size*cur_idx; //arbitrary for testing
+            }
+            //printf("IO %lu: size: %d; offset: %lu\n", cur_idx, request_io_size, request_offset);
             if(dev_trace_req_type == WRITE) {
-                ret = pwrite(fd[(dev_index)%NR_DEVICE], 
+                ret = pwrite(cur_dev, 
                         buff, 
                         this_io_size, 
                         request_offset);
             } else {
-                ret = pread( fd[(dev_index)%NR_DEVICE], 
+                ret = pread(cur_dev, 
                     buff, 
                     this_io_size, 
                     request_offset);
             }
-
-success:
             gettimeofday(&t2, NULL);
             lat = (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_usec - t1.tv_usec);
             total_latency += lat;
+
+            //XXX hackvm is messed up, so fake it
+            //ret = this_io_size;
 
             size_sub_arr[current_sub_io] = ret;
             lat_sub_arr[current_sub_io] = lat;
