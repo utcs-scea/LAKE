@@ -38,16 +38,14 @@ struct completion batch_barrier; //inited in hook
 bool* gpu_results = 0; //allocated in main.c hook, 128 elements
 u32* window_size_hist; //allocated in main.c hook, 128 elements
 //we cant go over 128 batch bc we only alloc for 128
-//unsigned long wait_for_completion_timeout(struct completion *done, unsigned long timeout)
-//usecs_to_jiffies()
 
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
-	u64 my_id, my_arrival;
+	u64 my_id;
 	bool completer = false;
-	u32 err;
-	my_arrival = ktime_get_ns();
+	u64 my_arrival;
 
 	spin_lock(&batch_lock);
+	my_arrival = ktime_get_ns();
 	my_id = waiting++;
 	//we are the first in this window
 	if (my_id == 0)
