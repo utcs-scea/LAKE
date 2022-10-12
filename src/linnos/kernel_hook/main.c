@@ -10,7 +10,7 @@
 #include "predictors.h"
 #include "lake_shm.h"
 
-#define SET_SYSCTL_DEBUG 2
+#define SET_SYSCTL_DEBUG 0
 
 extern unsigned long sysctl_lake_enable_linnos;
 extern unsigned long sysctl_lake_linnos_debug;
@@ -30,10 +30,10 @@ MODULE_PARM_DESC(predictor_str, "What predictor to use: fake, cpu, gpu, batchtes
 #include "weights_header/w_nvme2n1.h"
 
 const char *devices[] = {
-    "/dev/vdb",
-	//"/dev/nvme0n1",
-	//"/dev/nvme1n1",
-	//"/dev/nvme2n1",
+    //"/dev/vdb",
+	"/dev/nvme0n1",
+	"/dev/nvme1n1",
+	"/dev/nvme2n1",
 	0
 };
 
