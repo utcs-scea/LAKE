@@ -38,14 +38,14 @@ void baseline_execute_op(TraceOp &trace_op, int fd, char* buf) {
     if (ret < 0){
         printf("err %d\n", errno);
         printf("offset in B : %lu\n", trace_op.offset );
-        printf("size in kb : %lu\n", trace_op.size/(1e3));
+        printf("size in kb : %f\n", trace_op.size/(1e3));
     }
 }
 
 void* replayer_fn(void* arg) {
     Thread_arg *targ = (Thread_arg*) arg;
     Trace *trace = targ->trace;
-    uint8_t device = targ->device;
+    uint32_t device = targ->device;
     TraceOp trace_op;
     char *buf;
 
@@ -73,12 +73,13 @@ void* replayer_fn(void* arg) {
         //realize trace_op
         targ->executor(trace_op, trace->get_fd(device), buf);
         auto end = std::chrono::steady_clock::now();
-        uint64_t elaps =  std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
+        uint32_t elaps =  std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
         uint64_t end_ts = get_ns_ts();
 
         //store results
         trace->write_output_line(end_ts/1000, elaps, trace_op.op,
-                trace_op.size, trace_op.offset, submission/1000);
+                trace_op.size, trace_op.offset, submission/1000,
+                device);
     }
 
     free(buf);

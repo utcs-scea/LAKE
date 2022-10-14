@@ -178,14 +178,17 @@ public:
     * 3: r/w type [0 for w, 1 for r] (this is opposite of fio)
     * 4: I/O size in bytes
     * 5: offset in bytes
-    * 6: IO submission time (not used)*/
+    * 6: IO submission time (not used)
+    * 7: Device index
+    */
    //ts comes in as us
-    void write_output_line(uint64_t ts, uint32_t latency, uint32_t op,
-            uint64_t size, uint64_t offset, uint64_t submission) {
+    void write_output_line(uint64_t ts, uint32_t latency, uint8_t op,
+            uint64_t size, uint64_t offset, uint64_t submission, 
+            uint32_t device) {
         std::lock_guard<std::mutex> lk(io_mutex);
         char buf[1024]; 
-        sprintf(buf, "%.3ld,%d,%d,%ld,%lu,%.3ld", ts, latency, !op, 
-                size, offset, submission);
+        sprintf(buf, "%.3ld,%d,%d,%ld,%lu,%.3ld,%u", ts, latency, !op, 
+                size, offset, submission, device);
         outfile << std::string(buf) << std::endl;
     }
 

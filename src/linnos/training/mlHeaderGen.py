@@ -72,10 +72,8 @@ b1_path = file_list_b1[0]
 if not os.path.exists(output_folder):
     print('Illegal output')
     exit(1)
-if not os.path.exists(output_folder+workload):
-    os.system('mkdir '+output_folder+workload)
 
-sys.stdout = open(output_folder+workload+'/w_'+
+sys.stdout = open(output_folder+'/w_'+
                   drive+'.h', 'w')
 
 print('\n/* '+workload+' */\n')

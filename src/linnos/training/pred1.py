@@ -18,7 +18,7 @@ import sys
 
 
 train_input_path = sys.argv[1]
-latency_threshold = int(sys.argv[2])
+percentile_threshold = int(sys.argv[2])
 
 custom_loss = 5.0
 
@@ -29,7 +29,7 @@ train_data = train_data.values
 train_input = train_data[:,:31]
 train_output = train_data[:,31]
 
-lat_threshold = np.percentile(train_output, latency_threshold)
+lat_threshold = np.percentile(train_output, percentile_threshold)
 print("lat_threshold: ",lat_threshold)
 num_train_entries = int(len(train_output) * 0.80)
 print("num train entries: ",num_train_entries)
