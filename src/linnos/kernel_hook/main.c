@@ -25,23 +25,25 @@ MODULE_PARM_DESC(predictor_str, "What predictor to use: fake, cpu, gpu, batchtes
 // 3. set the pointers into a new array in weights (dont mess with the ending 0)
 
 #include "sde.h"
-#include "weights_header/w_nvme0n1.h"
-#include "weights_header/w_nvme1n1.h"
-#include "weights_header/w_nvme2n1.h"
+//#include "weights_header/w_nvme0n1.h"
+//#include "weights_header/w_nvme1n1.h"
+//#include "weights_header/w_nvme2n1.h"
+#include "weights_header/weight_nvme0_30s_12k.h"
 
 const char *devices[] = {
     //"/dev/vdb",
 	"/dev/nvme0n1",
-	"/dev/nvme1n1",
-	"/dev/nvme2n1",
+	//"/dev/nvme1n1",
+	//"/dev/nvme2n1",
 	0
 };
 
 static long *weights[][4] = {
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
 	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
-	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
-	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
+	///{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
+	///{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
+
 };
 
 //the predictor function to use

@@ -45,8 +45,12 @@ private:
     uint64_t **req_offsets;
     uint64_t **req_sizes;
     uint8_t **req_ops;
-
     int *dev_fds;
+
+    //failover stuff
+    std::atomic<uint64_t> fails;
+    std::atomic<uint64_t> unique_fails;
+    std::atomic<uint64_t> never_finished;
 
     /*log format:
     * 1: timestamp in ms
@@ -95,6 +99,9 @@ public:
         ndevices = ndevices;
         allocate_trace();
         std::atomic_init(&late_ios, 0);
+        std::atomic_init(&fails, 0);
+        std::atomic_init(&unique_fails, 0);
+        std::atomic_init(&never_finished, 0);
     }
 
     ~Trace() {
