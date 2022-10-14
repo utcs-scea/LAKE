@@ -53,7 +53,10 @@ ssize_t pread64_225(int fd, void *buf, size_t count, off_t offset) {
 ssize_t pread_225(int fd, void *buf, size_t nbyte, off_t offset) {
     ssize_t ret;
     uint64_t position = lseek(fd, 0, SEEK_CUR);
+    uint64_t now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     position += offset;
+    //printf(stderr, ":r,%d,%u\n", fd, i);
+    printf("ts=%llu, offset=%td", now, offset);
 
     ret = real_pread_225(fd, buf, nbyte, offset);
 
@@ -83,10 +86,15 @@ ssize_t read_225(int fd, void *buf, size_t nbyte) {
 
     for (int i = first ; i <= last; i++) {
         //fprintf(stderr, ":read, %d, %u\n", inode, i);
-        fprintf(stderr, ":r,%d,%u\n", fd, i);
+        //fprintf(stderr, ":r,%d,%u\n", fd, i);
     }
     return ret;
 }
+
+void __attribute__((constructor)) initialize(void) {
+    reads_contructor();
+}
+
 
 __asm__(".symver pread_225, pread@GLIBC_2.2.5");
 __asm__(".symver pread64_225, pread64@GLIBC_2.2.5");
