@@ -1,3 +1,3 @@
 
 all:
-	g++ -std=c++11 replayer.cpp op_replayers.cpp -o replayer -O3
+	cd src && g++ -std=c++11 replayer.cpp op_replayers.cpp -o replayer -O3 && cp replayer ../

@@ -42,11 +42,11 @@ if __name__ == '__main__':
                 int(tok_list[3]),float(tok_list[4])])
 
     for io in sorted(sorted_io, key=itemgetter(0)):
-        if (io[2] == 0): #read
+        if (io[2] == 1): #read
             read_latencies.append(io[1])
-            read_sizes.append(3)
+            read_sizes.append(io[3])
 
-        if (io[2] == 1): #write
+        if (io[2] == 0): #write
             write_latencies.append(io[1])
 
         if last_io_time != -1:
@@ -71,6 +71,7 @@ if __name__ == '__main__':
     print (f"Min/Max read latency: {min(read_latencies):.2f} us / {max(read_latencies):.2f} us")
     print (f"Average read latency: {statistics.mean(read_latencies):.2f} us")
     print (f"Average read size: {statistics.mean(read_sizes):.2f} KB")
+    print (f"Read latency p85: {np.percentile(np_read_latencies, 85)} us")
     print (f"Read latency p95: {np.percentile(np_read_latencies, 95)} us")
     print (f"Read latency p99: {np.percentile(np_read_latencies, 99)} us")
     print (f"Read latency p99.5: {np.percentile(np_read_latencies, 99.5)} us")
@@ -89,11 +90,21 @@ if __name__ == '__main__':
     # # using numpy np.cumsum to calculate the CDF
     # # We can also find using the PDF values by looping and adding
     # cdf = np.cumsum(pdf)
-
     # plt.plot(bins_count[1:], cdf, label="CDF")
-    # #plt.legend()
-    # plt.grid(visible=True)
-    # plt.xlabel('Latency (us)')
-    # plt.ylabel('CDF %')
-    # plt.ylim(bottom=0)
-    # plt.savefig("cdf.pdf")
+
+
+    # sort the data:
+    data_sorted = np.sort(np_read_latencies)
+    # calculate the proportional values of samples
+    p = 1. * np.arange(len(np_read_latencies)) / (len(np_read_latencies) - 1)
+    plt.plot(data_sorted, p)
+
+    #plt.legend()
+    plt.grid(visible=True)
+    plt.xlabel('Latency (us)')
+    plt.ylabel('CDF %')
+    #plt.ylim(bottom=0)
+    plt.title(sys.argv[1])
+    plt.xlim(right=np.percentile(np_read_latencies, 99.9), left=min(np_read_latencies))
+    
+    plt.savefig(sys.argv[1]+"_cdf.pdf")
