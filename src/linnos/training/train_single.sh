@@ -1,16 +1,15 @@
 #!/bin/bash
-
 set -e 
 set -o pipefail
 
-if [ $# -eq 0 ] || [ $# -eq 1 ]
+if [ $# -eq 0 ] || [ $# -eq 1 ] || [ $# -eq 2 ]
   then
-    echo "Usage .\\\train.sh --traintrace <name of training trace> --percentile <inflection point>"
+    echo "Usage .\\\train.sh --traintrace <name of training trace> --percentile <inflection point> --device <device name>"
     exit
 fi
 
-SHORT=t:,l:,
-LONG=traintrace:,percentile:,
+SHORT=t:,l:,d:,
+LONG=traintrace:,percentile:,device:,
 OPTS=$(getopt --options $SHORT --longoptions $LONG -- "$@") 
 
 eval set -- "$OPTS"
@@ -26,6 +25,10 @@ do
       percentile="$2"
       shift 2
       ;;
+    -d | --device )
+      device="$2"
+      shift 2
+      ;;
     --)
       shift;
       break
@@ -36,12 +39,13 @@ do
   esac
 done
 
-echo $traintrace, $percentile
+echo $traintrace, $percentile, $device
 
 #TODO: add a suffix so we can train concurrently
 #TODO: check that ../io_replayer/replayer exists, if not quit
 TNAME=$(basename $traintrace)
-sudo ../io_replayer/replayer baseline mlData/$TNAME /dev/nvme1n1 $traintrace
+echo $TNAME
+sudo ../io_replayer/replayer baseline mlData/$TNAME /dev/$device $traintrace
 #this currently outputs mlData/{TNAME}baseline
 REPLAY_OUT="mlData/${TNAME}baseline"
 
@@ -72,4 +76,4 @@ mkdir -p $HEADER_DIR
 mv mlData/mldrive${i}.csv.* $WEIGHTS_DIR
 
 #TODO: we gotta set the device name somehow
-python3 mlHeaderGen.py $TNAME nvme0n1 $WEIGHTS_DIR $HEADER_DIR
+python3 mlHeaderGen.py $TNAME $device $WEIGHTS_DIR $HEADER_DIR
