@@ -1,7 +1,3 @@
-all: replayer
 
-replayer: replayer.c io_ops.c
-	gcc $^ -o replayer -lpthread
-
-clean:
-	rm -rf *.o  replayer
+all:
+	g++ -std=c++11 replayer.cpp op_replayers.cpp -o replayer -O3

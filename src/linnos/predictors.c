@@ -29,7 +29,8 @@
 #include <linux/completion.h>
 //this is tough and rough
 DEFINE_SPINLOCK(batch_lock);
-const u64 window_size_ns = 100*1000;
+#define _us 1000
+const u64 window_size_ns = 50 *_us;
 const u64 max_batch_size = 32;
 u64 last_arrival_ns = 0;
 u64 window_start_ns = 0;
@@ -39,14 +40,21 @@ bool* gpu_results = 0; //allocated in main.c hook, 128 elements
 u32* window_size_hist; //allocated in main.c hook, 128 elements
 //we cant go over 128 batch bc we only alloc for 128
 
+void batch_release(void) {
+	window_size_hist[waiting] += 1;
+	waiting = 0;
+	//realize execution here, including our data, and fill gpu_results
+	//unblock everyone in this batch
+	complete_all(&batch_barrier);
+}
+
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_id;
 	bool is_last_arrival = false;
 	u64 my_arrival;
 	u32 err;
-	pr_warn("wat");
 
-	spin_lock(&batch_lock);
+	spin_lock_irq(&batch_lock);
 	my_arrival = ktime_get_ns();
 	my_id = waiting++;
 	//we are the first in this window
@@ -60,34 +68,34 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	//if more than window time passed or window is full
 	if(last_arrival_ns - window_start_ns >= window_size_ns || waiting == max_batch_size) {
 		is_last_arrival = true;
-		window_size_hist[waiting] += 1;
-		pr_warn("last, completing with waiting %d\n", waiting);
-		waiting = 0;
-		//realize execution here, including our data, and fill gpu_results
-		//unblock everyone in this batch
-		complete(&batch_barrier);
+		// if(waiting == max_batch_size)
+		// 	pr_warn("finished by batch window full\n");
+		// else
+		// 	pr_warn("finished by window timeout\n");
+		batch_release();
 	}
-	spin_unlock(&batch_lock);
+	spin_unlock_irq(&batch_lock);
 
 	if (!is_last_arrival) {
 		//if we are the first of this batch, we need to have a timeout
 		if(my_id == 0) {
-			pr_warn("first\n");
+			//pr_warn("first\n");
 			err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/1000));
 			if (err == 0) {  //this was a timeout
-				spin_lock(&batch_lock);
+				spin_lock_irq(&batch_lock);
 				//XXX: theres a chance someone gets in right after the timeout
 				//realize execution here, including our data, and fill gpu_results
 				//unblock everyone in this batch
-				window_size_hist[waiting] += 1;
-				waiting = 0;
-				complete(&batch_barrier);
-				spin_unlock(&batch_lock);
+				//pr_warn("first input has awaken by timeout and released!\n");
+				batch_release();
+				spin_unlock_irq(&batch_lock);
 			}
 		}
-		else{ //if not first or last, just wait
+		else{ //if not first or last
 			wait_for_completion(&batch_barrier);
-			pr_warn("some dude just let go\n");
+			// err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/500)); //lets wait 2x timeout
+			// if(err == 0)
+			// 	pr_warn("awake after deep slumber, this shouldnt have happened\n");
 		}
 	}
 	//read and return from gpu_results
@@ -100,7 +108,6 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
-
 
 void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	//do inference

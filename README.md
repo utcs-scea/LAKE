@@ -113,9 +113,9 @@ nohup sudo ./writer /dev/nvme1n1 'testTraces/anonymous.drive1.'$TraceTag &
 nohup sudo ./writer /dev/nvme2n1 'testTraces/anonymous.drive2.'$TraceTag &
 
 sudo ./replayer_fail /dev/nvme0n1-/dev/nvme0n1-/dev/nvme2n1 \
- 'testTraces/testdrive0.'$TraceTag \
- 'testTraces/testdrive1.'$TraceTag \
- 'testTraces/testdrive2.'$TraceTag py/TestTraceOutput
+ ../testTraces/traindrive0_10xbig.trace \
+ ../testTraces/traindrive1_10xbig.trace \
+ ../testTraces/traindrive2_10xbig.trace py/TestTraceOutput
  
 python3 -m venv linnOSvenv
 source linnOSvenv/bin/activate
@@ -149,6 +149,12 @@ do
    python3 py/pred1.py \
    mlData/"mldrive${i}.csv" > "mldrive${i}results".txt
 done
+
+
+
+##stopped here
+python3 py/pred1.py mlData/mldrive1.csv > mldrive1results.txt
+
 
 ## Converting the weights to linux header file
 

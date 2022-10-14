@@ -8,23 +8,25 @@ from re import I
 import sys, math
 import numpy as np
 import statistics
+import matplotlib.pyplot as plt
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print("Need path to log file to parse")
 
     sorted_io = []
-    inters = []
+
+    inter_arrivals = []
     read_latencies = []
+    read_sizes = []
+    write_latencies = []
 
-    readbandwidth = 0
-    readlatency = 0
-    totalread = 0
-    writebandwidth = 0
-    writelatency = 0
-    totalwrite = 0
-
-    total_read_bytes = []
+    # 1: timestamp in us
+    # 2: latency in us
+    # 3: r/w type [0 for r, 1 for w]
+    # 4: I/O size in bytes
+    # 5: offset in bytes
+    # 6: IO submission time (not used)*/
 
     last_io_time = -1
     last_write_time = -1
@@ -40,48 +42,35 @@ if __name__ == '__main__':
                 int(tok_list[3]),float(tok_list[4])])
 
     for io in sorted(sorted_io, key=itemgetter(0)):
-        if (io[2] == 1): #read
-            readbandwidth += (io[3]/1024) / (io[1]/1000000.0)
-            readlatency += io[1]
+        if (io[2] == 0): #read
             read_latencies.append(io[1])
-            totalread += 1
-            total_read_bytes.append(io[3]/1024)
+            read_sizes.append(3)
 
-        else: #write
-            div = 1 if (io[1]/1000000.0) == 0 else (io[1]/1000000.0)
-            writebandwidth += (io[3]/1024) / div
-            writelatency += io[1]
-            totalwrite += 1
-            if last_write_time != -1:
-                inter_write_time += io[0] - last_write_time
-            last_write_time = io[0]
+        if (io[2] == 1): #write
+            write_latencies.append(io[1])
 
         if last_io_time != -1:
             inter = io[0] - last_io_time
-            inters.append(inter)
-            inter_io_time += io[0] - last_io_time
+            inter_arrivals.append(inter)
         last_io_time = io[0]
-
 
     np_read_latencies = np.array(read_latencies)
 
     print ("==========Statistics==========")
-    print(f"total read {totalread} totalwrite {totalwrite} ")
-    print (f"Last time {str(last_io_time)}")
-    print (f"IO inter arrival time average {(inter_io_time / (totalread + totalwrite - 1)):.2f}ms")
-    print (f"Write inter arrival time average {(inter_write_time / (totalwrite - 1)):.2f}")
-    print (f"Min/Max inter arrival time  {min(inters)}, {max(inters)}")
-    print (f"Total writes: {str(totalwrite)}")
-    print (f"Total reads: {str(totalread)}")
-    print (f"Write iops: {(float(totalwrite) / (last_io_time / 1000)):.2f}")
-    print (f"Read iops: {(float(totalread) / (last_io_time / 1000)):.2f}")
-    print (f"Average write bandwidth: {(writebandwidth / totalwrite):.2f} KB/s")
-    print (f"Average write latency: {(writelatency / totalwrite):.2f} us")
-    print (f"Average read bandwidth: {(readbandwidth / totalread):.2f} KB/s")
+    print(f"Total reads {len(read_latencies)}")
+    print (f"IO inter arrival time average {statistics.mean(inter_arrivals):.2f}us")
+    print (f"Min/Max inter arrival time  {min(inter_arrivals)}, {max(inter_arrivals)}")
+    print (f"Total writes: {len(write_latencies)}  percent: {len(write_latencies)/len(inter_arrivals)+1}")
+    print (f"Total reads: {len(read_latencies)}")
+    #print (f"Write iops: {(float(totalwrite) / (last_io_time / 1000)):.2f}")
+    #print (f"Read iops: {(float(totalread) / (last_io_time / 1000)):.2f}")
+    #print (f"Average write bandwidth: {(writebandwidth / totalwrite):.2f} KB/s")
+    print (f"Average write latency: {statistics.mean(write_latencies):.2f} us")
+    #print (f"Average read bandwidth: {(readbandwidth / totalread):.2f} KB/s")
     print (f"Median/Stddev read latency: {statistics.median(read_latencies):.2f} us / {statistics.pstdev(read_latencies):.2f} us")
     print (f"Min/Max read latency: {min(read_latencies):.2f} us / {max(read_latencies):.2f} us")
-    print (f"Average read latency: {(readlatency / totalread):.2f} us")
-    print (f"Average read size: {(sum(total_read_bytes) / totalread):.2f} KB")
+    print (f"Average read latency: {statistics.mean(read_latencies):.2f} us")
+    print (f"Average read size: {statistics.mean(read_sizes):.2f} KB")
     print (f"Read latency p95: {np.percentile(np_read_latencies, 95)} us")
     print (f"Read latency p99: {np.percentile(np_read_latencies, 99)} us")
     print (f"Read latency p99.5: {np.percentile(np_read_latencies, 99.5)} us")
@@ -94,3 +83,17 @@ if __name__ == '__main__':
     # for i in range(30):
     #     print(f"{x[i]}: {count[i]}")
 
+    # count, bins_count = np.histogram(np_read_latencies, bins=100)  
+    # # finding the PDF of the histogram using count values
+    # pdf = count / sum(count)
+    # # using numpy np.cumsum to calculate the CDF
+    # # We can also find using the PDF values by looping and adding
+    # cdf = np.cumsum(pdf)
+
+    # plt.plot(bins_count[1:], cdf, label="CDF")
+    # #plt.legend()
+    # plt.grid(visible=True)
+    # plt.xlabel('Latency (us)')
+    # plt.ylabel('CDF %')
+    # plt.ylim(bottom=0)
+    # plt.savefig("cdf.pdf")
