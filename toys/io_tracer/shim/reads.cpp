@@ -1,5 +1,8 @@
 #include "common.h"
 #include "reads.h"
+#include <sys/time.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 read_ptr real_read_225 = 0;
 pread_ptr real_pread_225 = 0;
@@ -30,19 +33,11 @@ void reads_contructor() {
  */
 ssize_t pread64_225(int fd, void *buf, size_t count, off_t offset) {
     ssize_t ret;
-    uint64_t position = lseek(fd, 0, SEEK_CUR);
-    position += offset;
-
+    struct timeval t2;
+    gettimeofday(&t2, NULL);
+    //printf(stderr, ":r,%d,%u\n", fd, i);
+    fprintf(stderr, "pread64: ts=%.2f, offset=%llu \n", t2.tv_sec*1e6 + t2.tv_usec, offset);
     ret = real_pread64_225(fd, buf, count, offset);
-
-    uint32_t first, last;
-    first = position/PAGE_SZ;
-    last = (position+ret-1)/PAGE_SZ;
-    int inode = inode_from_fd(fd);
-
-    for (int i = first ; i <= last; i++) {
-        fprintf(stderr, ":pr64,%d,%u\n", inode, i);
-    }
     return ret;
 }
 
@@ -52,22 +47,12 @@ ssize_t pread64_225(int fd, void *buf, size_t count, off_t offset) {
  */
 ssize_t pread_225(int fd, void *buf, size_t nbyte, off_t offset) {
     ssize_t ret;
-    uint64_t position = lseek(fd, 0, SEEK_CUR);
-    uint64_t now = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    position += offset;
+    struct timeval t2;
+    gettimeofday(&t2, NULL);
     //printf(stderr, ":r,%d,%u\n", fd, i);
-    printf("ts=%llu, offset=%td", now, offset);
-
+    fprintf(stderr, "pread: ts=%.2f, offset=%llu \n", t2.tv_sec*1e6 + t2.tv_usec, offset);
     ret = real_pread_225(fd, buf, nbyte, offset);
-
-    uint32_t first, last;
-    first = position/PAGE_SZ;
-    last = (position+ret-1)/PAGE_SZ;
-    int inode = inode_from_fd(fd);
-
-    for (int i = first ; i <= last; i++) {
-        fprintf(stderr, ":pr,%d,%u\n", inode, i);
-    }
+    
     return ret;
 }
 
@@ -76,18 +61,11 @@ ssize_t pread_225(int fd, void *buf, size_t nbyte, off_t offset) {
  */
 ssize_t read_225(int fd, void *buf, size_t nbyte) {
     ssize_t ret;
-    uint64_t position = lseek(fd, 0, SEEK_CUR);
+    struct timeval t2;
+    gettimeofday(&t2, NULL);
+    //printf(stderr, ":r,%d,%u\n", fd, i);
+    fprintf(stderr, "read: ts=%.2f, offset=%llu \n", t2.tv_sec*1e6 + t2.tv_usec, 0);
     ret = real_read_225(fd, buf, nbyte);
-
-    uint32_t first, last;
-    first = position/PAGE_SZ;
-    last = (position+ret-1)/PAGE_SZ;
-    //int inode = inode_from_fd(fd);
-
-    for (int i = first ; i <= last; i++) {
-        //fprintf(stderr, ":read, %d, %u\n", inode, i);
-        //fprintf(stderr, ":r,%d,%u\n", fd, i);
-    }
     return ret;
 }
 
