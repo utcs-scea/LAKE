@@ -173,16 +173,4 @@ python3 mlHeaderGen/mlHeaderGen.py Trace nvme2n1 mlData/drive2weights weights_he
 
 ## Mongodb
 
-requires ssl 1.1
-```
-wget https://www.openssl.org/source/openssl-1.1.1o.tar.gz
-tar -zxvf openssl-1.1.1o.tar.gz
-cd openssl-1.1.1o
-./config
-make
-make test
-sudo make install
-```
-```
-wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2004-6.0.2.tgz
-```
+To install, go into `src/linnos/mongodb` and run `./install.sh`
