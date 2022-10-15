@@ -73,8 +73,7 @@ if not os.path.exists(output_folder):
     print('Illegal output')
     exit(1)
 
-sys.stdout = open(output_folder+'/w_'+
-                  drive+'.h', 'w')
+sys.stdout = open(output_folder+'/w_'+ workload+"_"+drive+'.h', 'w')
 
 print('\n/* '+workload+' */\n')
 from datetime import datetime

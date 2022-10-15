@@ -11,9 +11,9 @@ typedef void (*append_qdepth_fn_type)(u32);
 extern append_qdepth_fn_type append_qdepth_fn;
 
 //this is 4MB for timestamps and 1MB for qds
-//#define MAX_ENTRIES 524288
+#define MAX_ENTRIES 524288
+//#define MAX_ENTRIES 4096
 
-#define MAX_ENTRIES 1024
 
 u64 *timestamps;
 u16 *qds;
@@ -21,13 +21,13 @@ static atomic_t qd_index = ATOMIC_INIT(0);
 char *temp_string;
 
 int qd_init(void) {
-    timestamps = vmalloc(524288*sizeof(u64));
+    timestamps = vmalloc(MAX_ENTRIES*sizeof(u64));
     if(!timestamps) {
         pr_warn("Can't allocate timestamps\n");
         return -2;
     }
     
-    qds = vmalloc(524288*sizeof(u32));
+    qds = vmalloc(MAX_ENTRIES*sizeof(u32));
     if(!qds) {
         pr_warn("Can't allocate qds\n");
         vfree(timestamps);
@@ -40,9 +40,13 @@ int qd_init(void) {
 }
 
 void append_qdepth(u32 queue_depth) {
-    int idx = atomic_inc_return(&qd_index);
-    idx -= 1; //kernel doesnt have return_inc...
+    //fail fast
+    int idx = atomic_read(&qd_index);
+    if(idx >= MAX_ENTRIES-1)
+        return;
 
+    //add one and get our index, need to check bounds again
+    idx = atomic_inc_return(&qd_index) - 1; //we inc before fetch
     if(idx >= MAX_ENTRIES-1)
         return;
 

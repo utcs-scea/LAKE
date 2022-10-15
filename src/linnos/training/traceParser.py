@@ -14,7 +14,6 @@ LABEL_COMPLETION = 'c'
 #        sprintf(buf, "%.3ld,%d,%d,%ld,%lu,%.3ld,%u,%lu", ts, latency, !op, 
 #                size, offset, submission, device, io_index);
 #
-
 class ReplayFields(IntEnum):
     TS = 0
     LATENCY = 1
@@ -24,7 +23,6 @@ class ReplayFields(IntEnum):
     SUBMISSION = 5
     DEVICE = 6
     INDEX = 7
-
 
 def generate_raw_vec(input_path, output_path, device_index):
     with open(input_path, 'r') as input_file:
@@ -37,7 +35,7 @@ def generate_raw_vec(input_path, output_path, device_index):
             if row[ReplayFields.DEVICE] != device_index:
                 continue
 
-            latency = int(row[ReplayFields.DEVICE])
+            latency = int(row[ReplayFields.LATENCY])
             type_op = row[ReplayFields.OP]
             #size_ori = int(row[ReplayFields.SIZE])
             size = int((int(row[ReplayFields.SIZE])/512 + 7)/8)
@@ -45,7 +43,7 @@ def generate_raw_vec(input_path, output_path, device_index):
             complete_ts = issue_ts+latency
 
             # trace_list.append([latency, type_op, size, issue_ts, complete_ts, 0])
-            trace_list.append([size, type_op, latency, 0, index])
+            trace_list.append([size, type_op, latency, 0, index])  #history_queue.append([io[2], io[3]])
             transaction_list.append([index, issue_ts, LABEL_ISSUE])
             transaction_list.append([index, complete_ts, LABEL_COMPLETION])
             # index is used by trans to find corresponding trace_list
@@ -59,8 +57,8 @@ def generate_raw_vec(input_path, output_path, device_index):
         count = 0
         skip = 0
         pending_io = 0
-        history_queue = [[0, 0]]*LEN_HIS_QUEUE
-        raw_vec = [0]*(LEN_HIS_QUEUE*2+1+1)
+        history_queue = [[0, 0]]*LEN_HIS_QUEUE  #8
+        raw_vec = [0]*(LEN_HIS_QUEUE*2+1+1) #10
         # print(history_queue)
 
         # this is what this list looks like, but for some reason sorted by ts

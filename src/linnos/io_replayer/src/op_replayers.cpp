@@ -24,15 +24,14 @@ static int sleep_until(uint64_t next) {
     return 0;
 }
 
-void baseline_execute_op(TraceOp &trace_op, int fd, char* buf) {
+void baseline_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
     int ret;
+    int *fds = trace->get_fds();
     //read
     if(trace_op.op == 0) {
-        //ret = pread(fd, buf, 512, 1024*1024*16);
-        //
-        ret = pread(fd, buf, trace_op.size, trace_op.offset);
+        ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
     } else if(trace_op.op == 1) {
-        ret = pwrite(fd, buf, trace_op.size, trace_op.offset);
+        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
     } else {
         printf("Wrong OP code! %d\n", trace_op.op);
     }
@@ -44,60 +43,28 @@ void baseline_execute_op(TraceOp &trace_op, int fd, char* buf) {
     }
 }
 
-// void failover_execute_op(TraceOp &trace_op, int fd, char* buf) {
-//     int ret;
-//     //read
-//     if(trace_op.op == 0) {
-//         //ret = pread(fd, buf, 512, 1024*1024*16);
-//         //
-//         ret = pread(fd, buf, trace_op.size, trace_op.offset);
-
-//         int nr_fail;
-//         for (int nr_fail = 0 ; nr_fail < MAX_FAIL; nr_fail++) {
-//             int cur_dev = (dev_index+nr_fail)%NR_DEVICE;
-//             if(request_offset+this_io_size >= DISKSZ[cur_dev]) {
-//                 printf("reading more than device.. skipping\n");
-//                 continue;
-//             }
-
-//                 if(dev_trace_req_type == WRITE) {
-//                     ret = pwrite(fd[cur_dev], 
-//                             buff, 
-//                             this_io_size, 
-//                             request_offset);
-//                 } else {
-//                     ret = pread(fd[cur_dev], 
-//                         buff, 
-//                         this_io_size, 
-//                         request_offset);
-//                 }
-//                 if (ret > 0) {
-//                     goto success;
-//                 } else {
-//                     if(errno == ESPIPE) printf("IO ERROR returned ESPIPE, bad\n");
-//                 }
-//                 atomic_fetch_inc(&io_rejections);
-//                 //printf("IO fail [%d] with err %d, re-issuing\n", nr_fail, errno);
-//                 //XXX lets try to avoid too many fails fast
-//                 usleep(2*nr_fail);
-//             }
-//             atomic_fetch_inc(&unique_io_rejections);
-//             atomic_fetch_inc(&never_completed_ios);
-
-
-
-//     } else if(trace_op.op == 1) {
-//         ret = pwrite(fd, buf, trace_op.size, trace_op.offset);
-//     } else {
-//         printf("Wrong OP code! %d\n", trace_op.op);
-//     }
-
-//     if (ret < 0){
-//         printf("err %d\n", errno);
-//         printf("offset in B : %lu\n", trace_op.offset );
-//         printf("size in kb : %f\n", trace_op.size/(1e3));
-//     }
-// }
+void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
+    int ret;
+    int *fds = trace->get_fds();
+    //read
+    if(trace_op.op == 0) {
+        ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
+        //rejected, go to next device (it should have linnos enabled)
+        trace->add_fail();
+        trace->add_unique_fail();
+        if (ret < 0) {
+            ret = pread(fds[device+1], buf, trace_op.size, trace_op.offset);
+            if (ret < 0) { 
+                printf("Second IO failed, this shouldn't happen!\n");
+                trace->add_never_finished();
+            }
+        }
+    } else if(trace_op.op == 1) {
+    ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+    } else {
+        printf("Wrong OP code! %d\n", trace_op.op);
+    }
+}
 
 void* replayer_fn(void* arg) {
     Thread_arg *targ = (Thread_arg*) arg;
@@ -128,7 +95,7 @@ void* replayer_fn(void* arg) {
         uint64_t submission = get_ns_ts();
         auto begin = std::chrono::steady_clock::now();
         //realize trace_op
-        targ->executor(trace_op, trace->get_fd(device), buf);
+        targ->executor(trace_op, trace, targ->device, buf);
         auto end = std::chrono::steady_clock::now();
         uint32_t elaps =  std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
         uint64_t end_ts = get_ns_ts();

@@ -25,6 +25,7 @@ struct TraceOp {
     uint64_t offset;
     uint64_t size;
     uint8_t op;
+    uint8_t device;
 };
 
 class Trace {
@@ -95,7 +96,7 @@ public:
 
         nr_workers = new uint32_t[ndevices];
         jobtracker = new std::atomic<uint64_t>[ndevices];
-        trace_line_count = new uint64_t[ndevices];
+        trace_line_count = new uint64_t[ndevices]{0};
         ndevices = ndevices;
         allocate_trace();
         std::atomic_init(&late_ios, 0);
@@ -132,6 +133,10 @@ public:
         return dev_fds[dev];
     }
 
+    int* get_fds() {
+        return dev_fds;
+    }
+
     void set_output_file(std::string filename) {
         outfile = std::ofstream(filename);
     }
@@ -165,6 +170,10 @@ public:
             sscanf(line.c_str(), "%lf %d %lu %lu %u", 
                 &timestamp, &trash, &offset, &size, &op_type);
 
+            if (offset < 256*1e6) { //new gen handles this
+                offset + 256*1e6; 
+            }
+
             //in >> timestamp >> trash >> offset >> size >> op_type;
             req_timestamps[device][i] = timestamp;
             req_offsets[device][i] = offset;
@@ -172,7 +181,6 @@ public:
             req_ops[device][i] = op_type;
             //printf("%f, %lu, %lu, %d\n", timestamp, offset, size, op_type);
             if(size > max_size) {
-                printf("new max %lu at line %d\n", max_size, i);
                 max_size = size;
             }
         }
@@ -216,6 +224,31 @@ public:
 
     uint64_t get_late_op() {
         return late_ios.fetch_add(0, std::memory_order_seq_cst);
+    }
+
+    void print_stats() {
+        uint64_t total_lines = 0;
+        for (int i = 0 ; i < ndevices ; i++) {
+            total_lines += trace_line_count[i];
+        }
+        printf("stats: %lu IOs failed\n", std::atomic_load(&fails));
+        printf("That's about %f of all IOs issued\n", std::atomic_load(&fails)/(float)total_lines);
+        printf("stats: %lu unique IOs failed\n", std::atomic_load(&unique_fails));
+        printf("That's about %f of unique IOs\n", std::atomic_load(&unique_fails)/(float)total_lines);
+        printf("stats: %lu IOs never finished\n", std::atomic_load(&never_finished));
+
+    }
+
+    void add_fail(){
+        std::atomic_fetch_add(&fails, 1);
+    }
+
+    void add_unique_fail() {
+        std::atomic_fetch_add(&unique_fails, 1);
+    }
+
+    void add_never_finished() {
+        std::atomic_fetch_add(&never_finished, 1);
     }
 
 };
