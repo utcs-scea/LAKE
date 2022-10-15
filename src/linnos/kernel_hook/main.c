@@ -9,6 +9,7 @@
 #include <linux/vmalloc.h>
 #include "predictors.h"
 #include "lake_shm.h"
+#include "queue_depth.h"
 
 #define SET_SYSCTL_DEBUG 0
 
@@ -49,6 +50,7 @@ static long *weights[][4] = {
 //the predictor function to use
 bool (*fptr)(char*,int,long**);
 
+bool is_qdepth = false;
 bool is_batch_test = false;
 void batch_test_attach(void) {
 	int i;
@@ -66,6 +68,18 @@ void batch_test_dettach(void) {
 	vfree(window_size_hist);
 }
 
+int qdepth_attach(void) {
+	int err;
+	err = qd_init(); //this sets ptr
+	if (err != 0) return err;
+	usleep_range(5,10); //lets chill, why not
+	sysctl_lake_linnos_debug = 3; //this enables it
+	return 0;
+}
+void qdepth_detach(void) {
+	qd_writeout();
+}
+
 static int parse_arg(void) {
 	if (!strcmp("fake", predictor_str)) {
 		fptr = fake_prediction_model;
@@ -78,6 +92,11 @@ static int parse_arg(void) {
 		pr_warn("Inserting batch test prediction\n");
 		is_batch_test = true;
 		fptr = batch_test;
+	} else if (!strcmp("queue_depth", predictor_str)) {
+		pr_warn("Inserting queue_depth\n");
+		//set fake so we go through everything
+		is_qdepth = true;
+		fptr = fake_prediction_model;
 	} else {	
 		pr_warn("Invalid predictor argument\n");
 		return -2;
@@ -146,7 +165,11 @@ static int __init hook_init(void)
 	err = parse_arg();
 	if(err < 0) return -2;
 
+	//special handling
 	if(is_batch_test) batch_test_attach();
+	if(is_qdepth) 
+		if(qdepth_attach() != 0)
+			return -2;
 
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
 		err = attach_to_queue(i);
@@ -167,6 +190,7 @@ static void __exit hook_fini(void)
 		if (err) return;
 	}
 
+	if(is_qdepth) qdepth_detach();
 	if(is_batch_test) batch_test_dettach();
 }
 

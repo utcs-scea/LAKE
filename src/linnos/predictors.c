@@ -19,7 +19,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdbool.h>
-#include <stdbool.h>
 #endif
 
 #define SYNC 0
