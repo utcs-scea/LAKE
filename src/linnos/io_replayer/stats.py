@@ -9,6 +9,7 @@ import sys, math
 import numpy as np
 import statistics
 import matplotlib.pyplot as plt
+import os
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

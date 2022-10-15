@@ -50,9 +50,9 @@ void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     if(trace_op.op == 0) {
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
         //rejected, go to next device (it should have linnos enabled)
-        trace->add_fail();
-        trace->add_unique_fail();
         if (ret < 0) {
+            trace->add_fail();
+            trace->add_unique_fail();
             ret = pread(fds[device+1], buf, trace_op.size, trace_op.offset);
             if (ret < 0) { 
                 printf("Second IO failed, this shouldn't happen!\n");
