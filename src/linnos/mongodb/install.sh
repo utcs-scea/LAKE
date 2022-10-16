@@ -32,4 +32,7 @@ rm mongodb-linux-x86_64-ubuntu2004-6.0.2.tgz
 rm -r mongodb-linux-x86_64-ubuntu2004-6.0.2
 
 
+#install YCSB dependencies
+#clone YCSB 
 #TODO: https://github.com/mongodb-labs/YCSB/archive/refs/heads/master.zip
+#put this thing in there

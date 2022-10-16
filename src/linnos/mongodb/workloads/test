@@ -1,0 +1,19 @@
+
+recordcount=10
+operationcount=5
+threadcount=1
+
+#this is 256K
+fieldlength=32
+fieldcount=2
+
+readallfields=true
+writeallfields=true
+workload=site.ycsb.workloads.CoreWorkload
+
+readproportion=1
+updateproportion=0
+scanproportion=0
+insertproportion=0
+requestdistribution=zipfian
+
