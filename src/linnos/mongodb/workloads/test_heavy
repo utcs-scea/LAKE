@@ -1,0 +1,34 @@
+# recordcount=10000
+# operationcount=10000
+# threadcount=1
+
+# #this is 256K
+# fieldlength=8192
+# fieldcount=2
+
+# readallfields=true
+# writeallfields=true
+# workload=com.yahoo.ycsb.workloads.CoreWorkload
+
+# readproportion=1
+# updateproportion=0
+# scanproportion=0
+# insertproportion=0
+# requestdistribution=zipfian
+
+
+
+recordcount=10000
+operationcount=1000
+workload=com.yahoo.ycsb.workloads.CoreWorkload
+
+
+readallfields=true
+
+readproportion=0.95
+updateproportion=0.05
+scanproportion=0
+insertproportion=0
+
+#requestdistribution=zipfian
+
