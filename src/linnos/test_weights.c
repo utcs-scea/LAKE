@@ -1,4 +1,4 @@
-#include "weights.h"
+#include "test_weights.h"
 
 //got from sde
 long weight_0_T[256*31] = {

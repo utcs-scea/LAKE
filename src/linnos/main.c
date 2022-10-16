@@ -28,7 +28,7 @@ u64 get_tsns() {
 #include <stdbool.h>
 #endif
 
-#include "weights.h"
+#include "test_weights.h"
 #include "helpers.h"
 #include "predictors.h"
 #include "variables.h"
@@ -75,7 +75,8 @@ static int run_gpu(void) {
   
     struct GPU_state state;
 
-    initialize_gpu(cubin_path, test_weights, max_batch_size, &state);
+    initialize_gpu(cubin_path, max_batch_size);
+    copy_weights(test_weights, &state);
 
     comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
     total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
@@ -90,23 +91,25 @@ static int run_gpu(void) {
         copy_inputs_to_gpu(batch_size);
 
         //warmup
-        gpu_prediction_model(input, batch_size, test_weights);
+        gpu_prediction_model(input, batch_size, state.cast_weights);
         copy_results_from_gpu(batch_size);
         
         cuCtxSynchronize();
         usleep_range(250, 1000);
     
         for (j = 0 ; j < RUNS ; j++) {
+            PREDICT_GPU_SYNC = 0;
             t_start = ktime_get_ns();
             copy_inputs_to_gpu(batch_size);
-            gpu_prediction_model(input, batch_size, test_weights);
+            gpu_prediction_model(input, batch_size, state.cast_weights);
             copy_results_from_gpu(batch_size);
             t_stop = ktime_get_ns();
             
             usleep_range(500, 2000);
 
+            PREDICT_GPU_SYNC = 1;
             c_start = ktime_get_ns();
-            gpu_prediction_model(input, batch_size, test_weights);
+            gpu_prediction_model(input, batch_size, state.cast_weights);
             c_stop = ktime_get_ns();
             
             usleep_range(500, 2000);
@@ -184,7 +187,7 @@ static int run_gpu(void) {
             //the 1's here mean we only do 1 input, easy to adapt to n
             expand_input_n_times(input, 1);
             copy_inputs_to_gpu(1);
-            gpu_prediction_model(input, 1, test_weights);
+            gpu_prediction_model(input, 1, state.cast_weights);
             copy_results_from_gpu(1);
             
             //ISHA: please check, this is out of bounds
@@ -199,8 +202,7 @@ static int run_gpu(void) {
         PRINT("CPU prediction summary: %llu trues, %llu falses %llu result_mismatches\n", true_count, false_count, result_mismatches);
     }
 
-
-    gpu_cuda_cleanup();
+    gpu_cuda_cleanup(&state);
     vfree(comp_run_times);
     vfree(total_run_times);
     return 0;

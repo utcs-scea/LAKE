@@ -9,7 +9,8 @@
 #include "cuda.h"
 #include "lake_shm.h"
 
-#define SYNC 0
+int PREDICT_GPU_SYNC = 0;
+
 
 #include <linux/completion.h>
 //this is tough and rough
@@ -96,7 +97,7 @@ bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	//do inference
 	void *args[] = {
-		&d_weight_0_T_ent, &d_bias_0_ent, &d_input_vec_i, &d_mid_res_i
+		&weights[0], &weights[2], &d_input_vec_i, &d_mid_res_i
 	};
 
     check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
@@ -107,7 +108,7 @@ void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 			"cuLaunchKernel", __LINE__);
 
     void *args1[] = {
-		&d_weight_1_T_ent, &d_bias_1_ent, &d_mid_res_i, &d_final_res_i
+		&weights[1], &weights[3], &d_mid_res_i, &d_final_res_i
 	};
 
     check_error(cuLaunchKernel(batch_linnos_final_layer_kernel, 
@@ -116,7 +117,7 @@ void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 				0,   //shared mem
                 NULL, args1, NULL),
 			"cuLaunchKernel", __LINE__);
-	if(SYNC == 1) {
+	if(PREDICT_GPU_SYNC == 1) {
 		check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
 	}
 }

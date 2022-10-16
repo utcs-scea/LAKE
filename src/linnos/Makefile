@@ -1,5 +1,5 @@
 obj-m += linnos.o
-linnos-objs := variables.o weights.o helpers.o main.o predictors.o
+linnos-objs := variables.o test_weights.o helpers.o main.o predictors.o
 
 ccflags-y += -I$(src)/../kapi/include -I$(KAVA_ROOT)/include -I$(src)/.. -O3 -march=native -mhard-float -msse -Wno-declaration-after-statement
 

@@ -26,4 +26,6 @@ bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights);
 void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights);
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights);
 
+extern int PREDICT_GPU_SYNC;
+
 #endif

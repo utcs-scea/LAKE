@@ -13,6 +13,8 @@
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
 
+#include "variables.h"
+
 // CUDA driver
 #include "cuda.h"
 #include "lake_shm.h"
@@ -40,12 +42,14 @@ static inline CUresult check_error(CUresult error, const char* error_str, int li
 	return error;
 }
 
-void initialize_gpu(const char* cubin_path, long **weights, int n_vecs, struct GPU_state *state);
+void copy_weights(long **weights, struct GPU_state *state);
+void initialize_gpu(const char* cubin_path, int max_batch_size);
 void gpu_cuda_cleanup(struct GPU_state *state);
-void check_malloc(void *p, const char* error_str, int line);
 
+void check_malloc(void *p, const char* error_str, int line);
 void expand_input_n_times(char* input, int n);
 void copy_inputs_to_gpu(u64 n_inputs);
 void copy_results_from_gpu(u64 n_inputs);
+
 
 #endif
