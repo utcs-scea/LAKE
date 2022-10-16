@@ -30,3 +30,6 @@ tar xf mongodb-linux-x86_64-ubuntu2004-6.0.2.tgz
 cp mongodb-linux-x86_64-ubuntu2004-6.0.2/bin/* .
 rm mongodb-linux-x86_64-ubuntu2004-6.0.2.tgz
 rm -r mongodb-linux-x86_64-ubuntu2004-6.0.2
+
+
+#TODO: https://github.com/mongodb-labs/YCSB/archive/refs/heads/master.zip
