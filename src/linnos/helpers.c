@@ -32,6 +32,8 @@ static void gpu_get_cufunc(const char* cubin, char* kname, CUfunction *func) {
     }
 }
 
+void copy_weights struct GPU_state *state()
+
 //this function gets the CUfuncs, allocates and copies weights
 //and allocates memory for max_batch_size inputs
 void initialize_gpu(const char* cubin_path, long **weights, int max_batch_size) {
@@ -40,14 +42,18 @@ void initialize_gpu(const char* cubin_path, long **weights, int max_batch_size) 
     long *kbuf_bias_0_ent;
     long *kbuf_bias_1_ent;
     //intialize kernels
-    gpu_cuda_init(0);
-    gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
-    gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
+    if (!cuctx)
+        gpu_cuda_init(0);
+    if (!batch_linnos_final_layer_kernel)
+        gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
+    if (!batch_linnos_mid_layer_kernel)
+        gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
 
-    inputs_to_gpu = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
-    gpu_outputs = kava_alloc(64 * max_batch_size * sizeof(long));
+    if (!inputs_to_gpu)
+        inputs_to_gpu = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
+    if (!gpu_outputs)
+        gpu_outputs = kava_alloc(64 * max_batch_size * sizeof(long));
 
-	PRINT("cubin load done\n");
 	//initialize variables
 	kbuf_weight_0_T_ent = (long*) kava_alloc(256*31*sizeof(long));
     memcpy(kbuf_weight_0_T_ent, weights[0], 256*31*sizeof(long));
@@ -57,21 +63,20 @@ void initialize_gpu(const char* cubin_path, long **weights, int max_batch_size) 
     memcpy(kbuf_bias_0_ent, weights[2], 256*sizeof(long));
     kbuf_bias_1_ent = (long*) kava_alloc(2*sizeof(long));
     memcpy(kbuf_bias_1_ent, weights[3], 2*sizeof(long));
-	PRINT("weights kbuf done\n");
-	
-	check_error(cuMemAlloc((CUdeviceptr*) &d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_input_vec_i, sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
+
+	check_error(cuMemAlloc((CUdeviceptr*) &state->d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &state->d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &state->d_bias_0_ent, sizeof(long) * 256), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &state->d_bias_1_ent, sizeof(long) * 2), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &state->d_input_vec_i, sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &state->d_mid_res_i, sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &state->d_final_res_i, sizeof(long) *LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
 	PRINT("malloc done\n");
-    check_error(cuMemcpyHtoD(d_weight_0_T_ent, kbuf_weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_weight_1_T_ent, kbuf_weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_bias_0_ent, kbuf_bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(d_bias_1_ent, kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(state->d_weight_0_T_ent, kbuf_weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(state->d_weight_1_T_ent, kbuf_weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(state->d_bias_0_ent, kbuf_bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD(state->d_bias_1_ent, kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
 	PRINT("memcpy done\n");
     kava_free(kbuf_weight_0_T_ent);
     kava_free(kbuf_weight_1_T_ent);
@@ -79,16 +84,22 @@ void initialize_gpu(const char* cubin_path, long **weights, int max_batch_size) 
     kava_free(kbuf_bias_1_ent);
 }
 
-void gpu_cuda_cleanup(void) {
-	cuMemFree(d_input_vec_i);
-	cuMemFree(d_weight_0_T_ent);
-	cuMemFree(d_weight_1_T_ent);
-	cuMemFree(d_bias_0_ent);
-	cuMemFree(d_bias_1_ent);
-	cuMemFree(d_mid_res_i);
-	cuMemFree(d_final_res_i);
-    kava_free(inputs_to_gpu);
-    kava_free(gpu_outputs);
+void gpu_cuda_cleanup(struct GPU_state *state) {
+	cuMemFree(state->d_input_vec_i);
+	cuMemFree(state->d_weight_0_T_ent);
+	cuMemFree(state->d_weight_1_T_ent);
+	cuMemFree(state->d_bias_0_ent);
+	cuMemFree(state->d_bias_1_ent);
+	cuMemFree(state->d_mid_res_i);
+	cuMemFree(state->d_final_res_i);
+    if (!inputs_to_gpu) {
+        kava_free(inputs_to_gpu);
+        inputs_to_gpu = 0;
+    }
+    if (!gpu_outputs) {
+        kava_free(gpu_outputs);
+        gpu_outputs = 0;
+    }
 }
 
 void check_malloc(void *p, const char* error_str, int line) {

@@ -40,8 +40,8 @@ static inline CUresult check_error(CUresult error, const char* error_str, int li
 	return error;
 }
 
-void initialize_gpu(const char* cubin_path, long **weights, int n_vecs);
-void gpu_cuda_cleanup(void);
+void initialize_gpu(const char* cubin_path, long **weights, int n_vecs, struct GPU_state *state);
+void gpu_cuda_cleanup(struct GPU_state *state);
 void check_malloc(void *p, const char* error_str, int line);
 
 void expand_input_n_times(char* input, int n);

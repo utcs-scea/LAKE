@@ -10,6 +10,7 @@
 #include "predictors.h"
 #include "lake_shm.h"
 #include "queue_depth.h"
+#include "helpers.h"
 
 #define SET_SYSCTL_DEBUG 0
 
@@ -19,6 +20,10 @@ extern unsigned long sysctl_lake_linnos_debug;
 static char *predictor_str = "fake";
 module_param(predictor_str, charp, 0444);
 MODULE_PARM_DESC(predictor_str, "What predictor to use: fake, cpu, gpu, batchtest");
+
+static char *cubin_path = "linnos.cubin";
+module_param(cubin_path, charp, 0444);
+MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin");
 
 //adding a model to a device requires:
 // 1. include the header with the weights
@@ -43,22 +48,25 @@ static long *weights[][4] = {
 	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
 	///{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
 	///{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
-
 };
 
 //the predictor function to use
 bool (*fptr)(char*,int,long**);
 
+/*
+ *  Helpers for Batch test
+ */
 bool is_qdepth = false;
 bool is_batch_test = false;
+bool is_gpu_inf = false;
 void batch_test_attach(void) {
 	int i;
 	gpu_results = kava_alloc(sizeof(bool)*128);
-	window_size_hist = vmalloc(128);
+	window_size_hist = vmalloc(128);gpu_detach
 	for (i=0;i<128;i++) window_size_hist[i] = 0;
 	init_completion(&batch_barrier);
 }
-void batch_test_dettach(void) {
+void batch_test_gpu_detach(void) {
 	int i;
 	for (i=0;i<128;i++)
 		if (window_size_hist[i] != 0)
@@ -67,6 +75,9 @@ void batch_test_dettach(void) {
 	vfree(window_size_hist);
 }
 
+/*
+ *  Helpers for queue depth
+ */
 int qdepth_attach(void) {
 	int err;
 	err = qd_init(); //this sets ptr
@@ -79,6 +90,18 @@ void qdepth_detach(void) {
 	qd_writeout();
 }
 
+/*
+ *  Helpers for GPU inference
+ */
+int gpu_attach(void) {
+	initialize_gpu(cubin_path, test_weights, max_batch_size);
+}
+void gpu_detach(void) {
+	gpu_cuda_cleanup();
+}
+/*
+ *  Actual hook code
+ */
 static int parse_arg(void) {
 	if (!strcmp("fake", predictor_str)) {
 		fptr = fake_prediction_model;
@@ -87,6 +110,7 @@ static int parse_arg(void) {
 		pr_warn("Inserting CPU prediction\n");
 	}else if (!strcmp("gpu", predictor_str)) {
 		//fptr = gpu_prediction_model;
+		is_gpu_inf = true;
 	} else if (!strcmp("batchtest", predictor_str)) {
 		pr_warn("Inserting batch test prediction\n");
 		is_batch_test = true;
@@ -128,7 +152,7 @@ static int attach_to_queue(int idx) {
 	return 0;
 }
 
-static int dettach_queue(int idx) {
+static int gpu_detach_queue(int idx) {
 	struct block_device *dev;
 	struct request_queue *q;
 
@@ -169,6 +193,7 @@ static int __init hook_init(void)
 	if(is_qdepth) 
 		if(qdepth_attach() != 0)
 			return -2;
+	if(is_gpu_inf) gpu_attach();
 
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
 		err = attach_to_queue(i);
@@ -185,19 +210,20 @@ static void __exit hook_fini(void)
 
 	sysctl_lake_linnos_debug = 0;
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]){
-		err = dettach_queue(i);
+		err = gpu_detach_queue(i);
 		if (err) return;
 	}
 
 	if(is_qdepth) qdepth_detach();
-	if(is_batch_test) batch_test_dettach();
+	if(is_batch_test) batch_test_gpu_detach();
+	if(is_gpu_inf) gpu_gpu_detach();
 }
 
 module_init(hook_init);
 module_exit(hook_fini);
 
 MODULE_AUTHOR("Henrique Fingler");
-MODULE_DESCRIPTION("kernel hook for linnos");
+MODULE_DESCRIPTION("Kernel predictor hooks for LAKE-linnos");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(__stringify(1) "."
                __stringify(0) "."

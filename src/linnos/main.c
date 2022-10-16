@@ -73,9 +73,9 @@ static int run_gpu(void) {
     u64 avg, avg_total;
     u64 best, best_total;
   
-    initialize_gpu(cubin_path, test_weights, max_batch_size);
+    struct GPU_state state;
 
-    //ISHA: watchout, I changed  input[31] from long to char, we need to check we convert char to long in this
+    initialize_gpu(cubin_path, test_weights, max_batch_size, &state);
 
     comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
     total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));

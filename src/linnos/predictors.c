@@ -2,29 +2,15 @@
 #include "variables.h"
 #include "helpers.h"
 
-#ifdef __KERNEL__
 #include <linux/delay.h>
 #include <linux/ktime.h>
 #include <linux/vmalloc.h>
 #include <asm/fpu/api.h>
 #include "cuda.h"
 #include "lake_shm.h"
-//uspace
-#else
-#define kava_free(X) free(X)
-#define kava_alloc(X) malloc(X)
-#define vfree(X) free(X)
-#define vmalloc(X) malloc(X)
-#include <stdint.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <stdbool.h>
-#endif
 
 #define SYNC 0
 
-
-#ifdef __KERNEL__
 #include <linux/completion.h>
 //this is tough and rough
 DEFINE_SPINLOCK(batch_lock);
@@ -101,13 +87,12 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 
 	return false;
 }
-#endif
-
 
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
 
+//hack: weights are actually device pointers here
 void gpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	//do inference
 	void *args[] = {
