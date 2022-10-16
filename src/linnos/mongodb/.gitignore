@@ -1,3 +1,11 @@
 mongo*
 *.gz
 *.tgz
+*.trace
+YCSB-master
+ycsbmongo
+db
+log
+mongod
+mongos
+install_compass

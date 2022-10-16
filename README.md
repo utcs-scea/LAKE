@@ -174,3 +174,15 @@ python3 mlHeaderGen/mlHeaderGen.py Trace nvme2n1 mlData/drive2weights weights_he
 ## Mongodb
 
 To install, go into `src/linnos/mongodb` and run `./install.sh`
+
+
+sudo apt install libcurl4-openssl-dev liblzma-dev
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source "$HOME/.cargo/env"
+apt install python-dev-is-python3 libssl-dev
+
+#todo create venv
+python3 -m pip install -r etc/pip/compile-requirements.txt
+
+
+compile with --disable-warnings-as-errors

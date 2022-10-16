@@ -23,11 +23,13 @@ pwrite_ptr real_pwrite64_225 = 0;
 #define PRINT_DEBUG 1
 
 void reads_contructor() {
+#if CAPTURE_READ_CALL
     real_read_225 = (read_ptr) dlvsym(RTLD_NEXT, "read", "GLIBC_2.2.5");
     if (real_read_225 == NULL) {
         printf("Failed getting real_read_225\n");
         exit(1);
     }
+#endif
 
     real_pread_225 = (pread_ptr) dlvsym(RTLD_NEXT, "pread", "GLIBC_2.2.5");
     if (real_pread_225 == NULL) {
@@ -35,13 +37,13 @@ void reads_contructor() {
         exit(1);
     }
 
-#if CAPTURE_READ_CALL
+
     real_pread64_225 = (pread_ptr) dlvsym(RTLD_NEXT, "pread64", "GLIBC_2.2.5");
     if (real_pread64_225 == NULL) {
         printf("Failed getting real_pread64_225\n");
         exit(1);
     }
-#endif
+
 
     real_pwrite_225 = (pwrite_ptr) dlvsym(RTLD_NEXT, "pwrite", "GLIBC_2.2.5");
     if (real_pwrite_225 == NULL) {
@@ -121,9 +123,11 @@ ssize_t pwrite64_225(int fd, const void *buf, size_t count, off_t offset) {
     return real_pwrite64_225(fd, buf, count, offset);
 }
 
+#if CAPTURE_READ_CALL
+__asm__(".symver read_225, read@GLIBC_2.2.5");
+#endif
 __asm__(".symver pread_225, pread@GLIBC_2.2.5");
 __asm__(".symver pread64_225, pread64@GLIBC_2.2.5");
-__asm__(".symver read_225, read@GLIBC_2.2.5");
 __asm__(".symver pwrite_225, pwrite@GLIBC_2.2.5");
 __asm__(".symver pwrite64_225, pwrite64@GLIBC_2.2.5");
 

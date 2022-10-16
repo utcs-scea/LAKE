@@ -9,7 +9,8 @@ fieldcount=32
 
 readallfields=true
 writeallfields=true
-workload=site.ycsb.workloads.CoreWorkload
+workload=com.yahoo.ycsb.workloads.CoreWorkload
+
 
 readproportion=1
 updateproportion=0

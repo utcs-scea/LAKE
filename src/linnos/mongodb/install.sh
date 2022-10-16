@@ -25,14 +25,32 @@ if [ "$ldssl" == "" ];then
     echo "Installed!"
 fi
 
-wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2004-6.0.2.tgz
-tar xf mongodb-linux-x86_64-ubuntu2004-6.0.2.tgz
-cp mongodb-linux-x86_64-ubuntu2004-6.0.2/bin/* .
-rm mongodb-linux-x86_64-ubuntu2004-6.0.2.tgz
-rm -r mongodb-linux-x86_64-ubuntu2004-6.0.2
+#get mongod
+wget https://fastdl.mongodb.org/linux/mongodb-linux-x86_64-ubuntu2004-6.0.0.tgz
+tar xf mongodb-linux-x86_64-ubuntu2004-6.0.0.tgz
+cp mongodb-linux-x86_64-ubuntu2004-6.0.0/bin/* .
+rm mongodb-linux-x86_64-ubuntu2004-6.0.0.tgz
+rm -r mongodb-linux-x86_64-ubuntu2004-6.0.0
 
+#get YCSB
+wget https://github.com/brianfrankcooper/YCSB/archive/refs/heads/master.zip
+unzip master.zip
+rm master.zip
 
-#install YCSB dependencies
-#clone YCSB 
-#TODO: https://github.com/mongodb-labs/YCSB/archive/refs/heads/master.zip
-#put this thing in there
+#get mongodb YCSB engine
+mkdir ycsbmongo
+pushd ycsbmongo
+wget https://github.com/mongodb-labs/YCSB/archive/refs/heads/master.zip
+unzip master.zip
+rm master.zip
+m -r ../YCSB-master/mongodb/*
+mv YCSB-master/ycsb-mongodb/* ../YCSB-master/mongodb/
+popd
+rm -r ycsbmongo
+
+#install maven, compile mongodb engine
+sudo apt install default-jdk maven
+pushd YCSB-master/mongodb
+mvn clean package
+popd
+
