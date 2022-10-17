@@ -1,7 +1,7 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <chrono>
-#include "weights.h"
+#include "test_weights.h"
 #define LEN_INPUT 31
 #define LEN_LAYER_0 256
 #define LEN_LAYER_0_HALF 128

@@ -40,7 +40,7 @@ u64 get_tsns() {
 
 #define RUNS 3
 bool check_correctness = true; 
-#define CORRECTNESS_CHECKS 10000
+#define CORRECTNESS_CHECKS 1000
 
 static char *cubin_path = "linnos.cubin";
 #ifdef __KERNEL__

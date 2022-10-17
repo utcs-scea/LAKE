@@ -95,6 +95,9 @@ void gpu_cuda_cleanup(struct GPU_weights *state) {
     for(i = 0; i <4 ; i++) {
         cuMemFree(state->weights[i]);
     }
+    cuMemFree(d_input_vec_i);
+    cuMemFree(d_mid_res_i);
+    cuMemFree(d_final_res_i);
 
     if (!inputs_to_gpu) {
         kava_free(inputs_to_gpu);
