@@ -99,10 +99,10 @@ public:
         trace_line_count = new uint64_t[ndevices]{0};
         ndevices = ndevices;
         allocate_trace();
-        std::atomic_init(&late_ios, 0);
-        std::atomic_init(&fails, 0);
-        std::atomic_init(&unique_fails, 0);
-        std::atomic_init(&never_finished, 0);
+        std::atomic_init(&late_ios, (uint64_t)0);
+        std::atomic_init(&fails, (uint64_t)0);
+        std::atomic_init(&unique_fails, (uint64_t)0);
+        std::atomic_init(&never_finished, (uint64_t)0);
     }
 
     ~Trace() {
@@ -240,15 +240,15 @@ public:
     }
 
     void add_fail(){
-        std::atomic_fetch_add(&fails, 1);
+        std::atomic_fetch_add(&fails, (uint64_t)1);
     }
 
     void add_unique_fail() {
-        std::atomic_fetch_add(&unique_fails, 1);
+        std::atomic_fetch_add(&unique_fails, (uint64_t)1);
     }
 
     void add_never_finished() {
-        std::atomic_fetch_add(&never_finished, 1);
+        std::atomic_fetch_add(&never_finished, (uint64_t)1);
     }
 
 };

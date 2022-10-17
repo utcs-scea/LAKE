@@ -19,11 +19,11 @@ extern unsigned long sysctl_lake_linnos_debug;
 
 static char *predictor_str = "fake";
 module_param(predictor_str, charp, 0444);
-MODULE_PARM_DESC(predictor_str, "What predictor to use: fake, cpu, gpu, batchtest");
+MODULE_PARM_DESC(predictor_str, "What predictor to use: fake, cpu, gpu, batchtest, queudepth");
 
 static char *cubin_path = "linnos.cubin";
 module_param(cubin_path, charp, 0444);
-MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin");
+MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu predictor");
 
 //adding a model to a device requires:
 // 1. include the header with the weights
@@ -36,8 +36,8 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin");
 //#include "weights_header/w_nvme2n1.h"
 
 static const char *devices[] = {
-    //"/dev/vdb",
-	"/dev/nvme0n1",
+    "/dev/vdb",
+	//"/dev/nvme0n1",
 	//"/dev/nvme1n1",
 	//"/dev/nvme2n1",
 	0
@@ -63,7 +63,6 @@ static void batch_test_attach(void) {
 	int i;
 	window_size_hist = vmalloc(128);
 	for (i=0;i<128;i++) window_size_hist[i] = 0;
-	init_completion(&batch_barrier);
 }
 static void batch_test_detach(void) {
 	int i;
@@ -92,6 +91,9 @@ static void qdepth_detach(void) {
  *  Helpers for GPU inference
  */
 static int gpu_attach(void) {
+	int i;
+	window_size_hist = vmalloc(128);
+	for (i=0;i<128;i++) window_size_hist[i] = 0;
 	initialize_gpu(cubin_path, 256); //whatever, just allocate a lot
 	return 0;
 }
@@ -102,6 +104,10 @@ static void gpu_detach(void) {
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
 		gpu_cuda_cleanup(&gpu_weights[i]);
 	}
+
+	for (i=0;i<128;i++)
+		if (window_size_hist[i] != 0)
+			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
 }
 static void gpu_copy_weight(int idx) {
 	long **wts = weights[idx];

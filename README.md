@@ -86,8 +86,16 @@ wget https://us.download.nvidia.com/XFree86/Linux-x86_64/515.76/NVIDIA-Linux-x86
 sudo ./NVIDIA-Linux-x86_64-515.76.run -s
 ```
 
-Run `nvidia-smi` to make sure it's working; it should show your GPU and some information about it. 
+Always run `nvidia-smi` to make sure the driver is working; it should show your GPU and some information about it. 
 Functioning GPU and CUDA installation is assumed for next steps and are not checked by our scripts.
+
+If you recompile the kernel, the driver must be reinstalled (not necessary to reinstall cuda).
+In this case, run the two latter commands above, which are:
+```
+wget https://us.download.nvidia.com/XFree86/Linux-x86_64/515.76/NVIDIA-Linux-x86_64-515.76.run
+sudo ./NVIDIA-Linux-x86_64-515.76.run -s
+```
+
 
 # Basic Test
 
@@ -95,11 +103,13 @@ TODO:
 clean hello module
  write script that:
   compiles kapi
+  cubin compilation, need to check correct sm_
   compiles hello kernel 
   loads each piece of kapi and checks
   loads hello
 
-
+later:
+ run scripts need to check module exists
 
 
 

@@ -11,5 +11,5 @@ else
 	GENCODE_FLAGS   := -gencode arch=compute_61,code=sm_61
 endif
 
-linnos.cubin: kernels.cu
-	nvcc $(NVCCFLAGS) --cubin $(GENCODE_FLAGS) $(INCLUDES) -o $@ $+ $(LDFLAGS)
+all: 
+	nvcc $(NVCCFLAGS) --cubin $(GENCODE_FLAGS) $(INCLUDES) -o linnos.cubin kernels.cu $(LDFLAGS)

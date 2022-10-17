@@ -1,8 +1,6 @@
 #ifndef __OP_REPLAYER_H__
 #define __OP_REPLAYER_H__
 
-
-#include <barrier>
 #include <pthread.h>
 #include <unistd.h>
 #include <thread>

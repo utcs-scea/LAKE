@@ -7,7 +7,7 @@ KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kshm/Module.symvers
 KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kernel/Module.symvers
 
 all:
-	make -f Makefile.cubin
+	make -f Makefile_cubin
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 
 clean:
@@ -16,8 +16,5 @@ clean:
 
 uspace:
 	nvcc variables.c weights.c main.c helpers.c kernels.cu predictors.c -o utest -lcuda
-
-cubin:
-	make -f Makefile.cubin
 
 .PHONY: uspace cubin clean

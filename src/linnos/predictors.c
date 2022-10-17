@@ -15,18 +15,18 @@ int PREDICT_GPU_SYNC = 0;
 DEFINE_SPINLOCK(batch_lock);
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 20*_us;
+const u64 window_size_ns = 400*_us;
 const u32 max_batch_size = 32; //this cannot be more than 256 (allocated in main.c)
 const u32 cpu_gpu_threshold = 4; //less than this we use cpu
 
 u64 last_arrival_ns = 0;
 u64 window_start_ns = 0;
 u64 waiting = 0;
-struct completion batch_barrier; //inited in hook
+DECLARE_COMPLETION(batch_barrier);
 //batch test variables
 u32* window_size_hist; //allocated in main.c of kernel_hook, 128 elements
 //GPU inference variables
-struct GPU_weights gpu_weights[3]; //this is the one used, we are not going to have more than 3 ssds..
+struct GPU_weights gpu_weights[3]; //per-ssd weights, we are not going to have more than 3 ssds..
 int use_cpu_instead = 0;
 //this code has become too spaghetized, unfortunately
 // we inherit from variables.h:
@@ -36,15 +36,14 @@ int use_cpu_instead = 0;
 //	copy_results_from_gpu(u64 n_inputs) : copies to gpu_outputs.. but
 //result is calculated using: gpu_outputs[i*32]>=(gpu_outputs[(i+1)32])? false: true;
 
-//we're still holding the lock
+//we need to hold the lock
 static void gpu_batch_release(void) {
 	window_size_hist[waiting] += 1;
-	if(waiting < cpu_gpu_threshold) {
-		use_cpu_instead = 1;
-	}
 	//let everyone go
 	waiting = 0;
+	pr_warn("completing..\n");
 	complete_all(&batch_barrier);
+	reinit_completion(&batch_barrier);
 }
 
 static int gpu_get_prediction(int idx) {
@@ -57,7 +56,6 @@ void gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights) {
 	void *args[] = {
 		&weights[0], &weights[2], &d_input_vec_i, &d_mid_res_i
 	};
-
     check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
 				n_vecs, 1, 1,          //blocks
 				256, 1, 1,   //threads per block
@@ -86,7 +84,6 @@ void do_gpu_inference(int n_vecs, long **weights) {
 	copy_results_from_gpu(n_vecs);
 }
 
-
 //TODO: this assumes there's only one batch, when in fact
 //we need one per device... 
 // compare weight pointer to find which device we are in
@@ -102,61 +99,78 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	unsigned long irqflags;
 
 	// if someone gets stuck here, there's a batch going on
+	//pr_warn("locking\n");
 	spin_lock_irqsave(&batch_lock, irqflags);
-	my_arrival = ktime_get_ns();
 	my_id = waiting++;
-	//we are the first in this window
-	if (my_id == 0) {
+	my_arrival = ktime_get_ns();
+
+	//if first, reset state
+	if (unlikely(my_id == 0)) {
+		pr_warn("***** FIRST, reseting state\n");
 		window_start_ns = my_arrival;
-		use_cpu_instead = 0;
-	}
-
-	//we are the last to arrive so far, lets account for possible out of order
-	if(likely(my_arrival > last_arrival_ns))
-		last_arrival_ns = my_arrival;
-
-	//if more than window time passed or window is full
-	if(last_arrival_ns - window_start_ns >= window_size_ns || waiting == max_batch_size) {
-realize_gpu_inf:
-		is_last_arrival = true;
-		//should we just use a cpu?
-		if(waiting < cpu_gpu_threshold) {
-			use_cpu_instead = 1;
-			//let everyone work, do our work and quit
-			gpu_batch_release();
-			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
-		} else {
-			do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
-			gpu_batch_release();
-			my_prediction = gpu_get_prediction(my_id);
-		}
-	}
-	spin_unlock_irqrestore(&batch_lock, irqflags);
-
-	//i didnt release the batch, so wait
-	if (!is_last_arrival) {
-		//there's a race condition here: if a caller copies input
-		//and someone releases batch, it will get executed next batch and
-		//possibly get the wrong result
-		memcpy(inputs_to_gpu+(my_id*LEN_INPUT), feat_vec, LEN_INPUT);
-
-		//if we are the first of this batch, we need to have a timeout
-		if(my_id == 0) {
-			err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/1000));
-			if (err == 0) {  //if this was a timeout
-				spin_lock_irqsave(&batch_lock, irqflags);
-				//XXX: theres a chance someone gets in right after the timeout, maybe
-				//this goto will go up and unlock after executing
-				goto realize_gpu_inf;
-			}
-		}
-		else{ //if not first nor last
-			wait_for_completion(&batch_barrier);
-			my_prediction = gpu_get_prediction(my_id);
-		}
 	} 
 
-	return my_prediction;
+	//I am the last, will release
+	if(my_arrival - window_start_ns >= window_size_ns || waiting == max_batch_size) {
+		pr_warn(" LAST, ts: last %llu  start %llu  dif %llu  window size %llu   waiting %llu\n", my_arrival, window_start_ns, my_arrival - window_start_ns, window_size_ns, waiting);
+
+		//use cpu
+		if(waiting < cpu_gpu_threshold) {
+			use_cpu_instead = 1;
+			pr_warn("setting use_cpu_instead to 1");
+			//let ppl go then do our inference
+			gpu_batch_release();
+			spin_unlock_irqrestore(&batch_lock, irqflags);
+			return cpu_prediction_model(feat_vec, n_vecs, weights);
+		}
+		//use GPU
+		else {
+			pr_warn("setting use_cpu_instead to 0");
+			use_cpu_instead = 0;
+			//do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
+			//my_prediction = gpu_get_prediction(my_id);
+			//XXX test
+			for (err=0 ; err<32 ; err++)
+			 	gpu_outputs[err] = false;
+		}
+
+		gpu_batch_release();
+		spin_unlock_irqrestore(&batch_lock, irqflags);
+		return false;
+	}
+	//first or middle
+	else {
+		spin_unlock_irqrestore(&batch_lock, irqflags);
+		err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/1000));
+		if (err == 0) {  //if this was a timeout
+			// if the first timed out, it needs to do the batch and release
+			if (unlikely(my_id == 0)) {
+				//first one timed out
+				pr_warn("**** FIRST timed out: dif %llu  waiting %llu\n", my_arrival - window_start_ns, waiting);
+				
+				spin_lock_irqsave(&batch_lock, irqflags);
+				//TODO inference
+				gpu_batch_release();
+				spin_unlock_irqrestore(&batch_lock, irqflags);
+				return false;
+			}
+			//this case is tricky. a middle guy timed out, probably
+			//because it hit the wait right after a batch was released
+			else{
+				pr_warn("******** bad: middle guy timed out\n");
+				return cpu_prediction_model(feat_vec, n_vecs, weights);
+			}
+		}
+		// if it wasnt a time out, we either get result or do cpu
+		else{
+			pr_warn("released, using cpu? %d\n", use_cpu_instead);
+			if (use_cpu_instead)
+			 	return cpu_prediction_model(feat_vec, n_vecs, weights);
+			else
+				return false;
+				//my_prediction = gpu_get_prediction(my_id);
+		}
+	}
 }
 
 

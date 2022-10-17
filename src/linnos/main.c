@@ -50,10 +50,6 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin")
 
 long *test_weights[4] = { weight_0_T, weight_1_T, bias_0, bias_1};
 
-static int run_cpu(void) {
-    return 0;
-}
-
 static int run_gpu(void) {
     int i, j;
     PRINT("Starting\n");
@@ -91,7 +87,7 @@ static int run_gpu(void) {
         copy_inputs_to_gpu(batch_size);
 
         //warmup
-        gpu_predict_batch(0, batch_size, state.cast_weights);
+        gpu_predict_batch(0, batch_size, state.weights);
         copy_results_from_gpu(batch_size);
         
         cuCtxSynchronize();
@@ -101,7 +97,7 @@ static int run_gpu(void) {
             PREDICT_GPU_SYNC = 0;
             t_start = ktime_get_ns();
             copy_inputs_to_gpu(batch_size);
-            gpu_predict_batch(0, batch_size, state.cast_weights);
+            gpu_predict_batch(0, batch_size, state.weights);
             copy_results_from_gpu(batch_size);
             t_stop = ktime_get_ns();
             
@@ -109,7 +105,7 @@ static int run_gpu(void) {
 
             PREDICT_GPU_SYNC = 1;
             c_start = ktime_get_ns();
-            gpu_predict_batch(0, batch_size, state.cast_weights);
+            gpu_predict_batch(0, batch_size, state.weights);
             c_stop = ktime_get_ns();
             
             usleep_range(500, 2000);
@@ -187,11 +183,11 @@ static int run_gpu(void) {
             //the 1's here mean we only do 1 input, easy to adapt to n
             expand_input_n_times(input, 1);
             copy_inputs_to_gpu(1);
-            gpu_predict_batch(0, 1, state.cast_weights);
+            gpu_predict_batch(0, 1, state.weights);
             copy_results_from_gpu(1);
             
             res = gpu_outputs[0]>=(gpu_outputs[32])? false: true;
-            PRINT("Test [%d]: (%d) %s\n", k, res, res==cpu_result ? "Ok" : "WRONG");
+            //PRINT("Test [%d]: (%d) %s\n", k, res, res==cpu_result ? "Ok" : "WRONG");
             if (res!=cpu_result) result_mismatches++;
             if (cpu_result) true_count++;
             else false_count++;
@@ -223,7 +219,7 @@ static void __exit linnos_fini(void)
 module_init(linnos_init);
 module_exit(linnos_fini);
 
-MODULE_AUTHOR("Isha Tarte");
+MODULE_AUTHOR("Henrique Fingler and Isha Tarte");
 MODULE_DESCRIPTION("Kernel module of a linnos program in kava");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(__stringify(1) "."
