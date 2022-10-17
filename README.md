@@ -9,7 +9,11 @@ sudo apt-get update
 sudo apt-get -y install build-essential tmux git pkg-config cmake zsh
 sudo apt-get install libncurses-dev gawk flex bison openssl libssl-dev dkms libelf-dev libiberty-dev autoconf zstd
 sudo apt-get install libreadline-dev binutils-dev libnl-3-dev
-sudo apt-get install libelf-dev libdwarf-dev libdw-dev ecryptfs-utils cpufrequtils 
+sudo apt-get install ecryptfs-utils cpufrequtils 
+```
+For BPF:
+```
+sudo apt-get install libelf-dev libdwarf-dev libdw-dev
 git clone https://github.com/acmel/dwarves.git 
 cd dwarves/
 git checkout tags/v1.22
@@ -51,13 +55,11 @@ deb http://archive.ubuntu.com/ubuntu bionic-updates main multiverse restricted u
 deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-15 main
 deb-src http://apt.llvm.org/bionic/ llvm-toolchain-bionic-15 main
 ```
-
 Then install it:
 ```
 sudo apt update
 sudo apt install llvm-15 clang-15
 ```
-
 Logout and back in to update path. Try running  `llvm-config --version`.
 If it shows `15.0.2`, you are done.
 If it does not, make sure `llvm-config-15 --version` works.
@@ -66,16 +68,39 @@ go to the `scripts` dir and run `sudo ./create_llvm_links.sh 15 1`.
 This will create links to every tool with a `-15` suffix to one without.
 
 
-## Install CUDA
+## Install CUDA 11.7 and driver
+
+The link below is for Ubuntu 22.04, but it should work for other versions.
+If it doesn't, the link to download other versions is
+`https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu`
 
 ```
+wget https://developer.download.nvidia.com/compute/cuda/11.7.1/local_installers/cuda_11.7.1_515.65.01_linux.run
+sudo sh cuda_11.7.1_515.65.01_linux.run --toolkit --driver --silent
+```
+If for some reason this fails to compile/install the driver, install only the CUDA toolkit and then
+install the driver manually:
+```
+sudo sh cuda_11.7.1_515.65.01_linux.run --toolkit --silent --override
 wget https://us.download.nvidia.com/XFree86/Linux-x86_64/515.76/NVIDIA-Linux-x86_64-515.76.run
 sudo ./NVIDIA-Linux-x86_64-515.76.run -s
-wget https://developer.download.nvidia.com/compute/cuda/11.8.0/local_installers/cuda_11.8.0_520.61.05_linux.run
-sudo sh ./cuda_11.8.0_520.61.05_linux.run --toolkit --silent --override
 ```
-Run `nvidia-smi` to make sure it's working. If it isn't, the CUDA installer probably uninstalled the driver.
-If so, run the second command again (`sudo ./NVIDIA-Linux-x86_64-515.76.run -s`).
+
+Run `nvidia-smi` to make sure it's working; it should show your GPU and some information about it. 
+Functioning GPU and CUDA installation is assumed for next steps and are not checked by our scripts.
+
+# Basic Test
+
+TODO:
+clean hello module
+ write script that:
+  compiles kapi
+  compiles hello kernel 
+  loads each piece of kapi and checks
+  loads hello
+
+
+
 
 
 # eCryptfs
@@ -96,6 +121,7 @@ sudo apt install python3.10 python3-pip
 
 If the run command gives you `Unable to link the KEY_SPEC_USER_KEYRING into the KEY_SPEC_SESSION_KEYRING`,
 it's a bug from using tmux. Close all tmux panes and reopen it with the `tmux.sh` script
+
 
 
 #### TODO
