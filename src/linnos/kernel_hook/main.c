@@ -61,29 +61,27 @@ bool is_batch_test = false;
 bool is_gpu_inf = false;
 void batch_test_attach(void) {
 	int i;
-	gpu_results = kava_alloc(sizeof(bool)*128);
-	window_size_hist = vmalloc(128);gpu_detach
+	window_size_hist = vmalloc(128);
 	for (i=0;i<128;i++) window_size_hist[i] = 0;
 	init_completion(&batch_barrier);
 }
-void batch_test_gpu_detach(void) {
+void batch_test_detach(void) {
 	int i;
 	for (i=0;i<128;i++)
 		if (window_size_hist[i] != 0)
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
-	kava_free(gpu_results);
 	vfree(window_size_hist);
 }
 
 /*
- *  Helpers for queue depth
+ *  Helpers for queue depth stats
  */
 int qdepth_attach(void) {
 	int err;
 	err = qd_init(); //this sets ptr
 	if (err != 0) return err;
 	usleep_range(5,10); //lets chill, why not
-	sysctl_lake_linnos_debug = 3; //this enables it
+	sysctl_lake_linnos_debug = 3; //this enables storing batches
 	return 0;
 }
 void qdepth_detach(void) {
@@ -94,11 +92,13 @@ void qdepth_detach(void) {
  *  Helpers for GPU inference
  */
 int gpu_attach(void) {
-	initialize_gpu(cubin_path, test_weights, max_batch_size);
+	gpu_results = kava_alloc(sizeof(bool)*128);
+	initialize_gpu(cubin_path, max_batch_size);
 }
 void gpu_detach(void) {
 	gpu_cuda_cleanup();
 }
+
 /*
  *  Actual hook code
  */
@@ -215,7 +215,7 @@ static void __exit hook_fini(void)
 	}
 
 	if(is_qdepth) qdepth_detach();
-	if(is_batch_test) batch_test_gpu_detach();
+	if(is_batch_test) batch_test_detach();
 	if(is_gpu_inf) gpu_gpu_detach();
 }
 

@@ -42,9 +42,9 @@ static inline CUresult check_error(CUresult error, const char* error_str, int li
 	return error;
 }
 
-void copy_weights(long **weights, struct GPU_state *state);
+void copy_weights(long **weights, struct GPU_weights *state);
 void initialize_gpu(const char* cubin_path, int max_batch_size);
-void gpu_cuda_cleanup(struct GPU_state *state);
+void gpu_cuda_cleanup(struct GPU_weights *state);
 
 void check_malloc(void *p, const char* error_str, int line);
 void expand_input_n_times(char* input, int n);

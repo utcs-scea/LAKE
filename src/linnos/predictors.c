@@ -1,66 +1,88 @@
-#include "predictors.h"
-#include "variables.h"
-#include "helpers.h"
-
 #include <linux/delay.h>
 #include <linux/ktime.h>
 #include <linux/vmalloc.h>
 #include <asm/fpu/api.h>
+#include <linux/completion.h>
+#include "predictors.h"
+#include "variables.h"
+#include "helpers.h"
 #include "cuda.h"
 #include "lake_shm.h"
 
 int PREDICT_GPU_SYNC = 0;
 
-
-#include <linux/completion.h>
 //this is tough and rough
 DEFINE_SPINLOCK(batch_lock);
 #define _us 1000
-const u64 window_size_ns = 50 *_us;
-const u64 max_batch_size = 32;
+//batch variables
+const u64 window_size_ns = 50*_us;
+const u32 max_batch_size = 32;
+const u32 cpu_gpu_threshold = 4; //less than this we use cpu
+
 u64 last_arrival_ns = 0;
 u64 window_start_ns = 0;
 u64 waiting = 0;
 struct completion batch_barrier; //inited in hook
-bool* gpu_results = 0; //allocated in main.c hook, 128 elements
-u32* window_size_hist; //allocated in main.c hook, 128 elements
-//we cant go over 128 batch bc we only alloc for 128
+//batch test variables
+u32* window_size_hist; //allocated in main.c of kernel_hook, 128 elements
+//GPU inference variables
+struct GPU_weights gpu_weights; //this is the one used
+int use_cpu_instead = 0;
+//this code has become too spaghetized, unfortunately
+// we inherit from variables.h:
+//	extern long *inputs_to_gpu;
+//	extern long *gpu_outputs;
+//	copy_inputs_to_gpu(u64 n_inputs) : copies from inputs_to_gpu
+//	copy_results_from_gpu(u64 n_inputs) : copies to gpu_outputs.. but
+//result is calculated using: gpu_outputs[i*32]>=(gpu_outputs[(i+1)32])? false: true;
 
 void batch_release(void) {
 	window_size_hist[waiting] += 1;
 	waiting = 0;
-	//realize execution here, including our data, and fill gpu_results
-	//unblock everyone in this batch
 	complete_all(&batch_barrier);
 }
 
+//int idx = atomic_read(&qd_index);
+//idx = atomic_inc_return(&qd_index)
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_id;
 	bool is_last_arrival = false;
 	u64 my_arrival;
 	u32 err;
+	unsigned long irqflags;
 
-	spin_lock_irq(&batch_lock);
+	spin_lock_irqsave(&batch_lock, irqflags);
 	my_arrival = ktime_get_ns();
 	my_id = waiting++;
 	//we are the first in this window
-	if (my_id == 0)
+	if (my_id == 0) {
 		window_start_ns = my_arrival;
+		use_cpu_instead = 0;
+	}
 
 	//we are the last to arrive so far, lets account for possible out of order
 	if(likely(my_arrival > last_arrival_ns))
 		last_arrival_ns = my_arrival;
 
+	memcpy(inputs_to_gpu[my_id*LEN_INPUT], feat_vec, LEN_INPUT);
+
 	//if more than window time passed or window is full
 	if(last_arrival_ns - window_start_ns >= window_size_ns || waiting == max_batch_size) {
 		is_last_arrival = true;
+		//should we just use a cpu?
+		if(waiting < cpu_gpu_threshold) {
+			use_cpu_instead = 1;
+			batch_release();
+		}
+
+do_gpu_inference:
 		// if(waiting == max_batch_size)
 		// 	pr_warn("finished by batch window full\n");
 		// else
 		// 	pr_warn("finished by window timeout\n");
 		batch_release();
 	}
-	spin_unlock_irq(&batch_lock);
+	spin_unlock_irqrestore(&batch_lock, irqflags);
 
 	if (!is_last_arrival) {
 		//if we are the first of this batch, we need to have a timeout
@@ -68,13 +90,14 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 			//pr_warn("first\n");
 			err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/1000));
 			if (err == 0) {  //this was a timeout
-				spin_lock_irq(&batch_lock);
-				//XXX: theres a chance someone gets in right after the timeout
+				spin_lock_irqsave(&batch_lock, irqflags);
+				//XXX: theres a chance someone gets in right after the timeout, maybe
+
 				//realize execution here, including our data, and fill gpu_results
 				//unblock everyone in this batch
 				//pr_warn("first input has awaken by timeout and released!\n");
 				batch_release();
-				spin_unlock_irq(&batch_lock);
+				spin_unlock_irqrestore(&batch_lock, irqflags);
 			}
 		}
 		else{ //if not first or last

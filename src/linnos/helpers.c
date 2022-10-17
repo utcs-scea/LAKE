@@ -32,7 +32,7 @@ static void gpu_get_cufunc(const char* cubin, char* kname, CUfunction *func) {
     }
 }
 
-void copy_weights(long **weights, struct GPU_state *state) {
+void copy_weights(long **weights, struct GPU_weights *state) {
     long *kbuf_weight_0_T_ent;
     long *kbuf_weight_1_T_ent;
     long *kbuf_bias_0_ent;
@@ -90,7 +90,7 @@ void initialize_gpu(const char* cubin_path, int max_batch_size) {
     gpu_outputs = kava_alloc(64 * max_batch_size * sizeof(long));
 }
 
-void gpu_cuda_cleanup(struct GPU_state *state) {
+void gpu_cuda_cleanup(struct GPU_weights *state) {
     int i;
     for(i = 0; i <4 ; i++) {
         cuMemFree(state->weights[i]);

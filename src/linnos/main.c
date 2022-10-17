@@ -73,7 +73,7 @@ static int run_gpu(void) {
     u64 avg, avg_total;
     u64 best, best_total;
   
-    struct GPU_state state;
+    struct GPU_weights state;
 
     initialize_gpu(cubin_path, max_batch_size);
     copy_weights(test_weights, &state);
@@ -190,9 +190,6 @@ static int run_gpu(void) {
             gpu_prediction_model(input, 1, state.cast_weights);
             copy_results_from_gpu(1);
             
-            //ISHA: please check, this is out of bounds
-            //check copy_results_from_gpu, we only copy  sizeof(long) * 64 * n_inputs
-            //res = gpu_outputs[1*64]>=(gpu_outputs[1 *64 + 32])? false: true;
             res = gpu_outputs[0]>=(gpu_outputs[32])? false: true;
             PRINT("Test [%d]: (%d) %s\n", k, res, res==cpu_result ? "Ok" : "WRONG");
             if (res!=cpu_result) result_mismatches++;

@@ -8,7 +8,7 @@
 #include <stdio.h>
 #endif
 
-struct GPU_state {
+struct GPU_weights {
     //CUdeviceptr d_weight_0_T_ent;
     //CUdeviceptr d_weight_1_T_ent;
     //CUdeviceptr d_bias_0_ent;
