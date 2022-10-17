@@ -73,9 +73,10 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 		if(waiting < cpu_gpu_threshold) {
 			use_cpu_instead = 1;
 			batch_release();
+		} else {
+
 		}
 
-do_gpu_inference:
 		// if(waiting == max_batch_size)
 		// 	pr_warn("finished by batch window full\n");
 		// else
