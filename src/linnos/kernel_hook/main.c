@@ -35,7 +35,7 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin");
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-const char *devices[] = {
+static const char *devices[] = {
     //"/dev/vdb",
 	"/dev/nvme0n1",
 	//"/dev/nvme1n1",
@@ -59,13 +59,13 @@ bool (*fptr)(char*,int,long**);
 bool is_qdepth = false;
 bool is_batch_test = false;
 bool is_gpu_inf = false;
-void batch_test_attach(void) {
+static void batch_test_attach(void) {
 	int i;
 	window_size_hist = vmalloc(128);
 	for (i=0;i<128;i++) window_size_hist[i] = 0;
 	init_completion(&batch_barrier);
 }
-void batch_test_detach(void) {
+static void batch_test_detach(void) {
 	int i;
 	for (i=0;i<128;i++)
 		if (window_size_hist[i] != 0)
@@ -76,7 +76,7 @@ void batch_test_detach(void) {
 /*
  *  Helpers for queue depth stats
  */
-int qdepth_attach(void) {
+static int qdepth_attach(void) {
 	int err;
 	err = qd_init(); //this sets ptr
 	if (err != 0) return err;
@@ -84,19 +84,28 @@ int qdepth_attach(void) {
 	sysctl_lake_linnos_debug = 3; //this enables storing batches
 	return 0;
 }
-void qdepth_detach(void) {
+static void qdepth_detach(void) {
 	qd_writeout();
 }
 
 /*
  *  Helpers for GPU inference
  */
-int gpu_attach(void) {
-	gpu_results = kava_alloc(sizeof(bool)*128);
-	initialize_gpu(cubin_path, max_batch_size);
+static int gpu_attach(void) {
+	initialize_gpu(cubin_path, 256); //whatever, just allocate a lot
+	return 0;
 }
-void gpu_detach(void) {
-	gpu_cuda_cleanup();
+static void gpu_detach(void) {
+	const char *devs;
+	int i;
+
+	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
+		gpu_cuda_cleanup(&gpu_weights[i]);
+	}
+}
+static void gpu_copy_weight(int idx) {
+	long **wts = weights[idx];
+	copy_weights(wts, &gpu_weights[idx]);
 }
 
 /*
@@ -109,7 +118,7 @@ static int parse_arg(void) {
 		fptr = cpu_prediction_model;
 		pr_warn("Inserting CPU prediction\n");
 	}else if (!strcmp("gpu", predictor_str)) {
-		//fptr = gpu_prediction_model;
+		fptr = gpu_batch_entry;
 		is_gpu_inf = true;
 	} else if (!strcmp("batchtest", predictor_str)) {
 		pr_warn("Inserting batch test prediction\n");
@@ -140,6 +149,10 @@ static int attach_to_queue(int idx) {
 	}
 	q = bdev_get_queue(dev);
 	//pr_warn("wt test  %ld %ld %ld %ld \n", wts[0][0], wts[1][0], wts[2][0], wts[3][0]);
+
+	//more spaggheti, nice
+	if (is_gpu_inf) 
+		gpu_copy_weight(idx);
 
 	q->weight_0_T = wts[0];
 	q->weight_1_T = wts[1];
@@ -216,7 +229,7 @@ static void __exit hook_fini(void)
 
 	if(is_qdepth) qdepth_detach();
 	if(is_batch_test) batch_test_detach();
-	if(is_gpu_inf) gpu_gpu_detach();
+	if(is_gpu_inf) gpu_detach();
 }
 
 module_init(hook_init);

@@ -91,7 +91,7 @@ static int run_gpu(void) {
         copy_inputs_to_gpu(batch_size);
 
         //warmup
-        gpu_prediction_model(input, batch_size, state.cast_weights);
+        gpu_predict_batch(0, batch_size, state.cast_weights);
         copy_results_from_gpu(batch_size);
         
         cuCtxSynchronize();
@@ -101,7 +101,7 @@ static int run_gpu(void) {
             PREDICT_GPU_SYNC = 0;
             t_start = ktime_get_ns();
             copy_inputs_to_gpu(batch_size);
-            gpu_prediction_model(input, batch_size, state.cast_weights);
+            gpu_predict_batch(0, batch_size, state.cast_weights);
             copy_results_from_gpu(batch_size);
             t_stop = ktime_get_ns();
             
@@ -109,7 +109,7 @@ static int run_gpu(void) {
 
             PREDICT_GPU_SYNC = 1;
             c_start = ktime_get_ns();
-            gpu_prediction_model(input, batch_size, state.cast_weights);
+            gpu_predict_batch(0, batch_size, state.cast_weights);
             c_stop = ktime_get_ns();
             
             usleep_range(500, 2000);
@@ -187,7 +187,7 @@ static int run_gpu(void) {
             //the 1's here mean we only do 1 input, easy to adapt to n
             expand_input_n_times(input, 1);
             copy_inputs_to_gpu(1);
-            gpu_prediction_model(input, 1, state.cast_weights);
+            gpu_predict_batch(0, 1, state.cast_weights);
             copy_results_from_gpu(1);
             
             res = gpu_outputs[0]>=(gpu_outputs[32])? false: true;

@@ -13,8 +13,7 @@ struct GPU_weights {
     //CUdeviceptr d_weight_1_T_ent;
     //CUdeviceptr d_bias_0_ent;
     //CUdeviceptr d_bias_1_ent;
-    CUdeviceptr weights[4];
-    long *cast_weights[4];
+    long *weights[4];
 };
 
 extern CUdeviceptr d_input_vec_i;
@@ -26,6 +25,5 @@ extern CUfunction batch_linnos_mid_layer_kernel;
 extern CUcontext cuctx;
 extern long *inputs_to_gpu;
 extern long *gpu_outputs;
-
 
 #endif

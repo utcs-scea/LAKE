@@ -57,19 +57,14 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     check_error(cuMemAlloc((CUdeviceptr*) &state->weights[2], sizeof(long) * 256), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &state->weights[3], sizeof(long) * 2), "cuMemAlloc ", __LINE__);
 
-    check_error(cuMemcpyHtoD(state->weights[0], kbuf_weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(state->weights[1], kbuf_weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(state->weights[2], kbuf_bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
-	check_error(cuMemcpyHtoD(state->weights[3], kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[0], kbuf_weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[1], kbuf_weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[2], kbuf_bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+	check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[3], kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
     kava_free(kbuf_weight_0_T_ent);
     kava_free(kbuf_weight_1_T_ent);
     kava_free(kbuf_bias_0_ent);
     kava_free(kbuf_bias_1_ent);
-
-    state->cast_weights[0] = (long*) state->weights[0];
-    state->cast_weights[1] = (long*) state->weights[1];
-    state->cast_weights[2] = (long*) state->weights[2];
-    state->cast_weights[3] = (long*) state->weights[3];
 }
 
 //this function gets the CUfuncs and allocates memory for max_batch_size inputs
@@ -93,7 +88,7 @@ void initialize_gpu(const char* cubin_path, int max_batch_size) {
 void gpu_cuda_cleanup(struct GPU_weights *state) {
     int i;
     for(i = 0; i <4 ; i++) {
-        cuMemFree(state->weights[i]);
+        cuMemFree((CUdeviceptr)state->weights[i]);
     }
     cuMemFree(d_input_vec_i);
     cuMemFree(d_mid_res_i);
