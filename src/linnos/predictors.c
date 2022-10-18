@@ -121,22 +121,25 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			//let ppl go then do our inference
 			gpu_batch_release();
 			spin_unlock_irqrestore(&batch_lock, irqflags);
-			return cpu_prediction_model(feat_vec, n_vecs, weights);
+			
+			//XXX
+			cpu_prediction_model(feat_vec, n_vecs, weights);
+			return false;
 		}
 		//use GPU
 		else {
-			pr_warn("setting use_cpu_instead to 0");
+			pr_warn(" #### running on GPU\n");
 			use_cpu_instead = 0;
+			//TODO
 			//do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
 			//my_prediction = gpu_get_prediction(my_id);
 			//XXX test
 			for (err=0 ; err<32 ; err++)
 			 	gpu_outputs[err] = false;
+			gpu_batch_release();
+			spin_unlock_irqrestore(&batch_lock, irqflags);
+			return false;
 		}
-
-		gpu_batch_release();
-		spin_unlock_irqrestore(&batch_lock, irqflags);
-		return false;
 	}
 	//first or middle
 	else {
@@ -164,11 +167,13 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		// if it wasnt a time out, we either get result or do cpu
 		else{
 			pr_warn("released, using cpu? %d\n", use_cpu_instead);
-			if (use_cpu_instead)
-			 	return cpu_prediction_model(feat_vec, n_vecs, weights);
-			else
+			if (use_cpu_instead) {
+			 	cpu_prediction_model(feat_vec, n_vecs, weights);
+				//XXX
 				return false;
-				//my_prediction = gpu_get_prediction(my_id);
+			}
+			else
+				return gpu_get_prediction(my_id);
 		}
 	}
 }
