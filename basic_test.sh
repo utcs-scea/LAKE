@@ -1,6 +1,12 @@
 #!/bin/bash
 set -o pipefail
 
+#check sudo
+if [ "$EUID" -ne 0 ]
+  then echo "Please run as root"
+  exit
+fi
+
 #Check if the kernel version is correct
 kernel_version=$(uname -r)
 echo $kernel_version
@@ -41,7 +47,7 @@ if [ $exit_code != 0 ]; then
     exit
 fi
 
-#Compile hello_driver
+# #Compile hello_driver
 cd src/hello_driver
 make -f Makefile_cubin
 if [ $exit_code != 0 ]; then
@@ -56,18 +62,40 @@ if [ $exit_code != 0 ]; then
 fi
 cd ../../
 
-#load kapi
-sudo ./src/kapi/load.sh &
-pid=$!
-sleep 10
-jobs
-load_status=$(jobs | grep './src/kapi/load.sh &')
-if [ "$load_status" == "" ]; then
+# #load kapi
+cd src/kapi
+ROOT=$(cd $(dirname "$0") && pwd -P)
+
+cd ${ROOT}/kshm
+sudo insmod lake_shm.ko shm_size=80
+
+cd ${ROOT}/kernel
+sudo insmod lake_kapi.ko
+
+cd ${ROOT}/uspace
+sudo taskset 0x15 ./lake_uspace &
+
+sleep 5
+load_status=$(ps -ef | grep lake_uspace | wc -l)
+if [ $load_status -lt 2 ]; then
     echo "Error: load failed..."
     exit
 fi
+
+
+cd ../../../
 
 #Run Hello world
 cd src/hello_driver
 echo "Running hello world:"
 ./run.sh
+echo "Success"
+
+cd ../../
+
+#Unload
+cd src/kapi
+ROOT=$(cd $(dirname "$0") && pwd -P)
+sudo pkill -2 lake_uspace
+sudo rmmod lake_kapi
+sudo rmmod lake_shm
