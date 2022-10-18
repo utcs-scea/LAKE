@@ -80,8 +80,8 @@ void gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights) {
 
 void do_gpu_inference(int n_vecs, long **weights) {
 	copy_inputs_to_gpu(n_vecs);
-	gpu_predict_batch(0, n_vecs, weights);
-	copy_results_from_gpu(n_vecs);
+	//gpu_predict_batch(0, n_vecs, weights);
+	//copy_results_from_gpu(n_vecs);
 }
 
 //TODO: this assumes there's only one batch, when in fact
@@ -103,10 +103,12 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	spin_lock_irqsave(&batch_lock, irqflags);
 	my_id = waiting++;
 	my_arrival = ktime_get_ns();
+	//copy inputs to intermediary buffer
+	memcpy(inputs_to_gpu+(my_id*LEN_INPUT), feat_vec, LEN_INPUT);
 
 	//if first, reset state
 	if (unlikely(my_id == 0)) {
-		pr_warn("***** FIRST, reseting state\n");
+		//pr_warn("***** FIRST, reseting state\n");
 		window_start_ns = my_arrival;
 	} 
 
@@ -117,7 +119,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		//use cpu
 		if(waiting < cpu_gpu_threshold) {
 			use_cpu_instead = 1;
-			pr_warn("setting use_cpu_instead to 1");
+			//pr_warn("setting use_cpu_instead to 1");
 			//let ppl go then do our inference
 			gpu_batch_release();
 			spin_unlock_irqrestore(&batch_lock, irqflags);
@@ -131,14 +133,13 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			pr_warn(" #### running on GPU\n");
 			use_cpu_instead = 0;
 			//TODO
-			//do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
-			//my_prediction = gpu_get_prediction(my_id);
+			do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
 			//XXX test
 			for (err=0 ; err<32 ; err++)
 			 	gpu_outputs[err] = false;
 			gpu_batch_release();
 			spin_unlock_irqrestore(&batch_lock, irqflags);
-			return false;
+			return gpu_get_prediction(my_id);;
 		}
 	}
 	//first or middle
@@ -160,20 +161,24 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			//this case is tricky. a middle guy timed out, probably
 			//because it hit the wait right after a batch was released
 			else{
-				pr_warn("******** bad: middle guy timed out\n");
-				return cpu_prediction_model(feat_vec, n_vecs, weights);
+				//pr_warn("******** bad: middle guy timed out\n");
+				cpu_prediction_model(feat_vec, n_vecs, weights);
+				//XXX
+				return false;
 			}
 		}
 		// if it wasnt a time out, we either get result or do cpu
 		else{
-			pr_warn("released, using cpu? %d\n", use_cpu_instead);
+			//pr_warn("released, using cpu? %d\n", use_cpu_instead);
 			if (use_cpu_instead) {
 			 	cpu_prediction_model(feat_vec, n_vecs, weights);
 				//XXX
 				return false;
 			}
 			else
-				return gpu_get_prediction(my_id);
+				gpu_get_prediction(my_id);
+				//XXX
+				return false;
 		}
 	}
 }
