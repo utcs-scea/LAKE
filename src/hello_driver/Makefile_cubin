@@ -13,5 +13,4 @@ SM_SCRIPT = $(ROOT_DIR)../../scripts/get_gpu_sm.sh
 # endif
 
 all: 
-	echo $($(shell $(SM_SCRIPT)))
 	nvcc $(NVCCFLAGS) --cubin $(shell $(SM_SCRIPT)) $(INCLUDES) -o hello.cubin hello.cu $(LDFLAGS)
