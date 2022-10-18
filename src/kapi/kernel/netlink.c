@@ -6,15 +6,17 @@
 #include <linux/xarray.h>
 #include <linux/completion.h>
 #include <linux/slab.h>
-
+#include <linux/delay.h>
+#include <linux/ktime.h>
 #include "netlink.h"
 #include "commands.h"
 
 static struct sock *sk = NULL;
-DEFINE_XARRAY_ALLOC(cmds_xa); 
+//DEFINE_XARRAY_ALLOC(cmds_xa); 
+DEFINE_XARRAY(cmds_xa); 
 static struct kmem_cache *cmd_cache;
 static pid_t worker_pid = -1;
-static int max_counter = (1<<12);
+static int max_counter = (1<<10);
 
 //static atomic_t seq_counter = ATOMIC_INIT(0);
 static DEFINE_SPINLOCK(counter_lock);
@@ -43,10 +45,12 @@ void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
 
     //create a cmd struct
     //cmd = (struct cmd_data*) kmalloc(sizeof(struct cmd_data), GFP_KERNEL);
+    spin_lock(&counter_lock);
     cmd = (struct cmd_data*) kmem_cache_alloc(cmd_cache, GFP_KERNEL);
+    spin_unlock(&counter_lock);
     if(IS_ERR(cmd)) {
-        pr_alert("Error allocating from cache: %ld\n", PTR_ERR(cmd));
-        kmem_cache_destroy(cmd_cache);
+        pr_warn("Error allocating from cache: %ld\n", PTR_ERR(cmd));
+        //kmem_cache_destroy(cmd_cache);
         ret->res = CUDA_ERROR_OUT_OF_MEMORY;
     }
 
@@ -62,9 +66,8 @@ void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
         id_counter = 0;
     spin_unlock(&counter_lock);
 
-    //if (err < 0) {
     if(xa_err(xa_store(&cmds_xa, xa_idx, (void*)cmd, GFP_KERNEL))) {
-        pr_alert("Error allocating xa_alloc: %d\n", err);
+        pr_warn("Error allocating xa_alloc: %d\n", err);
         ret->res = CUDA_ERROR_OPERATING_SYSTEM;
     }
 
@@ -110,26 +113,30 @@ static void netlink_recv_msg(struct sk_buff *skb)
     }
 
     //find cmd in xa
+    xa_lock(&cmds_xa);
     cmd = (struct cmd_data*) xa_load(&cmds_xa, xa_idx);
+    xa_unlock(&cmds_xa);
     if (!cmd) {
-        pr_alert("Error looking up cmd %u at xarray, ignoring sync? %d\n", xa_idx, cmd->sync == CMD_ASYNC);
+        pr_warn("Error (0) looking up cmd %u at xarray\n", xa_idx);
+        xa_erase(&cmds_xa, xa_idx);
         return;
     }
-
     memcpy((void*)&cmd->ret, (void*)ret, sizeof(struct lake_cmd_ret));
 
-    //if there's anyone waiting, free them
-    //if the cmd is sync, whoever we woke up will clean up
-    complete(&cmd->cmd_done);
     //if the cmd is async, no one will read this cmd, so clear
     if (cmd->sync == CMD_ASYNC) {
         if(unlikely(cmd->ret.res > 0)) {
             last_cu_err = cmd->ret.res;
         }
-        //free from cache
-        kmem_cache_free(cmd_cache, cmd);
         //erase from xarray
         xa_erase(&cmds_xa, xa_idx);
+        //free from cache
+        kmem_cache_free(cmd_cache, cmd);
+    }
+    else {
+        //if there's anyone waiting, free them
+        //if the cmd is sync, whoever we woke up will clean up
+        complete(&cmd->cmd_done);
     }
 }
 
@@ -147,10 +154,10 @@ int lake_init_socket(void) {
         return -ENOMEM;
     }
 
-    //init slab cache (xarray requires 4-alignment)
-    cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct cmd_data), 4, 0, null_constructor);
+    //init slab cache (xarray requires at least 4-alignment)
+    cmd_cache = kmem_cache_create("lake_cmd_cache", sizeof(struct cmd_data), 8, 0, null_constructor);
     if(IS_ERR(cmd_cache)) {
-        pr_alert("Error creating cache: %ld\n", PTR_ERR(cmd_cache));
+        pr_warn("Error creating cache: %ld\n", PTR_ERR(cmd_cache));
         return -ENOMEM;
     }
     return 0;
@@ -163,10 +170,11 @@ void lake_destroy_socket(void) {
 
     //free up all cache entries so the kernel doesnt yell at us
     xa_for_each(&cmds_xa, idx, entry) {
-        kmem_cache_free(cmd_cache, entry);
+        if (entry)
+            kmem_cache_free(cmd_cache, entry);
     }
 
-    kmem_cache_destroy(cmd_cache);
+    //kmem_cache_destroy(cmd_cache);
     xa_destroy(&cmds_xa);
     netlink_kernel_release(sk);
 }

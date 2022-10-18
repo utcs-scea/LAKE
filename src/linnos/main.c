@@ -198,6 +198,8 @@ static int run_gpu(void) {
     gpu_cuda_cleanup(&state);
     vfree(comp_run_times);
     vfree(total_run_times);
+
+    cuCtxDestroy(cuctx);
     return 0;
 }
 

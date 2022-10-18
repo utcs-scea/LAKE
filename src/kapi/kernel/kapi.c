@@ -49,6 +49,17 @@ CUresult CUDAAPI cuCtxCreate(CUcontext *pctx, unsigned int flags, CUdevice dev) 
 }
 EXPORT_SYMBOL(cuCtxCreate);
 
+
+CUresult CUDAAPI cuCtxDestroy(CUcontext pctx) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_cuCtxDestroy cmd = {
+        .API_ID = LAKE_API_cuCtxDestroy, .ctx = pctx,
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+	return ret.res;
+}
+EXPORT_SYMBOL(cuCtxDestroy);
+
 CUresult CUDAAPI cuModuleLoad(CUmodule *module, const char *fname) {
     struct lake_cmd_ret ret;
 	struct lake_cmd_cuModuleLoad cmd = {
