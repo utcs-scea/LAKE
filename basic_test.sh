@@ -7,6 +7,16 @@ set -o pipefail
 #   exit
 # fi
 
+# Trap Ctrl-C
+trap ctrl_c INT
+function ctrl_c() {
+  echo "** Trapped CTRL-C, cleaning up **"
+  sudo pkill -2 lake_uspace
+  sudo rmmod lake_kapi
+  sudo rmmod lake_shm
+}
+
+
 #Check if the kernel version is correct
 kernel_version=$(uname -r)
 echo $kernel_version
@@ -84,25 +94,30 @@ sudo insmod lake_kapi.ko
 popd
 echo " > Done."
 
-echo " > unning user space daemon"
+echo " > **************    PLEASE READ    *****************"
+echo " > We are about to run the user space daemon."
+echo " > If you see repeating netlink errors, press ctrl+c and start again. This means the"
+echo " > user space application cannot communicate with the shared memory module."
+echo " > If you still can't run when trying this script again, run lsmod and check if the lake_* modules are loaded,"
+echo " > if they are and are in use by one more modules, ** you need to restart your machine. **"
+echo " > Make sure you added cma=128M@0-4G to your kernel parameters."
+echo " > **************************************************"
+
+sleep 5
+
 pushd uspace
 sudo taskset 0x15 ./lake_uspace &
 popd 
-echo " > Done. Waiting.." 
-sleep 2
+echo " > Done. Waiting for things to settle.." 
+sleep 5
 
 echo " > Checking if the user space daemon is running..."
 load_status=$(ps -ef | grep lake_uspace | wc -l)
 if [ $load_status -lt 2 ]; then
-    echo "Error: load failed..."
+    echo "Error: user space app failed..."
     exit
 fi
 echo " > Looks like it is."
-echo " > If you see netlink errors, press ctrl+c and start again. This means the"
-echo " > user space application cannot communicate with the shared memory module."
-echo " > If you still can't run when trying this script again, run lsmod and check if the lake_* modules are loaded,"
-echo " > if they are and are in use by one more modules, you need to restart your machine."
-echo " > Make sure you added cma=128M@0-4G to your kernel parameters."
 
 #back to root
 popd 
