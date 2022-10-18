@@ -6,7 +6,7 @@ SCRIPT=`realpath $0`
 SCRIPT_DIR=`dirname $SCRIPT`
 
 tmux new-session -d -c ${SCRIPT_DIR}/src/kapi
-tmux split-window -h -c ${SCRIPT_DIR}/src
+tmux split-window -h -c ${SCRIPT_DIR}/src/hello_driver
 tmux select-pane -t 0
 tmux split-window -v
 tmux select-pane -t 1
