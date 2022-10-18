@@ -10,7 +10,7 @@ if [ "$kernel_version" != "6.0.0-lake" ]; then
 fi
 
 #Check if the nvidia driver is installed
-nvidia_check=$(nvidia-smi | grep Driver)
+nvidia_check=$(nvidia-smi | grep 'Driver Version')
 if [ "$nvidia_check" == "" ]; then
   echo "Error : Driver not found"
   exit
@@ -55,4 +55,4 @@ if [ $exit_code != 0 ]; then
     exit
 fi
 
-./load.sh
+#./load.sh
