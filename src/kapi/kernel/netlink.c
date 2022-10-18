@@ -14,8 +14,11 @@ static struct sock *sk = NULL;
 DEFINE_XARRAY_ALLOC(cmds_xa); 
 static struct kmem_cache *cmd_cache;
 static pid_t worker_pid = -1;
-static atomic_t seq_counter = ATOMIC_INIT(0);
-static int max_counter = (1<<10)-40; //give some room so we reset before we reach 1k
+static int max_counter = (1<<12);
+
+//static atomic_t seq_counter = ATOMIC_INIT(0);
+static DEFINE_SPINLOCK(counter_lock);
+u32 id_counter = 0;
 
 //we can get away with an atomic here
 static CUresult last_cu_err = 0;
@@ -51,10 +54,13 @@ void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
     init_completion(&cmd->cmd_done);
     cmd->sync = sync;
 
-    //TODO: this isnt good enough
-    xa_idx = atomic_add_return(1, &seq_counter);
+    spin_lock(&counter_lock);
+    //xa_idx = atomic_add_return(1, &seq_counter);
+    xa_idx = id_counter++;
     if(unlikely(xa_idx >= max_counter))
-        atomic_set(&seq_counter, 0);
+        //atomic_set(&seq_counter, 0);
+        id_counter = 0;
+    spin_unlock(&counter_lock);
 
     //if (err < 0) {
     if(xa_err(xa_store(&cmds_xa, xa_idx, (void*)cmd, GFP_KERNEL))) {
@@ -106,7 +112,7 @@ static void netlink_recv_msg(struct sk_buff *skb)
     //find cmd in xa
     cmd = (struct cmd_data*) xa_load(&cmds_xa, xa_idx);
     if (!cmd) {
-        pr_alert("Error looking up cmd %u at xarray, ignoring\n", xa_idx);
+        pr_alert("Error looking up cmd %u at xarray, ignoring sync? %d\n", xa_idx, cmd->sync == CMD_ASYNC);
         return;
     }
 

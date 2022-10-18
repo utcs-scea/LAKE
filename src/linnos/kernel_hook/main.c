@@ -92,9 +92,16 @@ static void qdepth_detach(void) {
  */
 static int gpu_attach(void) {
 	int i;
+	//XXX
+	fptr = gpu_batch_entry;
+	
 	window_size_hist = vmalloc(128);
 	for (i=0;i<128;i++) window_size_hist[i] = 0;
 	initialize_gpu(cubin_path, 256); //whatever, just allocate a lot
+
+	pr_warn("testing GPU");
+	copy_inputs_to_gpu(n_vecs);
+
 	return 0;
 }
 static void gpu_detach(void) {
@@ -124,7 +131,6 @@ static int parse_arg(void) {
 		fptr = cpu_prediction_model;
 		pr_warn("Inserting CPU prediction\n");
 	}else if (!strcmp("gpu", predictor_str)) {
-		fptr = gpu_batch_entry;
 		is_gpu_inf = true;
 	} else if (!strcmp("batchtest", predictor_str)) {
 		pr_warn("Inserting batch test prediction\n");
