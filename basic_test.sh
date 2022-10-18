@@ -1,11 +1,11 @@
 #!/bin/bash
 set -o pipefail
 
-#check sudo
-if [ "$EUID" -ne 0 ]
-  then echo "Please run as root"
-  exit
-fi
+# #check sudo
+# if [ "$EUID" -ne 0 ]
+#   then echo "Please run as root"
+#   exit
+# fi
 
 #Check if the kernel version is correct
 kernel_version=$(uname -r)
@@ -48,7 +48,7 @@ if [ $exit_code != 0 ]; then
 fi
 
 # #Compile hello_driver
-cd src/hello_driver
+pushd src/hello_driver
 make -f Makefile_cubin
 if [ $exit_code != 0 ]; then
     echo "Error: Make failed exiting..."
@@ -60,42 +60,71 @@ if [ $exit_code != 0 ]; then
     echo "Error: Make failed exiting..."
     exit
 fi
-cd ../../
+popd #back to root
 
-# #load kapi
-cd src/kapi
-ROOT=$(cd $(dirname "$0") && pwd -P)
+#Unload everything to make sure
+echo " > Trying to unload previously set up API"
+echo " > You might see errors. Ignore them"
+pushd src/kapi
+sudo pkill -2 lake_uspace
+sudo rmmod lake_kapi
+sudo rmmod lake_shm
+echo " > All unloaded. Loading them now."
+sleep 1
 
-cd ${ROOT}/kshm
-sudo insmod lake_shm.ko shm_size=80
+echo " > Loading shared memory module"
+pushd kshm
+sudo insmod lake_shm.ko shm_size=32
+popd 
+echo " > Done."
 
-cd ${ROOT}/kernel
+echo " > Loading kernel API remoting module"
+pushd kernel
 sudo insmod lake_kapi.ko
+popd
+echo " > Done."
 
-cd ${ROOT}/uspace
+echo " > unning user space daemon"
+pushd uspace
 sudo taskset 0x15 ./lake_uspace &
+popd 
+echo " > Done. Waiting.." 
+sleep 2
 
-sleep 5
+echo " > Checking if the user space daemon is running..."
 load_status=$(ps -ef | grep lake_uspace | wc -l)
 if [ $load_status -lt 2 ]; then
     echo "Error: load failed..."
     exit
 fi
+echo " > Looks like it is."
+echo " > If you see netlink errors, press ctrl+c and start again. This means the"
+echo " > user space application cannot communicate with the shared memory module."
+echo " > If you still can't run when trying this script again, run lsmod and check if the lake_* modules are loaded,"
+echo " > if they are and are in use by one more modules, you need to restart your machine."
+echo " > Make sure you added cma=128M@0-4G to your kernel parameters."
 
-
-cd ../../../
+#back to root
+popd 
 
 #Run Hello world
-cd src/hello_driver
-echo "Running hello world:"
+pushd src/hello_driver
+echo " > **************************************************"
+echo " > **************************************************"
+echo " > Running hello world kernel module that uses CUDA."
 ./run.sh
-echo "Success"
-
-cd ../../
+echo " > Success! run dmesg if you want to see the output"
+echo " > **************************************************"
+echo " > **************************************************"
+#back to root
+popd
 
 #Unload
-cd src/kapi
-ROOT=$(cd $(dirname "$0") && pwd -P)
+echo " > Unloading everything..."
+sleep 2
 sudo pkill -2 lake_uspace
+sleep 2
 sudo rmmod lake_kapi
+sleep 2
 sudo rmmod lake_shm
+echo " > Finished!"
