@@ -20,7 +20,8 @@ Go in the directory and run `full_compilation.sh`, it should do everything.
 If you are running with a monitor, reboot and choose the new kernel in grub.
 Otherwise, make the new kernel the default by:
 1. Open `/boot/grub/grub.cfg`, scroll down until you see boot options, then write down the id for the advanced menu and the id for the 6.0-lake.
-2. Join them (advanced menu and kernel id), in that order with a `>`. For example:
+You can use `cat /boot/grub/grub.cfg | grep submenu` and `cat /boot/grub/grub.cfg | grep option | grep 6.0.0-lake` to get the id for the advanced menu and  the 6.0-lake respectively.
+3. Join them (advanced menu and kernel id), in that order with a `>`. For example:
 `gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-6.0-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1`
 3. Open `/etc/default/grub` and, at the top of the file, add a default option using the string above. For example:
 `GRUB_DEFAULT="gnulinux-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1>gnulinux-5.15.68-hack-advanced-11b57fec-e05f-4c4d-8d80-445381841fa1"`
