@@ -68,5 +68,6 @@ if [ "$load_status" == "" ]; then
 fi
 
 #Run Hello world
+cd src/hello_driver
 echo "Running hello world:"
-./src/hello_driver/run.sh
+./run.sh
