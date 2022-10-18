@@ -54,5 +54,19 @@ if [ $exit_code != 0 ]; then
     echo "Error: Make failed exiting..."
     exit
 fi
+cd ../../
 
-#./load.sh
+#load kapi
+sudo ./src/kapi/load.sh &
+pid=$!
+sleep 10
+jobs
+load_status=$(jobs | grep './src/kapi/load.sh &')
+if [ "$load_status" == "" ]; then
+    echo "Error: load failed..."
+    exit
+fi
+
+#Run Hello world
+echo "Running hello world:"
+./src/hello_driver/run.sh
