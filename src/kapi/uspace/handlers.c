@@ -167,7 +167,6 @@ static int lake_handler_cuStreamDestroy(void* buf, struct lake_cmd_ret* cmd_ret)
  *********************/
 static int lake_handler_cuMemcpyHtoDAsync(void* buf, struct lake_cmd_ret* cmd_ret) {
         struct lake_cmd_cuMemcpyHtoDAsync *cmd = (struct lake_cmd_cuMemcpyHtoDAsync *) buf;
-    printf("cuMemcpyHtoDAsync\n");
     cmd_ret->res = cuMemcpyHtoDAsync(cmd->dstDevice, lake_shm_address(cmd->srcHost), cmd->ByteCount, cmd->hStream);
     return 0;
 }
@@ -177,7 +176,6 @@ static int lake_handler_cuMemcpyHtoDAsync(void* buf, struct lake_cmd_ret* cmd_re
  *********************/
 static int lake_handler_cuMemcpyDtoHAsync(void* buf, struct lake_cmd_ret* cmd_ret) {
         struct lake_cmd_cuMemcpyDtoHAsync *cmd = (struct lake_cmd_cuMemcpyDtoHAsync *) buf;
-    printf("cuMemcpyDtoHAsync\n");
     cmd_ret->res = cuMemcpyDtoHAsync(lake_shm_address(cmd->dstHost), cmd->srcDevice, cmd->ByteCount, cmd->hStream);
     return 0;
 }

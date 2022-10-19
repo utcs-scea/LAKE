@@ -110,14 +110,14 @@ void gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights) {
 }
 
 void do_gpu_inference(int n_vecs, long **weights) {
-	pr_warn("copying %d inputs\n", n_vecs);
+	u64 s,t;	
+	pr_warn(" ###############  copying %d inputs\n", n_vecs);
+	s = ktime_get_ns();
 	copy_inputs_to_gpu(n_vecs);
-	//gpu_predict_batch(0, n_vecs, weights);
-	pr_warn("preempt count %d\n", preempt_count());
-	//cuCtxSynchronize();
-	//pr_warn("copying %d back\n", n_vecs);
-	//usleep_range(30,40);
-	//copy_results_from_gpu(8);
+	gpu_predict_batch(0, n_vecs, weights);
+	copy_results_from_gpu(8);
+	t = ktime_get_ns();
+	pr_warn(" ###############  inference took %llu us\n", (t-s)/1000);
 }
 
 //TODO: this assumes there's only one batch, when in fact
@@ -137,13 +137,13 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	spin_lock_irqsave(&batch_lock, irqflags);
 	//this avoids ppl from arriving between a batch is full and the nexts start
 	while (is_batch_blocked) {
-		pr_warn(" > entering: batch is blocked\n");
+		//pr_warn(" > entering: batch is blocked\n");
 		spin_unlock_irqrestore(&batch_lock, irqflags);
 		wait_for_completion(&batch_block); //whoever is blocking *will* release us
-		pr_warn(" > entering: completed, fight for lock\n");
+		//pr_warn(" > entering: completed, fight for lock\n");
 		//when we wake up, fight for the lock
 		spin_lock_irqsave(&batch_lock, irqflags);
-		pr_warn(" > batch has been release and I got the lock!\n");
+		//pr_warn(" > batch has been release and I got the lock!\n");
 		//its unlikely we loop. if we do we got left behind..
 	}
 
@@ -186,9 +186,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 
 		pr_warn(" >>> releasing batch with size %lld\n", waiting);
 		//use cpu
-		//if(waiting < cpu_gpu_threshold) {
-		//XXX
-		if (1) {
+		if(waiting < cpu_gpu_threshold) {
 			use_cpu_instead = 1;
 			//let ppl go then do our inference
 			pr_warn(" >>> releasing using CPU\n");
@@ -198,7 +196,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			spin_unlock_irqrestore(&batch_lock, irqflags);
 			//XXX
 			//cpu_prediction_model(feat_vec, n_vecs, weights);
-			pr_warn(" >>> first is returning\n");
+			pr_warn(" >>> first is returning from CPU\n");
 			return false;
 		}
 		//use GPU
@@ -210,27 +208,37 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			spin_unlock_irqrestore(&batch_lock, irqflags);
 
 			//TODO
-			//do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
+			do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
 			//XXX test
+			pr_warn(" #### doing inference\n");
 			for (err=0 ; err<32 ; err++)
 			 	gpu_outputs[err] = false;
 
 			//XXX
-			// my_prediction = gpu_get_prediction(my_id);
+			my_prediction = gpu_get_prediction(my_id);
+
+			pr_warn(" #### GPU done, letting ppl go\n");
+			//let exiters get their result and go
+			spin_lock_irqsave(&batch_running_lock, f2);
+			is_batch_running = 0;
+			spin_unlock_irqrestore(&batch_running_lock, f2);
+			batch_release_exiting();
 
 			// //let everyone waiting on result to fetch and return
 			// reinit_completion(&batch_results_fetched);
 			// batch_release_exiting();
+			// pr_warn(" #### released, waitin for %llu exits\n", waiting);
 			// //lets wait for everyone in this batch to leave to ensure correctness
 			// wait_for_completion(&batch_results_fetched);
 
-			// //be safe and lock around it
-			// spin_lock_irqsave(&batch_lock, irqflags);
-			// reset_batch(); //can only reset after we wake up since waking up relies on "waiting" var
-			// spin_unlock_irqrestore(&batch_lock, irqflags); //next batch starts when we release this lock
-			// //this allows everyone waiting to get into a batch to enter
-			// batch_release_entering();
+			//be safe and lock around it
+			spin_lock_irqsave(&batch_lock, irqflags);
+			reset_batch(); //can only reset after we wake up since waking up relies on "waiting" var
+			spin_unlock_irqrestore(&batch_lock, irqflags); //next batch starts when we release this lock
+			//this allows everyone waiting to get into a batch to enter
+			batch_release_entering();
 
+			pr_warn(" #### GPU done, Im out\n");
 			return my_prediction;
 		}
 	}
@@ -239,14 +247,13 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		my_arrival = ktime_get_ns();
 		//check if this batch should be finalized
 		if(my_arrival - window_start_ns >= window_size_ns || waiting == max_batch_size) {
+			spin_lock_irqsave(&batch_running_lock, f2);
+			is_batch_running = 1;
+			//batch_block_entering();
+			spin_unlock_irqrestore(&batch_running_lock, f2);
 			pr_warn(" ~~ batch should be done now, waking up the first\n");
 			pr_warn(" ~~ LAST, ts dif %llu  window size %llu   waiting %llu\n", my_arrival - window_start_ns, window_size_ns, waiting);
 			//first one will also do this, but lets do it too since we hold the lock
-			batch_block_entering();
-			pr_warn(" ~~ setting is_batch_running to 1\n");
-			spin_lock_irqsave(&batch_running_lock, f2);
-			is_batch_running = 1;
-			spin_unlock_irqrestore(&batch_running_lock, f2);
 			//wake the first so it finalizes
 			complete(&finalize_batch);
 		}
@@ -280,13 +287,14 @@ wait_again:
 			return false;
 		} else {
 			pr_warn("getting result from gpu\n");
-			return false;
-			// my_prediction = gpu_get_prediction(my_id);
+			//return false;
+			my_prediction = gpu_get_prediction(my_id);
 			// spin_lock_irqsave(&batch_results_lock, irqflags);
+			// pr_warn(" #### setting fetched to %u\n", results_fetched+1);
 			// if (++results_fetched == waiting) //if we are the last, wake up and thank the bus driver
 			// 	complete(&batch_results_fetched);
 			// spin_unlock_irqrestore(&batch_results_lock, irqflags);
-			// return my_prediction;
+			return my_prediction;
 		}
 	}
 }

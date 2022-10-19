@@ -41,6 +41,7 @@ int qd_init(void) {
 
 void append_qdepth(u32 queue_depth) {
     //fail fast
+    u64 now;
     int idx = atomic_read(&qd_index);
     if(idx >= MAX_ENTRIES-1)
         return;
@@ -51,7 +52,7 @@ void append_qdepth(u32 queue_depth) {
         return;
 
     qds[idx] = queue_depth;
-    u64 now = ktime_get_ns()/1000;
+    now = ktime_get_ns()/1000;
     timestamps[idx] = now;
 }
 
