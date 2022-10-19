@@ -79,13 +79,20 @@ void initialize_gpu(const char* cubin_path, int max_batch_size) {
     
     check_error(cuMemAlloc((CUdeviceptr*) &d_input_vec_i, sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) *LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
     inputs_to_gpu = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
+    if (!inputs_to_gpu) {
+        pr_warn("error allocating inputs_to_gpu:  %u\n", LEN_INPUT * max_batch_size * sizeof(long));
+    }
     gpu_outputs = kava_alloc(64 * max_batch_size * sizeof(long));
+    if (!gpu_outputs) {
+        pr_warn("error allocating inputs_to_gpu:  %u\n", LEN_INPUT * max_batch_size * sizeof(long));
+    }
 }
 
 void gpu_cuda_cleanup(struct GPU_weights *state) {
+    pr_warn("Cleaning up GPU state\n");
     int i;
     for(i = 0; i <4 ; i++) {
         cuMemFree((CUdeviceptr)state->weights[i]);
@@ -123,5 +130,6 @@ void copy_inputs_to_gpu(u64 n_inputs) {
 }
 
 void copy_results_from_gpu(u64 n_inputs) {
+    pr_warn("copying into %p\n", gpu_outputs);
     cuMemcpyDtoH(gpu_outputs, d_final_res_i, sizeof(long) * 64 * n_inputs);
 }

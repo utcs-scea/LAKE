@@ -92,15 +92,11 @@ static void qdepth_detach(void) {
  */
 static int gpu_attach(void) {
 	int i;
-	//XXX
 	fptr = gpu_batch_entry;
 	
 	window_size_hist = vmalloc(128);
 	for (i=0;i<128;i++) window_size_hist[i] = 0;
-	initialize_gpu(cubin_path, 256); //whatever, just allocate a lot
-
-	pr_warn("testing GPU");
-	copy_inputs_to_gpu(n_vecs);
+	initialize_gpu(cubin_path, 512); //whatever, just allocate more than we will use
 
 	return 0;
 }
@@ -111,10 +107,11 @@ static void gpu_detach(void) {
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
 		gpu_cuda_cleanup(&gpu_weights[i]);
 	}
-
 	for (i=0;i<128;i++)
 		if (window_size_hist[i] != 0)
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
+
+	cuCtxDestroy(cuctx);
 }
 static void gpu_copy_weight(int idx) {
 	long **wts = weights[idx];

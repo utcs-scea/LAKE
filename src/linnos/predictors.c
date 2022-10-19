@@ -4,7 +4,7 @@
 #include <asm/fpu/api.h>
 #include <linux/completion.h>
 #include "predictors.h"
-#include "variables.h"
+#include "variables.h"batch_completed
 #include "helpers.h"
 #include "cuda.h"
 #include "lake_shm.h"
@@ -22,12 +22,22 @@ const u32 cpu_gpu_threshold = 4; //less than this we use cpu
 u64 last_arrival_ns = 0;
 u64 window_start_ns = 0;
 u64 waiting = 0;
-DECLARE_COMPLETION(batch_barrier);
+DECLARE_COMPLETION(batch_completed);
+DECLARE_COMPLETION(batch_block);
+
+DEFINE_SPINLOCK(batch_results_lock);
+DECLARE_COMPLETION(batch_results_fetched);
+int results_fetched = 0;
+
+DEFINE_SPINLOCK(batch_running_lock);
+int is_batch_running = 0;
+
 //batch test variables
 u32* window_size_hist; //allocated in main.c of kernel_hook, 128 elements
 //GPU inference variables
 struct GPU_weights gpu_weights[3]; //per-ssd weights, we are not going to have more than 3 ssds..
 int use_cpu_instead = 0;
+int is_batch_blocked = 0;
 //this code has become too spaghetized, unfortunately
 // we inherit from variables.h:
 //	extern long *inputs_to_gpu;
@@ -36,14 +46,26 @@ int use_cpu_instead = 0;
 //	copy_results_from_gpu(u64 n_inputs) : copies to gpu_outputs.. but
 //result is calculated using: gpu_outputs[i*32]>=(gpu_outputs[(i+1)32])? false: true;
 
-//we need to hold the lock
+//we need to hold batch_lock
 static void gpu_batch_release(void) {
 	window_size_hist[waiting] += 1;
 	//let everyone go
-	waiting = 0;
 	pr_warn("completing..\n");
-	complete_all(&batch_barrier);
-	reinit_completion(&batch_barrier);
+	//unblocks those waiting for result
+	complete_all(&batch_completed);
+	reinit_completion(&batch_completed);
+	//unblocks those wanting to enter a batch
+	complete_all(&batch_block);
+	reinit_completion(&batch_block);
+}
+
+static inline void reset_batch(void) {
+	waiting = 0;
+	is_batch_blocked = 0;
+	results_fetched = 0;
+	spin_lock_irqsave(&batch_running_lock, f2);
+	is_batch_running = 0;
+	spin_unlock_irqsave(&batch_running_lock, f2);
 }
 
 static int gpu_get_prediction(int idx) {
@@ -79,9 +101,14 @@ void gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights) {
 }
 
 void do_gpu_inference(int n_vecs, long **weights) {
+	pr_warn("copying %d inputs\n", n_vecs);
 	copy_inputs_to_gpu(n_vecs);
 	//gpu_predict_batch(0, n_vecs, weights);
-	//copy_results_from_gpu(n_vecs);
+	pr_warn("preempt count %d\n", preempt_count());
+	//cuCtxSynchronize();
+	//pr_warn("copying %d back\n", n_vecs);
+	//usleep_range(30,40);
+	//copy_results_from_gpu(8);
 }
 
 //TODO: this assumes there's only one batch, when in fact
@@ -90,40 +117,50 @@ void do_gpu_inference(int n_vecs, long **weights) {
 // need three copies of every batch variable.
 
 //this is what an IO calls when it calls predict()
+//SYNCHRONIZATION AND EDGE CASE HELL
 bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_id;
 	bool is_last_arrival = false;
-	bool my_prediction;
+	bool my_prediction, still_wait = false;
 	u64 my_arrival;
 	u32 err;
-	unsigned long irqflags;
+	unsigned long irqflags, f2;
 
-	// if someone gets stuck here, there's a batch going on
-	//pr_warn("locking\n");
 	spin_lock_irqsave(&batch_lock, irqflags);
+	//this avoids ppl from arriving between a batch is full and the nexts start
+	while (is_batch_blocked) {
+		spin_unlock_irqrestore(&batch_lock, irqflags);
+		wait_for_completion(&batch_block); //whoever is blocking *will* release us
+		//when we wake up, fight for the lock
+		spin_lock_irqsave(&batch_lock, irqflags);
+		//its unlikely we loop. if we do we got left behind..
+	}
+
 	my_id = waiting++;
-	my_arrival = ktime_get_ns();
 	//copy inputs to intermediary buffer
 	memcpy(inputs_to_gpu+(my_id*LEN_INPUT), feat_vec, LEN_INPUT);
+	my_arrival = ktime_get_ns();
 
 	//if first, reset state
-	if (unlikely(my_id == 0)) {
-		//pr_warn("***** FIRST, reseting state\n");
+	if (unlikely(my_id == 0))
 		window_start_ns = my_arrival;
-	} 
 
 	//I am the last, will release
 	if(my_arrival - window_start_ns >= window_size_ns || waiting == max_batch_size) {
-		pr_warn(" LAST, ts: last %llu  start %llu  dif %llu  window size %llu   waiting %llu\n", my_arrival, window_start_ns, my_arrival - window_start_ns, window_size_ns, waiting);
+		//this batch is full, block everyone from entering
+		is_batch_blocked = 1;
+		//pr_warn(" LAST, ts: last %llu  start %llu  dif %llu  window size %llu   waiting %llu\n", my_arrival, window_start_ns, my_arrival - window_start_ns, window_size_ns, waiting);
+		spin_lock_irqsave(&batch_running_lock, f2);
+		is_batch_running = 1;
+		spin_unlock_irqsave(&batch_running_lock, f2);
 
 		//use cpu
 		if(waiting < cpu_gpu_threshold) {
 			use_cpu_instead = 1;
-			//pr_warn("setting use_cpu_instead to 1");
 			//let ppl go then do our inference
+			reset_batch();
 			gpu_batch_release();
 			spin_unlock_irqrestore(&batch_lock, irqflags);
-			
 			//XXX
 			cpu_prediction_model(feat_vec, n_vecs, weights);
 			return false;
@@ -132,21 +169,45 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		else {
 			pr_warn(" #### running on GPU\n");
 			use_cpu_instead = 0;
+			//let the lock go. if we do a sync command with it the kernel deadlocks :)
+			//incoming reqs will not acquire lock since they are waiting on batch_block
+			//perhaps only the first entry might acquire it, but hopefully we address that
+			spin_unlock_irqrestore(&batch_lock, irqflags);
+
 			//TODO
 			do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
 			//XXX test
 			for (err=0 ; err<32 ; err++)
 			 	gpu_outputs[err] = false;
+
+			my_prediction = gpu_get_prediction(my_id);
+
+			//batch release requires lock
+			spin_lock_irqsave(&batch_lock, irqflags);
 			gpu_batch_release();
-			spin_unlock_irqrestore(&batch_lock, irqflags);
-			return gpu_get_prediction(my_id);;
+			//lets wait for everyone in this batch to leave to ensure correctness
+			wait_for_completion(&batch_results_fetched);
+			reinit_completion(&batch_results_fetched);
+			reset_batch(); //can only reset after we wake up since waking up relies on "waiting" var
+			spin_unlock_irqrestore(&batch_lock, irqflags); //next batch starts when we release this lock
+			return my_prediction;
 		}
 	}
 	//first or middle
 	else {
 		spin_unlock_irqrestore(&batch_lock, irqflags);
-		err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/1000));
+keep_waiting:
+		err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(window_size_ns/1000));
 		if (err == 0) {  //if this was a timeout
+			//we timed out.. but the batch we are in could be waiting on GPU
+			spin_lock_irqsave(&batch_running_lock, f2);
+			still_wait = batch_running_lock == 1;
+			spin_unlock_irqsave(&batch_running_lock, f2);
+			if (still_wait)
+				goto keep_waiting;
+
+			//if we get here, we timed out and no batch was going on
+
 			// if the first timed out, it needs to do the batch and release
 			if (unlikely(my_id == 0)) {
 				//first one timed out
@@ -169,16 +230,18 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		}
 		// if it wasnt a time out, we either get result or do cpu
 		else{
-			//pr_warn("released, using cpu? %d\n", use_cpu_instead);
 			if (use_cpu_instead) {
 			 	cpu_prediction_model(feat_vec, n_vecs, weights);
 				//XXX
 				return false;
+			} else {
+				my_prediction = gpu_get_prediction(my_id);
+				spin_lock_irqsave(&batch_results_lock, irqflags);
+				if (++results_fetched == waiting) //if we are the last, wake up and thank the bus driver
+					complete(&batch_results_fetched);
+				spin_unlock_irqrestore(&batch_results_lock, irqflags);
+				return my_prediction;
 			}
-			else
-				gpu_get_prediction(my_id);
-				//XXX
-				return false;
 		}
 	}
 }
@@ -288,7 +351,7 @@ void batch_release(void) {
 	waiting = 0;
 	//realize execution here, including our data, and fill gpu_results
 	//unblock everyone in this batch
-	complete_all(&batch_barrier);
+	complete_all(&batch_completed);
 }
 
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
@@ -319,7 +382,7 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 		//if we are the first of this batch, we need to have a timeout
 		if(my_id == 0) {
 			//pr_warn("first\n");
-			err = wait_for_completion_timeout(&batch_barrier, usecs_to_jiffies(window_size_ns/1000));
+			err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(window_size_ns/1000));
 			if (err == 0) {  //this was a timeout
 				spin_lock_irq(&batch_lock);
 				batch_release();
@@ -327,7 +390,7 @@ bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 			}
 		}
 		else{ //if not first or last
-			wait_for_completion(&batch_barrier);
+			wait_for_completion(&batch_completed);
 		}
 	}
 
