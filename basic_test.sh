@@ -60,12 +60,14 @@ fi
 # #Compile hello_driver
 pushd src/hello_driver
 make -f Makefile_cubin
+exit_code=$?
 if [ $exit_code != 0 ]; then
     echo "Error: Make failed exiting..."
     exit
 fi
 
 make
+exit_code=$?
 if [ $exit_code != 0 ]; then
     echo "Error: Make failed exiting..."
     exit
@@ -91,6 +93,11 @@ echo " > Done."
 echo " > Loading kernel API remoting module"
 pushd kernel
 sudo insmod lake_kapi.ko
+exit_code=$?
+if [ $exit_code != 0 ]; then
+    echo "Error: Loading exiting..."
+    exit
+fi
 popd
 echo " > Done."
 
