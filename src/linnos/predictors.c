@@ -63,9 +63,6 @@ static inline void reset_batch(void) {
 	waiting = 0;
 	is_batch_blocked = 0;
 	results_fetched = 0;
-	spin_lock_irqsave(&batch_running_lock, f2);
-	is_batch_running = 0;
-	spin_unlock_irqsave(&batch_running_lock, f2);
 }
 
 static int gpu_get_prediction(int idx) {
@@ -120,8 +117,7 @@ void do_gpu_inference(int n_vecs, long **weights) {
 //SYNCHRONIZATION AND EDGE CASE HELL
 bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_id;
-	bool is_last_arrival = false;
-	bool my_prediction, still_wait = false;
+	bool my_prediction, still_wait = false, first_timedout = false;
 	u64 my_arrival;
 	u32 err;
 	unsigned long irqflags, f2;
@@ -141,18 +137,42 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	memcpy(inputs_to_gpu+(my_id*LEN_INPUT), feat_vec, LEN_INPUT);
 	my_arrival = ktime_get_ns();
 
-	//if first, reset state
-	if (unlikely(my_id == 0))
+	//if this is the first, we start the window time
+	//and also wait to see what happens:
+	//  1. the batch finishes and we wake up
+	//  2. times out, so we finalize the batch
+	if (unlikely(my_id == 0)) {
 		window_start_ns = my_arrival;
+		//reset, no batch is running since we just started one
+		spin_lock_irqsave(&batch_running_lock, f2);
+		is_batch_running = 0;
+		spin_unlock_irqrestore(&batch_running_lock, f2);
+		//let other ppl do their work while we wait
+		spin_unlock_irqrestore(&batch_lock, irqflags);
+wait_again:
+		err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(window_size_ns/1000));
+		if (err == 0) { //timeout
+			spin_lock_irqsave(&batch_running_lock, f2);
+			still_wait = is_batch_running == 1;
+			spin_unlock_irqrestore(&batch_running_lock, f2);
+			//if someone is working on this batch, keep waiting
+			if (still_wait) goto wait_again;
+			// no one is doing anything, we become the bus driver
+			spin_lock_irqsave(&batch_lock, irqflags);
+			first_timedout = true;
+		}
+		//if we woke up and it was not a timeout, we jump all the way down to get results
+		goto get_results;
+	}
 
-	//I am the last, will release
-	if(my_arrival - window_start_ns >= window_size_ns || waiting == max_batch_size) {
+	//I must finalize the batch (last or timed out first)
+	if(my_arrival - window_start_ns >= window_size_ns || waiting == max_batch_size || first_timedout) {
+		spin_lock_irqsave(&batch_running_lock, f2);
+		is_batch_running = 1;
+		spin_unlock_irqrestore(&batch_running_lock, f2);
 		//this batch is full, block everyone from entering
 		is_batch_blocked = 1;
 		//pr_warn(" LAST, ts: last %llu  start %llu  dif %llu  window size %llu   waiting %llu\n", my_arrival, window_start_ns, my_arrival - window_start_ns, window_size_ns, waiting);
-		spin_lock_irqsave(&batch_running_lock, f2);
-		is_batch_running = 1;
-		spin_unlock_irqsave(&batch_running_lock, f2);
 
 		//use cpu
 		if(waiting < cpu_gpu_threshold) {
@@ -162,7 +182,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			gpu_batch_release();
 			spin_unlock_irqrestore(&batch_lock, irqflags);
 			//XXX
-			cpu_prediction_model(feat_vec, n_vecs, weights);
+			//cpu_prediction_model(feat_vec, n_vecs, weights);
 			return false;
 		}
 		//use GPU
@@ -175,7 +195,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			spin_unlock_irqrestore(&batch_lock, irqflags);
 
 			//TODO
-			do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
+			//do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
 			//XXX test
 			for (err=0 ; err<32 ; err++)
 			 	gpu_outputs[err] = false;
@@ -193,59 +213,39 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			return my_prediction;
 		}
 	}
-	//first or middle
-	else {
-		spin_unlock_irqrestore(&batch_lock, irqflags);
-keep_waiting:
-		err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(window_size_ns/1000));
-		if (err == 0) {  //if this was a timeout
-			//we timed out.. but the batch we are in could be waiting on GPU
-			spin_lock_irqsave(&batch_running_lock, f2);
-			still_wait = batch_running_lock == 1;
-			spin_unlock_irqsave(&batch_running_lock, f2);
-			if (still_wait)
-				goto keep_waiting;
 
-			//if we get here, we timed out and no batch was going on
-
-			// if the first timed out, it needs to do the batch and release
-			if (unlikely(my_id == 0)) {
-				//first one timed out
-				pr_warn("**** FIRST timed out: dif %llu  waiting %llu\n", my_arrival - window_start_ns, waiting);
-				
-				spin_lock_irqsave(&batch_lock, irqflags);
-				//TODO inference
-				gpu_batch_release();
-				spin_unlock_irqrestore(&batch_lock, irqflags);
-				return false;
-			}
-			//this case is tricky. a middle guy timed out, probably
-			//because it hit the wait right after a batch was released
-			else{
-				//pr_warn("******** bad: middle guy timed out\n");
-				cpu_prediction_model(feat_vec, n_vecs, weights);
-				//XXX
-				return false;
-			}
-		}
-		// if it wasnt a time out, we either get result or do cpu
-		else{
-			if (use_cpu_instead) {
-			 	cpu_prediction_model(feat_vec, n_vecs, weights);
-				//XXX
-				return false;
-			} else {
-				my_prediction = gpu_get_prediction(my_id);
-				spin_lock_irqsave(&batch_results_lock, irqflags);
-				if (++results_fetched == waiting) //if we are the last, wake up and thank the bus driver
-					complete(&batch_results_fetched);
-				spin_unlock_irqrestore(&batch_results_lock, irqflags);
-				return my_prediction;
-			}
+	// if we get here, we are not the first nor the last
+	spin_unlock_irqrestore(&batch_lock, irqflags);
+wait_again_after:
+	err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(window_size_ns/1000));
+	if (err == 0) {  //if this was a timeout
+		spin_lock_irqsave(&batch_running_lock, f2);
+		still_wait = is_batch_running == 1;
+		spin_unlock_irqrestore(&batch_running_lock, f2);
+		if (still_wait)
+			goto wait_again_after;
+		else { //this should not happen, fall back
+			//XXX use cpu
+			pr_warn(" -- BAD: middle guy timed out with no batch running..\n");
+			return false;
 		}
 	}
-}
 
+get_results:
+	//get the result and return
+	if (use_cpu_instead) {
+		//cpu_prediction_model(feat_vec, n_vecs, weights);
+		//XXX
+		return false;
+	} else {
+		my_prediction = gpu_get_prediction(my_id);
+		spin_lock_irqsave(&batch_results_lock, irqflags);
+		if (++results_fetched == waiting) //if we are the last, wake up and thank the bus driver
+			complete(&batch_results_fetched);
+		spin_unlock_irqrestore(&batch_results_lock, irqflags);
+		return my_prediction;
+	}
+}
 
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
