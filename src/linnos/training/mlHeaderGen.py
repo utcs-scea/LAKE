@@ -65,7 +65,7 @@ if len(file_list_w0) != 1 or len(file_list_w1) != 1 or len(file_list_b0) != 1 or
     exit(1)
 
 w0_path = file_list_w0[0]
-w1_path = file_list_w0[0]
+w1_path = file_list_w1[0]
 b0_path = file_list_b0[0]
 b1_path = file_list_b1[0]
 
