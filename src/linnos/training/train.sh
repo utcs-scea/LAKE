@@ -2,43 +2,14 @@ TraceTag='trace'
 
 if [ $# -ne 4 ]
   then
-    #echo "Usage .\\\train.sh --traintrace <name of training trace> --latencythreshold <inflection point>"
     echo "Usage train.sh <trace_1> <trace_2> <trace_3> <inflection_point>"
+    # eg : ./train.sh testTraces/hacktest.trace testTraces/hacktest.trace testTraces/hacktest.trace 85
     exit
 fi
 
-# SHORT=t:,l:,
-# LONG=traintrace:,latencythreshold:,
-# OPTS=$(getopt --options $SHORT --longoptions $LONG -- "$@") 
-
-# eval set -- "$OPTS"
-
-# while :
-# do
-#   case "$1" in
-#     -t | --traintrace )
-#       traintrace="$2"
-#       shift 2
-#       ;;
-#     -l | --latencythreshold )
-#       latencythreshold="$2"
-#       shift 2
-#       ;;
-#     --)
-#       shift;
-#       break
-#       ;;
-#     *)
-#       echo "Unexpected option: $1"
-#       ;;
-#   esac
-# done
-
 echo $1, $2, $3, $4
 
-#echo $trace_1, $latencythreshold
-
-sudo ./replayer_fail /dev/nvme0n1-/dev/nvme0n1-/dev/nvme2n1 $1 $2 $3 mlData/TrainTraceOutput
+sudo ../io_replayer/replayer baseline mlData/TrainTraceOutput 3 /dev/nvme0n1-/dev/nvme1n1-/dev/nvme2n1 $1 $2 $3
 
 python3 -m venv linnOSvenv
 source linnOSvenv/bin/activate
@@ -52,7 +23,7 @@ pip3 install scikit-learn
 for i in 0 1 2 
 do
    python3 traceParser.py direct 3 4 \
-   mlData/TrainTraceOutput mlData/temp1 \
+   mlData/TrainTraceOutputbaseline mlData/temp1 \
    mlData/"mldrive${i}.csv" "$i"
 done
 
@@ -71,6 +42,7 @@ cp mldrive1.csv.* drive1weights
 cp mldrive2.csv.* drive2weights
 
 cd ..
+mkdir -p weights_header
 python3 mlHeaderGen.py Trace nvme0n1 mlData/drive0weights weights_header
 python3 mlHeaderGen.py Trace nvme1n1 mlData/drive1weights weights_header
 python3 mlHeaderGen.py Trace nvme2n1 mlData/drive2weights weights_header
