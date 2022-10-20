@@ -15,9 +15,9 @@ int PREDICT_GPU_SYNC = 0;
 DEFINE_SPINLOCK(batch_lock);
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 100*_us;
+const u64 window_size_ns = 300*_us;
 const u32 max_batch_size = 8; //this cannot be more than 256 (allocated in main.c)
-const u32 cpu_gpu_threshold = 4; //less than this we use cpu
+const u32 cpu_gpu_threshold = 6; //less than this we use cpu
 
 u64 last_arrival_ns = 0;
 u64 window_start_ns = 0;

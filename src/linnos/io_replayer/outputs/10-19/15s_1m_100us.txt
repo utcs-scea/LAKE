@@ -1,0 +1,50 @@
+baseline
+
+Trace took 32 seconds to finish.
+There were 149885 late IOs, consider upping the # of threads if too many
+
+==========Statistics==========
+Total reads 104972
+IO inter arrival time average 215.69us
+Min/Max inter arrival time  0.0, 4857.0
+Total writes: 45048  percent: 1.300281964284524
+Total reads: 104972
+Average write latency: 5624.27 us
+Median/Stddev read latency: 35297.00 us / 6315.86 us
+Min/Max read latency: 5517.00 us / 85550.00 us
+Average read latency: 36982.72 us
+Average read size: 1050844.81 KB
+Read latency p85: 39281.0 us
+Read latency p95: 49097.0 us
+Read latency p99: 66680.47999999992 us
+Read latency p99.5: 70025.61000000007 us
+Read latency p99.9: 75663.6090000002 us
+==============================
+
+
+
+strawman
+
+Trace took 30 seconds to finish.
+There were 149868 late IOs, consider upping the # of threads if too many
+
+stats: 104972 IOs failed
+That's about 0.699720 of all IOs issued
+
+==========Statistics==========
+Total reads 104972
+IO inter arrival time average 205.82us
+Min/Max inter arrival time  0.0, 3436.0
+Total writes: 45048  percent: 1.300281964284524
+Total reads: 104972
+Average write latency: 574.45 us
+Median/Stddev read latency: 35184.00 us / 8576.41 us
+Min/Max read latency: 6940.00 us / 95971.00 us
+Average read latency: 37349.17 us
+Average read size: 1050844.81 KB
+Read latency p85: 39133.34999999999 us
+Read latency p95: 61017.34999999999 us
+Read latency p99: 76383.66999999985 us
+Read latency p99.5: 79600.72500000002 us
+Read latency p99.9: 85174.72500000024 us
+==============================
