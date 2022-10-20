@@ -62,14 +62,15 @@ static void batch_release_exiting(void) {
 	reinit_completion(&batch_completed);
 }
 
+static void batch_block_exiting(void) {
+	reinit_completion(&batch_completed);
+}
+
 static void reset_batch(void) {
 	u64 f2;
 	window_size_hist[waiting] += 1;
 	waiting = 0;
 	is_batch_blocked = 0;
-	spin_lock_irqsave(&batch_running_lock, f2);
-	is_batch_running = 0;
-	spin_unlock_irqrestore(&batch_running_lock, f2);
 }
 
 static int gpu_get_prediction(int idx) {
@@ -151,24 +152,20 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	if (my_id == 0) {
 		my_arrival = ktime_get_ns();
 		window_start_ns = my_arrival;
-		spin_lock_irqsave(&batch_running_lock, f2);
-		is_batch_running = 0;
-		spin_unlock_irqrestore(&batch_running_lock, f2);
 
-		//let other ppl enter this batch
-		spin_unlock_irqrestore(&batch_lock, irqflags);
-		//when we wake up from this, we finalize a batch
-		//pr_warn(" >>> first one went to bed\n");
-		reinit_completion(&finalize_batch);
-		err = wait_for_completion_timeout(&finalize_batch, usecs_to_jiffies(window_size_ns/1000));
-		
-		//stop waiters from getting away asap
+		//dont let anyone return
 		spin_lock_irqsave(&batch_running_lock, f2);
 		is_batch_running = 1;
 		spin_unlock_irqrestore(&batch_running_lock, f2);
 
+		//let other ppl enter this batch
+		reinit_completion(&finalize_batch);
+		spin_unlock_irqrestore(&batch_lock, irqflags);
+		//when we wake up from this, we finalize a batch
+		err = wait_for_completion_timeout(&finalize_batch, usecs_to_jiffies(window_size_ns/1000));
+		
 		//grab lock to stop ppl from entering
-		spin_lock_irqsave(&batch_lock, irqflags);
+		spin_lock_irqsave(&batch_lock, irqflags); //maybe RC: someone preempts right before memcpy
 		batch_block_entering();
 
 		//use cpu
@@ -177,6 +174,10 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			use_cpu_instead = 1;
 			//let ppl go then do our inference
 			reset_batch();
+			//let waiters return
+			spin_lock_irqsave(&batch_running_lock, f2);
+			is_batch_running = 0;
+			spin_unlock_irqrestore(&batch_running_lock, f2);
 			batch_release_exiting();
 			batch_release_entering();
 			spin_unlock_irqrestore(&batch_lock, irqflags);
@@ -184,7 +185,6 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		}
 		//use GPU
 		else {
-			//pr_warn(" #### running on GPU\n");
 			n_used_gpu++;
 			use_cpu_instead = 0;
 			//let the lock go. if we do a sync command with it, the kernel deadlocks :)
@@ -195,49 +195,61 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			my_prediction = gpu_get_prediction(my_id);
 
 			//let exiters get their result and go
-			spin_lock_irqsave(&batch_running_lock, f2);
-			is_batch_running = 0;
-			spin_unlock_irqrestore(&batch_running_lock, f2);
+			// spin_lock_irqsave(&batch_running_lock, f2);
+			// is_batch_running = 0;
+			// spin_unlock_irqrestore(&batch_running_lock, f2);
 			batch_release_exiting();
 
 			//be safe and lock around it
 			spin_lock_irqsave(&batch_lock, irqflags);
 			reset_batch();
-			spin_unlock_irqrestore(&batch_lock, irqflags); //next batch starts when we release this lock
 			//this allows everyone waiting to get into a batch to enter
 			batch_release_entering();
+			spin_unlock_irqrestore(&batch_lock, irqflags); //next batch starts when we release this lock
+
+			//... i dont know where to call this
+			//this means that if someone was not waken up, they will be stuck
+			batch_block_exiting();
 
 			return my_prediction;
 		}
 	}
-	//if we are not the first
+	/*
+	 *   if we are not the first
+	 */
 	else {
 		my_arrival = ktime_get_ns();
 		//check if this batch should be finalized
 		if(my_arrival - window_start_ns >= window_size_ns || waiting == max_batch_size) {
 			//batch_block_entering();
 			//first one will also do this, but lets do it too since we hold the lock
-			spin_lock_irqsave(&batch_running_lock, f2);
-			is_batch_running = 1;
-			spin_unlock_irqrestore(&batch_running_lock, f2);
+			//spin_lock_irqsave(&batch_running_lock, f2);
+			//is_batch_running = 1;
+			//spin_unlock_irqrestore(&batch_running_lock, f2);
 			//wake the first so it finalizes
 			complete(&finalize_batch);
 		}
 		spin_unlock_irqrestore(&batch_lock, irqflags);
 
-wait_again:
-		err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(wait_multiplier*(window_size_ns/1000)));
-		if (err == 0) {  //if this was a timeout
-			spin_lock_irqsave(&batch_running_lock, f2);
-			still_wait = is_batch_running == 1;
-			spin_unlock_irqrestore(&batch_running_lock, f2);
-			if (still_wait) {
-				//pr_warn(" woke up while someone is working on batch, wait again\n");
-				wait_multiplier++;
-				goto wait_again;
-			}
-			//if we timed out but no batch is running, some race condition happened...
-		}
+
+// wait_again:
+// 		err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(wait_multiplier*(window_size_ns/1000)));
+// 		if (err == 0) {  //if this was a timeout
+// 			spin_lock_irqsave(&batch_running_lock, f2);
+// 			still_wait = is_batch_running == 1;
+// 			spin_unlock_irqrestore(&batch_running_lock, f2);
+// 			if (still_wait) {
+// 				//pr_warn(" woke up while someone is working on batch, wait again\n");
+// 				wait_multiplier++;
+// 				goto wait_again;
+// 			}
+// 			//if we timed out but no batch is running, some race condition happened...
+// 			pr_warn("timeout but no batch\n");
+// 		}
+
+		//.. wait until first tell us its done
+		wait_for_completion(&batch_completed);
+
 		//get the result and return
 		if (use_cpu_instead) 
 			return cpu_prediction_model(feat_vec, n_vecs, weights);
