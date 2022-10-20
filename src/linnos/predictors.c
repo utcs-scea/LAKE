@@ -192,7 +192,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			//let the lock go. if we do a sync command with it, the kernel deadlocks :)
 			//incoming reqs will not acquire lock since they will wait on batch_block
 			//do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
-		 	for (err=0 ; err<32 ; err++)
+		 	for (err=0 ; err<128 ; err++)
 				gpu_outputs[err] = false;
 			
 			my_prediction = gpu_get_prediction(my_id);
