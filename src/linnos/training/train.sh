@@ -1,44 +1,44 @@
 TraceTag='trace'
 
-if [ $# -eq 0 ] || [ $# -eq 1 ]
+if [ $# -ne 4 ]
   then
-    echo "Usage .\\\train.sh --traintrace <name of training trace> --latencythreshold <inflection point>"
+    #echo "Usage .\\\train.sh --traintrace <name of training trace> --latencythreshold <inflection point>"
+    echo "Usage train.sh <trace_1> <trace_2> <trace_3> <inflection_point>"
     exit
 fi
 
-SHORT=t:,l:,
-LONG=traintrace:,latencythreshold:,
-OPTS=$(getopt --options $SHORT --longoptions $LONG -- "$@") 
+# SHORT=t:,l:,
+# LONG=traintrace:,latencythreshold:,
+# OPTS=$(getopt --options $SHORT --longoptions $LONG -- "$@") 
 
-eval set -- "$OPTS"
+# eval set -- "$OPTS"
 
-while :
-do
-  case "$1" in
-    -t | --traintrace )
-      traintrace="$2"
-      shift 2
-      ;;
-    -l | --latencythreshold )
-      latencythreshold="$2"
-      shift 2
-      ;;
-    --)
-      shift;
-      break
-      ;;
-    *)
-      echo "Unexpected option: $1"
-      ;;
-  esac
-done
+# while :
+# do
+#   case "$1" in
+#     -t | --traintrace )
+#       traintrace="$2"
+#       shift 2
+#       ;;
+#     -l | --latencythreshold )
+#       latencythreshold="$2"
+#       shift 2
+#       ;;
+#     --)
+#       shift;
+#       break
+#       ;;
+#     *)
+#       echo "Unexpected option: $1"
+#       ;;
+#   esac
+# done
 
-echo $traintrace, $latencythreshold
+echo $1, $2, $3, $4
 
-sudo ./replayer_fail /dev/nvme0n1-/dev/nvme0n1-/dev/nvme2n1 \
- "testTraces/${traintrace}0."$TraceTag \
- "testTraces/${traintrace}1."$TraceTag \
- "testTraces/${traintrace}2."$TraceTag mlData/TrainTraceOutput
+#echo $trace_1, $latencythreshold
+
+sudo ./replayer_fail /dev/nvme0n1-/dev/nvme0n1-/dev/nvme2n1 $1 $2 $3 mlData/TrainTraceOutput
 
 python3 -m venv linnOSvenv
 source linnOSvenv/bin/activate
@@ -59,7 +59,7 @@ done
 for i in 0 1 2 
 do
    python3 pred1.py \
-   mlData/"mldrive${i}.csv" $latencythreshold > mlData/"mldrive${i}results".txt
+   mlData/"mldrive${i}.csv" $4 > mlData/"mldrive${i}results".txt
 done
 
 cd mlData
