@@ -179,7 +179,7 @@ static int run_gpu(void) {
             #endif
 
             //the 1's here mean we only do 1 input, easy to adapt to n
-            copy_input_to_device(input_64, 64);
+            copy_input_to_shm(input_64, 64);
             copy_inputs_to_gpu(64);
             gpu_predict_batch(0, 64, state.weights);
             copy_results_from_gpu(64);

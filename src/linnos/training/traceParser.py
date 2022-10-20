@@ -32,6 +32,7 @@ def generate_raw_vec(input_path, output_path, device_index):
         transaction_list = []
         index = 0
         for row in input_csv:
+            print(row)
             if row[ReplayFields.DEVICE] != device_index:
                 continue
 

@@ -26,4 +26,15 @@ extern CUcontext cuctx;
 extern long *inputs_to_gpu;
 extern long *gpu_outputs;
 
+
+//these are host
+extern long *multi_inputs_to_gpu[3];
+extern long *multi_gpu_outputs[3];
+
+extern CUdeviceptr multi_d_input_vec_i[3];
+extern CUdeviceptr multi_d_mid_res_i[3];
+extern CUdeviceptr multi_d_final_res_i[3];
+
+extern long *first_weight_ptr_to_dev[3];
+
 #endif

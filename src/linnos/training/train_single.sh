@@ -51,7 +51,7 @@ TNAME=$(basename $traintrace)
 echo $TNAME
 
 echo "sudo ../io_replayer/replayer baseline mlData/$TNAME 1 /dev/nvme0n1-/dev/nvme1n1 $traintrace"
-sudo ../io_replayer/replayer baseline mlData/$TNAME 1 /dev/nvme0n1-/dev/nvme1n1 $traintrace
+sudo ../io_replayer/replayer baseline mlData/$TNAME 1 /dev/vdb $traintrace
 
 #this currently outputs mlData/{TNAME}baseline
 REPLAY_OUT="mlData/${TNAME}baseline"
@@ -84,4 +84,4 @@ mv mlData/mldrive${i}.csv.* $WEIGHTS_DIR
 
 #TODO: we gotta set the device name somehow
 #args:               workload, device_name, input_folder, output_folder
-python3 mlHeaderGen.py $TNAME nvme0n1 $WEIGHTS_DIR $HEADER_DIR
+python3 mlHeaderGen.py $TNAME vdb $WEIGHTS_DIR $HEADER_DIR

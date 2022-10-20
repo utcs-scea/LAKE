@@ -31,11 +31,11 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu 
 // 3. set the pointers into a new array in weights (dont mess with the ending 0)
 
 #include "sde.h"
-#include "weights_header/w_nvme0n1.h"
+//#include "weights_header/w_nvme0n1.h"
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-//#include "weights_header/weights_15s_256k_50us.trace/header/w_15s_256k_50us.trace_nvme0n1.h"
+#include "weights_header/weights_15s_256k_50us.trace/header/w_15s_256k_50us.trace_nvme0n1.h"
 //#include "weights_header/weights_15s_1m_100us.trace/header/w_15s_1m_100us.trace_nvme0n1.h"
 
 static const char *devices[] = {
@@ -81,21 +81,27 @@ static void batch_test_detach(void) {
  *  Helpers for GPU inference
  */
 static int gpu_attach(void) {
-	int i;
-	fptr = gpu_batch_entry;
+	int i, ndev=0;
+	const char *devs;
 	
+	fptr = gpu_batch_entry;
+	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) 
+		ndev++;
+	multi_initialize_gpu(cubin_path, 512, ndev);
 	window_size_hist = vmalloc(128);
 	for (i=0;i<128;i++) window_size_hist[i] = 0;
-	initialize_gpu(cubin_path, 512); //whatever, just allocate more than we will use
+
+	predictors_mgpu_init(ndev);
 
 	return 0;
 }
+
 static void gpu_detach(void) {
 	const char *devs;
 	int i;
-	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
-		gpu_cuda_cleanup(&gpu_weights[i]);
-	}
+	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i])
+		multi_gpu_cuda_cleanup_dev(&gpu_weights[i], dev);
+
 	for (i=0;i<128;i++)
 		if (window_size_hist[i] != 0)
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
@@ -107,8 +113,9 @@ static void gpu_copy_weight(int idx) {
 	long **wts = weights[idx];
 	pr_warn("Copying weights for idx %d\n", idx);
 	copy_weights(wts, &gpu_weights[idx]);
-}
 
+	first_weight_ptr_to_dev[idx] = weights[idx][0];
+}
 
 /*
  *  Helpers for queue depth stats
