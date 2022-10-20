@@ -77,7 +77,6 @@ static int run_gpu(void) {
     comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
     total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
 
-    // flatten_input(n, input);
     expand_input_n_times(input, n);
     // measuring GPU time
     for (i = 0 ; i < n_batches ; i++) {
@@ -170,27 +169,29 @@ static int run_gpu(void) {
 	}
 
     if(check_correctness) {
+        char *input_64 = kava_alloc(64 * LEN_INPUT * sizeof(char));
         for(int k = 0; k < CORRECTNESS_CHECKS; k++) {
             //generate random input
             #ifdef __KERNEL__ 
-                get_random_bytes(input, LEN_INPUT);
+                get_random_bytes(input_64, 64 * LEN_INPUT);
             #else
-                getrandom(input, LEN_INPUT, 0);
+                getrandom(input_64, 64 * LEN_INPUT, 0);
             #endif
 
-            int cpu_result = cpu_prediction_model(input, 1, test_weights);
-
             //the 1's here mean we only do 1 input, easy to adapt to n
-            expand_input_n_times(input, 1);
-            copy_inputs_to_gpu(1);
-            gpu_predict_batch(0, 1, state.weights);
-            copy_results_from_gpu(1);
+            copy_input_to_device(input_64, 64);
+            copy_inputs_to_gpu(64);
+            gpu_predict_batch(0, 64, state.weights);
+            copy_results_from_gpu(64);
             
-            res = gpu_outputs[0]>=(gpu_outputs[32])? false: true;
-            //PRINT("Test [%d]: (%d) %s\n", k, res, res==cpu_result ? "Ok" : "WRONG");
-            if (res!=cpu_result) result_mismatches++;
-            if (cpu_result) true_count++;
-            else false_count++;
+            for(int bnum = 0; bnum < 64; bnum++) {
+                int cpu_result = cpu_prediction_model(input_64 + LEN_INPUT * bnum * sizeof(char), 1, test_weights);
+                res = gpu_outputs[bnum*64]>=(gpu_outputs[bnum * 64 + 32])? false: true;
+                //PRINT("Test [%d]: (%d) %s\n", bnum, res, res==cpu_result ? "Ok" : "WRONG");
+                if (res!=cpu_result) result_mismatches++;
+                if (cpu_result) true_count++;
+                else false_count++;
+            }            
         }
         PRINT("CPU prediction summary: %llu trues, %llu falses %llu result_mismatches\n", true_count, false_count, result_mismatches);
     }

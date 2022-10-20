@@ -48,8 +48,8 @@ void gpu_cuda_cleanup(struct GPU_weights *state);
 
 void check_malloc(void *p, const char* error_str, int line);
 void expand_input_n_times(char* input, int n);
+void copy_input_to_device(char* input, int n);
 void copy_inputs_to_gpu(u64 n_inputs);
 void copy_results_from_gpu(u64 n_inputs);
-
 
 #endif

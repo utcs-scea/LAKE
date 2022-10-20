@@ -124,6 +124,12 @@ void expand_input_n_times(char* input, int n) {
 			inputs_to_gpu[b*31 + j] =  (long) input[j];
 }
 
+void copy_input_to_device(char* input, int n) {
+    int j;
+    for(j = 0; j < n * LEN_INPUT; j++)
+	    inputs_to_gpu[j] =  (long) input[j];
+}
+
 //pass number of inputs, not bytes
 void copy_inputs_to_gpu(u64 n_inputs) {
     cuMemcpyHtoDAsync(d_input_vec_i, inputs_to_gpu, sizeof(long) * LEN_INPUT * n_inputs, 0);
