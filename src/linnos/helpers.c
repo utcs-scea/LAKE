@@ -68,6 +68,10 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     kava_free(kbuf_bias_1_ent);
 }
 
+void copy_results_from_gpu(u64 n_inputs) {
+    cuMemcpyDtoH(gpu_outputs, d_final_res_i, sizeof(long) * 64 * n_inputs);
+}
+
 //this function gets the CUfuncs and allocates memory for max_batch_size inputs
 void initialize_gpu(const char* cubin_path, int max_batch_size) {
     //intialize kernels
@@ -142,12 +146,12 @@ void multi_gpu_cuda_cleanup_dev(struct GPU_weights *state, int dev) {
     for(i = 0; i <4 ; i++) {
         cuMemFree((CUdeviceptr)state->weights[i]);
     }
-    cuMemFree(d_input_vec_i[dev]);
-    cuMemFree(d_mid_res_i[dev]);
-    cuMemFree(d_final_res_i[dev]);
+    cuMemFree(multi_d_input_vec_i[dev]);
+    cuMemFree(multi_d_mid_res_i[dev]);
+    cuMemFree(multi_d_final_res_i[dev]);
 
-    kava_free(inputs_to_gpu[dev]);
-    kava_free(gpu_outputs[dev]);
+    kava_free(multi_inputs_to_gpu[dev]);
+    kava_free(multi_gpu_outputs[dev]);
 }
 
 void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) {
@@ -180,6 +184,6 @@ void multi_copy_inputs_to_gpu(u64 n_inputs, int dev) {
     cuMemcpyHtoDAsync(multi_d_input_vec_i[dev], multi_inputs_to_gpu[dev], sizeof(long) * LEN_INPUT * n_inputs, 0);
 }
 
-void multi_copy_results_from_gpu(u64 n_inputs) {
-    cuMemcpyDtoH(gpu_outputs[dev], d_final_res_i[dev], sizeof(long) * 64 * n_inputs);
+void multi_copy_results_from_gpu(u64 n_inputs, int dev) {
+    cuMemcpyDtoH(multi_gpu_outputs[dev], multi_d_final_res_i[dev], sizeof(long) * 64 * n_inputs);
 }

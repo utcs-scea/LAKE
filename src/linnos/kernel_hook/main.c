@@ -31,16 +31,16 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu 
 // 3. set the pointers into a new array in weights (dont mess with the ending 0)
 
 #include "sde.h"
-#include "weights_header/w_nvme0n1.h"
+//#include "weights_header/w_nvme0n1.h"
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-//#include "weights_header/weights_15s_256k_50us.trace/header/w_15s_256k_50us.trace_nvme0n1.h"
+#include "weights_header/weights_15s_256k_50us.trace/header/w_15s_256k_50us.trace_nvme0n1.h"
 //#include "weights_header/weights_15s_1m_100us.trace/header/w_15s_1m_100us.trace_nvme0n1.h"
 
 static const char *devices[] = {
-    "/dev/vdb",
-	//"/dev/nvme0n1",
+    //"/dev/vdb",
+	"/dev/nvme0n1",
 	//"/dev/nvme1n1",
 	//"/dev/nvme2n1",
 	0

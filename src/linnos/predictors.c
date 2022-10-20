@@ -103,14 +103,14 @@ void gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights) {
 }
 
 void do_gpu_inference(int n_vecs, long **weights) {
-	//u64 s,t;	
-	//pr_warn(" ###############  copying %d inputs\n", n_vecs);
-	//s = ktime_get_ns();
+	u64 s,t;	
+	pr_warn(" ###############  copying %d inputs\n", n_vecs);
+	s = ktime_get_ns();
 	copy_inputs_to_gpu(n_vecs);
 	gpu_predict_batch(0, n_vecs, weights);
 	copy_results_from_gpu(n_vecs);
-	//t = ktime_get_ns();
-	//pr_warn(" ###############  inference took %llu us\n", (t-s)/1000);
+	t = ktime_get_ns();
+	pr_warn(" ###############  inference took %llu us\n", (t-s)/1000);
 }
 
 //TODO: this assumes there's only one batch, when in fact
@@ -182,8 +182,8 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		if(waiting < cpu_gpu_threshold) {
 		//if (1) {
 			use_cpu_instead = 1;
-			my_prediction = false;
-			//my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			//my_prediction = false;
+			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
 		}
 		//use GPU
 		else {
@@ -191,9 +191,9 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			use_cpu_instead = 0;
 			//let the lock go. if we do a sync command with it, the kernel deadlocks :)
 			//incoming reqs will not acquire lock since they will wait on batch_block
-			//do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
-		 	for (err=0 ; err<128 ; err++)
-				gpu_outputs[err] = false;
+			do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
+		 	//for (err=0 ; err<128 ; err++)
+			//	gpu_outputs[err] = false;
 			
 			my_prediction = gpu_get_prediction(my_id);
 		}
@@ -247,7 +247,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		}
 		spin_unlock_irqrestore(&batch_exited, f2);
 
-		return false;
+		//return false;
 		//get the result and return
 		if (use_cpu_instead) 
 			return cpu_prediction_model(feat_vec, n_vecs, weights);
