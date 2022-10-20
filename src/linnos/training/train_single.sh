@@ -50,8 +50,10 @@ echo $traintrace, $percentile, $ndevice
 TNAME=$(basename $traintrace)
 echo $TNAME
 
-echo "sudo ../io_replayer/replayer baseline mlData/$TNAME 1 /dev/nvme0n1-/dev/nvme1n1 $traintrace"
-sudo ../io_replayer/replayer baseline mlData/$TNAME 1 /dev/vdb $traintrace
+#echo "../io_replayer/replayer baseline mlData/$TNAME 1 /dev/nvme0n1 $traintrace"
+#sudo ../io_replayer/replayer baseline mlData/$TNAME 1 /dev/nvme0n1 $traintrace
+
+#exit 0
 
 #this currently outputs mlData/{TNAME}baseline
 REPLAY_OUT="mlData/${TNAME}baseline"
@@ -68,8 +70,11 @@ pip3 install scikit-learn
 i=0
 #device number is only necessar if we run a trace on multiple devices concurrently, otherwise its just 0
 #args here are: direct, 3, 4, <input (from replayer)> <temp file> <output file> <device number to use>
-python3 traceParser.py direct 3 4 ${REPLAY_OUT} mlData/temp1 \
-    mlData/"mldrive${i}.csv" $i
+#python3 traceParser.py direct 3 4 ${REPLAY_OUT} mlData/temp1 mlData/"mldrive${i}.csv" $i
+
+echo "python3 traceParser.py direct 3 4 ${REPLAY_OUT} mlData/temp1 mlData/"mldrive${i}.csv" $i"
+
+exit 0
 
 echo "Latency Threshold ${percentile} percentile"
 python3 pred1.py mlData/"mldrive${i}.csv" $percentile #> mlData/"mldrive${i}results".txt
