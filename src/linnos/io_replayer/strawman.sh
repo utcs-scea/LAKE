@@ -7,7 +7,7 @@ if [ $# -eq 0 ]
 fi
 
 
-sudo ./replayer $1 xxx 1 /dev/nvme0n1-/dev/nvme1n1 $2
+sudo ./replayer $1 xxx 1 /dev/vdb-/dev/vdb $2
 
 
 
