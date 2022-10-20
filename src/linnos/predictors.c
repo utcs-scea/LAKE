@@ -15,8 +15,8 @@ int PREDICT_GPU_SYNC = 0;
 DEFINE_SPINLOCK(batch_lock);
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 400*_us;
-const u32 max_batch_size = 32; //this cannot be more than 256 (allocated in main.c)
+const u64 window_size_ns = 100*_us;
+const u32 max_batch_size = 8; //this cannot be more than 256 (allocated in main.c)
 const u32 cpu_gpu_threshold = 4; //less than this we use cpu
 
 u64 last_arrival_ns = 0;
@@ -208,7 +208,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			spin_unlock_irqrestore(&batch_lock, irqflags);
 
 			//TODO
-			do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
+			//do_gpu_inference(waiting, gpu_weights[0].weights); //TODO: find this ssds index and use here
 			//XXX test
 			pr_warn(" #### doing inference\n");
 			for (err=0 ; err<32 ; err++)
@@ -398,54 +398,185 @@ bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 
 
 
-void batch_release(void) {
-	window_size_hist[waiting] += 1;
-	waiting = 0;
-	//realize execution here, including our data, and fill gpu_results
-	//unblock everyone in this batch
-	complete_all(&batch_completed);
-}
+
+
+
+
+
+// void batch_release(void) {
+// 	window_size_hist[waiting] += 1;
+// 	waiting = 0;
+// 	//realize execution here, including our data, and fill gpu_results
+// 	//unblock everyone in this batch
+// 	complete_all(&batch_completed);
+// }
+
+// bool batch_test(char *feat_vec, int n_vecs, long **weights) {
+// 	u64 my_id;
+// 	bool is_last_arrival = false;
+// 	u64 my_arrival;
+// 	u32 err;
+
+// 	spin_lock_irq(&batch_lock);
+// 	my_arrival = ktime_get_ns();
+// 	my_id = waiting++;
+// 	//we are the first in this window
+// 	if (my_id == 0)
+// 		window_start_ns = my_arrival;
+
+// 	//we are the last to arrive so far, lets account for possible out of order
+// 	if(likely(my_arrival > last_arrival_ns))
+// 		last_arrival_ns = my_arrival;
+
+// 	//if more than window time passed or window is full
+// 	if(last_arrival_ns - window_start_ns >= window_size_ns || waiting == max_batch_size) {
+// 		is_last_arrival = true;
+// 		batch_release();
+// 	}
+// 	spin_unlock_irq(&batch_lock);
+
+// 	if (!is_last_arrival) {
+// 		//if we are the first of this batch, we need to have a timeout
+// 		if(my_id == 0) {
+// 			//pr_warn("first\n");
+// 			err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(window_size_ns/1000));
+// 			if (err == 0) {  //this was a timeout
+// 				spin_lock_irq(&batch_lock);
+// 				batch_release();
+// 				spin_unlock_irq(&batch_lock);
+// 			}
+// 		}
+// 		else{ //if not first or last
+// 			wait_for_completion(&batch_completed);
+// 		}
+// 	}
+
+
+// 	return false;
+// }
+
 
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_id;
-	bool is_last_arrival = false;
-	u64 my_arrival;
+	bool my_prediction, still_wait = false;
+	u64 my_arrival, wait_multiplier = 1;
 	u32 err;
+	unsigned long irqflags, f2;
 
-	spin_lock_irq(&batch_lock);
-	my_arrival = ktime_get_ns();
-	my_id = waiting++;
-	//we are the first in this window
-	if (my_id == 0)
-		window_start_ns = my_arrival;
-
-	//we are the last to arrive so far, lets account for possible out of order
-	if(likely(my_arrival > last_arrival_ns))
-		last_arrival_ns = my_arrival;
-
-	//if more than window time passed or window is full
-	if(last_arrival_ns - window_start_ns >= window_size_ns || waiting == max_batch_size) {
-		is_last_arrival = true;
-		batch_release();
+	spin_lock_irqsave(&batch_lock, irqflags);
+	//this avoids ppl from arriving between a batch is full and the nexts start
+	while (is_batch_blocked) {
+		//pr_warn(" > entering: batch is blocked\n");
+		spin_unlock_irqrestore(&batch_lock, irqflags);
+		wait_for_completion(&batch_block); //whoever is blocking *will* release us
+		//pr_warn(" > entering: completed, fight for lock\n");
+		//when we wake up, fight for the lock
+		spin_lock_irqsave(&batch_lock, irqflags);
+		//pr_warn(" > batch has been release and I got the lock!\n");
+		//its unlikely we loop. if we do we got left behind..
 	}
-	spin_unlock_irq(&batch_lock);
 
-	if (!is_last_arrival) {
-		//if we are the first of this batch, we need to have a timeout
-		if(my_id == 0) {
-			//pr_warn("first\n");
-			err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(window_size_ns/1000));
-			if (err == 0) {  //this was a timeout
-				spin_lock_irq(&batch_lock);
-				batch_release();
-				spin_unlock_irq(&batch_lock);
+	my_id = waiting++;
+	//copy inputs to intermediary buffer
+	//memcpy(inputs_to_gpu+(my_id*LEN_INPUT), feat_vec, LEN_INPUT);
+
+	//if this is the first, we start the window time
+	//and also wait to see what happens:
+	//  1. the batch finishes and we wake up
+	//  2. times out, so we finalize the batch
+	if (my_id == 0) {
+		my_arrival = ktime_get_ns();
+		window_start_ns = my_arrival;
+		spin_lock_irqsave(&batch_running_lock, f2);
+		is_batch_running = 0;
+		spin_unlock_irqrestore(&batch_running_lock, f2);
+
+		//let other ppl enter this batch
+		spin_unlock_irqrestore(&batch_lock, irqflags);
+		//when we wake up from this, we finalize a batch
+		reinit_completion(&finalize_batch);
+		err = wait_for_completion_timeout(&finalize_batch, usecs_to_jiffies(window_size_ns/1000));
+		
+		//stop waiters from getting away asap
+		spin_lock_irqsave(&batch_running_lock, f2);
+		is_batch_running = 1;
+		spin_unlock_irqrestore(&batch_running_lock, f2);
+
+		//grab lock to stop ppl from entering
+		spin_lock_irqsave(&batch_lock, irqflags);
+		batch_block_entering();
+		
+		//pr_warn(" >>> releasing batch with size %lld\n", waiting);
+		//use cpu
+		if(waiting < cpu_gpu_threshold) {
+			use_cpu_instead = 1;
+			//let ppl go then do our inference
+			//pr_warn(" >>> releasing using CPU\n");
+			reset_batch();
+			batch_release_exiting();
+			batch_release_entering();
+			spin_unlock_irqrestore(&batch_lock, irqflags);
+			//pr_warn(" >>> first is returning from CPU\n");
+			return false;
+		}
+		//use GPU
+		else {
+			//pr_warn(" #### running on GPU\n");
+			use_cpu_instead = 0;
+			//let the lock go. if we do a sync command with it, the kernel deadlocks :)
+			//incoming reqs will not acquire lock since they will wait on batch_block
+			spin_unlock_irqrestore(&batch_lock, irqflags);
+
+			//pr_warn(" #### GPU done, letting ppl go\n");
+			//let exiters get their result and go
+			spin_lock_irqsave(&batch_running_lock, f2);
+			is_batch_running = 0;
+			spin_unlock_irqrestore(&batch_running_lock, f2);
+			batch_release_exiting();
+
+			//be safe and lock around it
+			spin_lock_irqsave(&batch_lock, irqflags);
+			reset_batch(); //can only reset after we wake up since waking up relies on "waiting" var
+			spin_unlock_irqrestore(&batch_lock, irqflags); //next batch starts when we release this lock
+			//this allows everyone waiting to get into a batch to enter
+			batch_release_entering();
+			//pr_warn(" #### GPU done, Im out\n");
+			return false;
+		}
+	}
+	//if we are not the first
+	else {
+		my_arrival = ktime_get_ns();
+		//check if this batch should be finalized
+		if(my_arrival - window_start_ns >= window_size_ns || waiting == max_batch_size) {
+			spin_lock_irqsave(&batch_running_lock, f2);
+			is_batch_running = 1;
+			//batch_block_entering();
+			spin_unlock_irqrestore(&batch_running_lock, f2);
+			//pr_warn(" ~~ batch should be done now, waking up the first\n");
+			//pr_warn(" ~~ LAST, ts dif %llu  window size %llu   waiting %llu\n", my_arrival - window_start_ns, window_size_ns, waiting);
+			//first one will also do this, but lets do it too since we hold the lock
+			//wake the first so it finalizes
+			complete(&finalize_batch);
+		}
+		spin_unlock_irqrestore(&batch_lock, irqflags);
+
+wait_again:
+		err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(wait_multiplier*(window_size_ns/1000)));
+		if (err == 0) {  //if this was a timeout
+			//pr_warn("middle timed out\n");
+			spin_lock_irqsave(&batch_running_lock, f2);
+			still_wait = is_batch_running == 1;
+			spin_unlock_irqrestore(&batch_running_lock, f2);
+			if (still_wait) {
+				//pr_warn(" woke up while someone is working on batch, wait again\n");
+				wait_multiplier++;
+				goto wait_again;
 			}
 		}
-		else{ //if not first or last
-			wait_for_completion(&batch_completed);
-		}
+		//pr_warn(" ------------- not a timeout, all good\n");
+		//get the result and return
+
+		return false;
 	}
-
-
-	return false;
 }

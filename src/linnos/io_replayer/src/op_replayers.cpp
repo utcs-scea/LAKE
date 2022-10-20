@@ -49,7 +49,7 @@ void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     //read
     if(trace_op.op == 0) {
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
-        //rejected, go to next device (it should have linnos enabled)
+        //rejected, go to next device (it should not have linnos enabled)
         if (ret < 0) {
             trace->add_fail();
             trace->add_unique_fail();

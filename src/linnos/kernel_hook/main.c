@@ -36,8 +36,8 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu 
 //#include "weights_header/w_nvme2n1.h"
 
 static const char *devices[] = {
-    "/dev/vdb",
-	//"/dev/nvme0n1",
+    //"/dev/vdb",
+	"/dev/nvme0n1",
 	//"/dev/nvme1n1",
 	//"/dev/nvme2n1",
 	0
@@ -53,38 +53,25 @@ static long *weights[][4] = {
 //the predictor function to use
 bool (*fptr)(char*,int,long**);
 
-/*
- *  Helpers for Batch test
- */
 bool is_qdepth = false;
 bool is_batch_test = false;
 bool is_gpu_inf = false;
+
+/*
+ *  Helpers for Batch test
+ */
 static void batch_test_attach(void) {
 	int i;
-	window_size_hist = vmalloc(128);
-	for (i=0;i<128;i++) window_size_hist[i] = 0;
+	fptr = batch_test;
+	window_size_hist = vmalloc(512);
+	for (i=0;i<512;i++) window_size_hist[i] = 0;
 }
 static void batch_test_detach(void) {
 	int i;
-	for (i=0;i<128;i++)
+	for (i=0;i<512;i++)
 		if (window_size_hist[i] != 0)
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
 	vfree(window_size_hist);
-}
-
-/*
- *  Helpers for queue depth stats
- */
-static int qdepth_attach(void) {
-	int err;
-	err = qd_init(); //this sets ptr
-	if (err != 0) return err;
-	usleep_range(5,10); //lets chill, why not
-	sysctl_lake_linnos_debug = 3; //this enables storing batches
-	return 0;
-}
-static void qdepth_detach(void) {
-	qd_writeout();
 }
 
 /*
@@ -103,7 +90,6 @@ static int gpu_attach(void) {
 static void gpu_detach(void) {
 	const char *devs;
 	int i;
-
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
 		gpu_cuda_cleanup(&gpu_weights[i]);
 	}
@@ -116,6 +102,22 @@ static void gpu_detach(void) {
 static void gpu_copy_weight(int idx) {
 	long **wts = weights[idx];
 	copy_weights(wts, &gpu_weights[idx]);
+}
+
+
+/*
+ *  Helpers for queue depth stats
+ */
+static int qdepth_attach(void) {
+	int err;
+	err = qd_init(); //this sets ptr
+	if (err != 0) return err;
+	usleep_range(5,10); //lets chill, why not
+	sysctl_lake_linnos_debug = 3; //this enables storing batches
+	return 0;
+}
+static void qdepth_detach(void) {
+	qd_writeout();
 }
 
 /*
@@ -132,7 +134,6 @@ static int parse_arg(void) {
 	} else if (!strcmp("batchtest", predictor_str)) {
 		pr_warn("Inserting batch test prediction\n");
 		is_batch_test = true;
-		fptr = batch_test;
 	} else if (!strcmp("queue_depth", predictor_str)) {
 		pr_warn("Inserting queue_depth\n");
 		//set fake so we go through everything

@@ -2,6 +2,10 @@
 set -e 
 set -o pipefail
 
+#  ./train_single.sh --traintrace ../trace_tools/15s_1m_100us.trace --percentile 85
+#
+#
+
 if [ $# -eq 0 ] || [ $# -eq 1 ] || [ $# -eq 2 ]
   then
     echo "Usage .\\\train.sh --traintrace <name of training trace> --percentile <inflection point> --ndevice <1 for now>"
@@ -45,7 +49,10 @@ echo $traintrace, $percentile, $ndevice
 #TODO: check that ../io_replayer/replayer exists, if not quit
 TNAME=$(basename $traintrace)
 echo $TNAME
-sudo ../io_replayer/replayer baseline mlData/$TNAME $ndevice /dev/nvme0n1-/dev/nvme1n1-/dev/nvme2n1 $traintrace
+
+echo "sudo ../io_replayer/replayer baseline mlData/$TNAME 1 /dev/nvme0n1-/dev/nvme1n1 $traintrace"
+sudo ../io_replayer/replayer baseline mlData/$TNAME 1 /dev/nvme0n1-/dev/nvme1n1 $traintrace
+
 #this currently outputs mlData/{TNAME}baseline
 REPLAY_OUT="mlData/${TNAME}baseline"
 
