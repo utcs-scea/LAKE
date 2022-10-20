@@ -212,6 +212,8 @@ public:
 
         TraceOp traceop; 
         traceop.timestamp = line_n >= trace_line_count[device] ? -1 : req_timestamps[device][line_n];
+        if (traceop.timestamp == -1)
+            return traceop;
         traceop.offset = req_offsets[device][line_n],
         traceop.size = req_sizes[device][line_n],
         traceop.op = req_ops[device][line_n];

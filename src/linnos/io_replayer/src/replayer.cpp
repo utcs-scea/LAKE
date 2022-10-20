@@ -17,7 +17,7 @@
 #include "replayer.hpp"
 #include "op_replayers.hpp"
 
-uint8_t N_THREADS = 128;
+uint8_t N_THREADS = 16;
 
 int main (int argc, char **argv)
 {
@@ -40,7 +40,7 @@ int main (int argc, char **argv)
     
 
     pthread_barrier_t sync_barrier;
-    int err = pthread_barrier_init(&sync_barrier, NULL, N_THREADS+1);
+    int err = pthread_barrier_init(&sync_barrier, NULL, n_devices_to_trace*N_THREADS+1);
     if (err != 0) {
         printf("Error creating barrier\n");
         exit(1);

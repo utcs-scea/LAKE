@@ -86,7 +86,6 @@ void* replayer_fn(void* arg) {
         if (trace_op.timestamp == -1) {
             break;
         }
-
         //timestamp in op is in microsecond float, so convert to nano
         uint64_t next = targ->start_ts + (uint64_t)(trace_op.timestamp*1000);
         if(sleep_until(next) == 1)
