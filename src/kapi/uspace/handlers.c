@@ -95,7 +95,6 @@ static int lake_handler_cuCtxDestroy(void* buf, struct lake_cmd_ret* cmd_ret) {
 static int lake_handler_cuMemAlloc(void* buf, struct lake_cmd_ret* cmd_ret) {
         struct lake_cmd_cuMemAlloc *cmd = (struct lake_cmd_cuMemAlloc *) buf;
     cmd_ret->res = cuMemAlloc(&cmd_ret->ptr, cmd->bytesize);
-    printf("cuMemAlloc returned %d\n", cmd_ret->res);
     return 0;
 }
 

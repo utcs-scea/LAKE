@@ -20,6 +20,7 @@
 //these externs are for batching
 extern bool* gpu_results;
 extern u32* window_size_hist;
+extern u32 n_used_gpu;
 bool batch_test(char *feat_vec, int n_vecs, long **weights);
 
 extern struct GPU_weights gpu_weights[3];

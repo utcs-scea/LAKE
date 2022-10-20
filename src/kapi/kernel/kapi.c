@@ -174,7 +174,6 @@ CUresult CUDAAPI cuMemcpyDtoH(void *dstHost, CUdeviceptr srcDevice, size_t ByteC
         return CUDA_ERROR_INVALID_VALUE;
     }
     cmd.dstHost = (void*)offset;
-    pr_warn("sending cuMemcpyDtoH cmd\b");
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
 	return ret.res;
 }

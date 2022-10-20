@@ -35,8 +35,8 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu 
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-//#include "weights_header/weights_15s_256k_50us.trace/header/w_15s_256k_50us.trace_nvme0n1.h"
-#include "weights_header/weights_15s_1m_100us.trace/header/w_15s_1m_100us.trace_nvme0n1.h"
+#include "weights_header/weights_15s_256k_50us.trace/header/w_15s_256k_50us.trace_nvme0n1.h"
+//#include "weights_header/weights_15s_1m_100us.trace/header/w_15s_1m_100us.trace_nvme0n1.h"
 
 static const char *devices[] = {
     //"/dev/vdb",
@@ -100,10 +100,12 @@ static void gpu_detach(void) {
 		if (window_size_hist[i] != 0)
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
 
+	pr_warn("GPU was used %u times\n", n_used_gpu);
 	cuCtxDestroy(cuctx);
 }
 static void gpu_copy_weight(int idx) {
 	long **wts = weights[idx];
+	pr_warn("Copying weights for idx %d\n", idx);
 	copy_weights(wts, &gpu_weights[idx]);
 }
 
