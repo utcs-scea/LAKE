@@ -5,16 +5,19 @@ CUDA_LIB_PATH := $(CUDA_PATH)/lib64
 INCLUDES      := -I$(CUDA_INC_PATH) -I.
 LDFLAGS       := -L$(CUDA_LIB_PATH) -lcuda
 
-ifeq ($(shell hostname), santacruz)
-	GENCODE_FLAGS   := -gencode arch=compute_80,code=sm_80
-else
-	GENCODE_FLAGS   := -gencode arch=compute_61,code=sm_61
-endif
+ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+SM_SCRIPT = $(ROOT_DIR)../../scripts/get_gpu_sm.sh
+
+# ifeq ($(shell hostname), santacruz)
+# 	GENCODE_FLAGS   := -gencode arch=compute_80,code=sm_80
+# else
+# 	GENCODE_FLAGS   := -gencode arch=compute_61,code=sm_61
+# endif
 
 all: clean knncuda.cubin
 
 knncuda.cubin: cuda/knncuda.cu
-	nvcc $(NVCCFLAGS) --cubin $(GENCODE_FLAGS) $(INCLUDES) -o $@ $+ $(LDFLAGS)
+	nvcc $(NVCCFLAGS) --cubin $(shell $(SM_SCRIPT)) $(INCLUDES) -o $@ $+ $(LDFLAGS)
 
 clean:
 	rm -f knncuda.cubin
