@@ -16,13 +16,12 @@ int PREDICT_GPU_SYNC = 0;
 //batch variables
 const u64 window_size_ns = 300*_us;
 const u32 max_batch_size = 16; //this cannot be more than 256 (allocated in main.c)
-const u32 cpu_gpu_threshold = 8; //less than this we use cpu
+const u32 cpu_gpu_threshold = 6; //less than this we use cpu
 
 //batch test variables
 u32* window_size_hist; //allocated in main.c of kernel_hook, 128 elements
 u32 n_used_gpu = 0;
 
-#define NUMBER_DEVICES 1
 
 ///DECLARE_COMPLETION(batch_completed);
 ///DECLARE_COMPLETION(batch_block);
@@ -137,14 +136,13 @@ void multi_gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights, int d
 }
 
 void do_gpu_inference(int n_vecs, long **weights, int dev) {
-	//u64 s,t;	
-	//pr_warn(" ###############  copying %d inputs\n", n_vecs);
-	//s = ktime_get_ns();
+	u64 s,t;	
+	s = ktime_get_ns();
 	multi_copy_inputs_to_gpu(n_vecs, dev);
 	multi_gpu_predict_batch(0, n_vecs, weights, dev);
 	multi_copy_results_from_gpu(n_vecs, dev);
-	//t = ktime_get_ns();
-	//pr_warn(" ###############  inference took %llu us\n", (t-s)/1000);
+	t = ktime_get_ns();
+	pr_warn(" ###############  inference took %llu us\n", (t-s)/1000);
 }
 
 //this is what an IO calls when it calls predict()
@@ -163,11 +161,6 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			break;
 		}
 	}
-	pr_warn("my device is %u\n", this_dev);
-	if(i==NUMBER_DEVICES) {
-		pr_warn("########### didnt find my device\n");
-		return false;
-	}
 
 	//pr_warn("pending in %d\n", pending++);
 	spin_lock_irqsave(&batch_lock[this_dev], irqflags);
@@ -184,7 +177,8 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	}
 	//pr_warn("pending out %d\n", pending--);
 
-	my_id = waiting[this_dev]++;
+	my_id = waiting[this_dev];
+	waiting[this_dev] += 1;
 	//pr_warn("id %d ready to work\n", my_id);
 	//copy inputs to intermediary buffer
 	memcpy((multi_inputs_to_gpu[this_dev]) +(my_id*LEN_INPUT), feat_vec, LEN_INPUT);
@@ -216,26 +210,24 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		//bookkeeping
 		this_batch_size[this_dev] = waiting[this_dev];
 		record_batch(this_dev);
-		waiting[this_dev] = 0;
 		//pr_warn("batch formed with size %d\n", this_batch_size);
 		spin_unlock_irqrestore(&batch_lock[this_dev], irqflags);
 
 		//use cpu
-		if(waiting[this_dev] < cpu_gpu_threshold) {
-		//if (1) {
+		if(this_batch_size[this_dev] < cpu_gpu_threshold) {
 			use_cpu_instead[this_dev] = 1;
-			my_prediction = false;
-			//my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			//my_prediction = false;
 		}
 		//use GPU
 		else {
 			n_used_gpu++;
+			pr_warn("using GPU");
 			use_cpu_instead[this_dev] = 0;
 
 			//let the lock go. if we do a sync command with it, the kernel deadlocks :)
 			//incoming reqs will not acquire lock since they will wait on batch_block
-			//TODO
-			//do_gpu_inference(waiting, gpu_weights[this_dev_idx].weights); 
+			do_gpu_inference(this_batch_size[this_dev], gpu_weights[this_dev].weights, this_dev); 
 		 	for (err=0 ; err<128 ; err++)
 				multi_gpu_outputs[this_dev][err] = false;
 			
@@ -278,10 +270,6 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 
 		//.. wait until first tell us its done
 		wait_for_completion(&batch_completed[this_dev]);
-		// err = wait_for_completion_timeout(&batch_completed, usecs_to_jiffies(window_size_ns*200/1000));
-		// if(err == 0) {
-		// 	pr_warn("############ timeout...\n");
-		// }
 
 		spin_lock_irqsave(&batch_exited[this_dev], f2);
 		n_exited[this_dev]++;
@@ -291,7 +279,6 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		}
 		spin_unlock_irqrestore(&batch_exited[this_dev], f2);
 
-		return false;
 		//get the result and return
 		if (use_cpu_instead[this_dev]) 
 			return cpu_prediction_model(feat_vec, n_vecs, weights);

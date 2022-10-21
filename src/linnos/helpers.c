@@ -169,12 +169,12 @@ void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) 
         check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_i[i], sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
         check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[i], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
-        inputs_to_gpu[i] = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
-        if (!inputs_to_gpu[i]) {
+        multi_inputs_to_gpu[i] = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
+        if (!multi_inputs_to_gpu[i]) {
             pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
         }
-        gpu_outputs[i] = kava_alloc(64 * max_batch_size * sizeof(long));
-        if (!gpu_outputs[i]) {
+        multi_gpu_outputs[i] = kava_alloc(64 * max_batch_size * sizeof(long));
+        if (!multi_gpu_outputs[i]) {
             pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
         }
     }
