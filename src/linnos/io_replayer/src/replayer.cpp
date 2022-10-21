@@ -17,7 +17,7 @@
 #include "replayer.hpp"
 #include "op_replayers.hpp"
 
-uint8_t N_THREADS = 16;
+uint8_t N_THREADS = 32;
 
 int main (int argc, char **argv)
 {
@@ -59,6 +59,9 @@ int main (int argc, char **argv)
             else if (type == "strawman")
             {
                 targs[dev][j].executor = strawman_execute_op;
+            } else if (type == "failover")
+            {
+                targs[dev][j].executor = failover_execute_op;
             } else {
                 printf("I dont recognize type %s (second parameter)\n", type.c_str());
             }

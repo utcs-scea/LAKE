@@ -31,7 +31,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights);
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights);
 void gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights);
 
-void predictors_mgpu_init(int ndev);
+void predictors_mgpu_init(void);
 
 extern int PREDICT_GPU_SYNC;
 

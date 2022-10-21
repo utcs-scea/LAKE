@@ -55,12 +55,36 @@ void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
             trace->add_unique_fail();
             ret = pread(fds[device+1], buf, trace_op.size, trace_op.offset);
             if (ret < 0) { 
-                printf("Second IO failed, this shouldn't happen!\n");
+                printf("Second IO failed, this shouldn't happen! err %d\n", ret);
                 trace->add_never_finished();
             }
         }
     } else if(trace_op.op == 1) {
-    ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+    } else {
+        printf("Wrong OP code! %d\n", trace_op.op);
+    }
+}
+
+
+void failover_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
+    int ret, i;
+    int *fds = trace->get_fds();
+    //read
+    if(trace_op.op == 0) {
+        for (i = 0 ; i < 3 ; i++) {
+            //XXX hard coded
+            ret = pread(fds[(device+i)%3], buf, trace_op.size, trace_op.offset);
+            if (ret > 0) break;
+            trace->add_fail();
+        }
+        //max fail.. it looped around, linnos never handled this case
+        if (i == 3) {
+            printf("IO never finished..\n");
+            trace->add_unique_fail();
+        }
+    } else if(trace_op.op == 1) {
+        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
     } else {
         printf("Wrong OP code! %d\n", trace_op.op);
     }
@@ -104,7 +128,6 @@ void* replayer_fn(void* arg) {
                 trace_op.size, trace_op.offset, submission/1000,
                 device);
     }
-
     free(buf);
     return 0;
 }

@@ -21,3 +21,4 @@ long *multi_gpu_outputs[3];
 CUdeviceptr multi_d_input_vec_i[3];
 CUdeviceptr multi_d_mid_res_i[3];
 CUdeviceptr multi_d_final_res_i[3];
+long *first_weight_ptr_to_dev[3];

@@ -18,6 +18,7 @@ struct Thread_arg {
 
 void baseline_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf);
 void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf);
+void failover_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf);
 void* replayer_fn(void* arg);
 
 

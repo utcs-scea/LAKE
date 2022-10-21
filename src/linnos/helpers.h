@@ -57,5 +57,6 @@ void multi_gpu_cuda_cleanup(struct GPU_weights *state, int dev);
 void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev);
 void multi_copy_inputs_to_gpu(u64 n_inputs, int dev);
 void multi_copy_results_from_gpu(u64 n_inputs, int dev);
+void multi_gpu_cuda_cleanup_dev(struct GPU_weights *state, int dev);
 
 #endif

@@ -1,3 +1,5 @@
+#!/bin/bash
+
 TraceTag='trace'
 
 if [ $# -ne 4 ]
