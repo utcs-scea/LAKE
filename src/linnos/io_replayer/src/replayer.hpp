@@ -40,6 +40,7 @@ private:
     uint64_t *trace_line_count;
     uint64_t start_timestamp;
     std::atomic<uint64_t> late_ios;
+    std::atomic<uint64_t> *io_count;
 
     //the traces themselves
     double **req_timestamps;
@@ -103,6 +104,8 @@ public:
         std::atomic_init(&fails, (uint64_t)0);
         std::atomic_init(&unique_fails, (uint64_t)0);
         std::atomic_init(&never_finished, (uint64_t)0);
+
+        io_count = new std::atomic<uint64_t>[3]; //whatever
     }
 
     ~Trace() {
@@ -239,6 +242,10 @@ public:
         printf("That's about %f of unique IOs\n", std::atomic_load(&unique_fails)/(float)total_lines);
         printf("stats: %lu IOs never finished\n", std::atomic_load(&never_finished));
 
+        for (int i = 0 ; i < ndevices ; i++) {
+            printf("Device %d had %lu IOs\n", i, std::atomic_load(&io_count[i]));
+        }
+
     }
 
     void add_fail(){
@@ -251,6 +258,10 @@ public:
 
     void add_never_finished() {
         std::atomic_fetch_add(&never_finished, (uint64_t)1);
+    }
+
+    void add_io_count(int dev) {
+        std::atomic_fetch_add(&io_count[dev], (uint64_t)1);
     }
 
 };

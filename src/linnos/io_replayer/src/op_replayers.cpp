@@ -29,8 +29,10 @@ void baseline_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     int *fds = trace->get_fds();
     //read
     if(trace_op.op == 0) {
+        trace->add_io_count(device);
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
     } else if(trace_op.op == 1) {
+        trace->add_io_count(device);
         ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
     } else {
         printf("Wrong OP code! %d\n", trace_op.op);
@@ -48,11 +50,13 @@ void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     int *fds = trace->get_fds();
     //read
     if(trace_op.op == 0) {
+        trace->add_io_count(device);
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
         //rejected, go to next device (it should not have linnos enabled)
         if (ret < 0) {
             trace->add_fail();
             trace->add_unique_fail();
+            trace->add_io_count(device+1);
             ret = pread(fds[device+1], buf, trace_op.size, trace_op.offset);
             if (ret < 0) { 
                 printf("Second IO failed, this shouldn't happen! err %d\n", ret);
@@ -60,6 +64,7 @@ void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
             }
         }
     } else if(trace_op.op == 1) {
+        trace->add_io_count(device);
         ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
     } else {
         printf("Wrong OP code! %d\n", trace_op.op);
@@ -71,11 +76,13 @@ void strawman_2ssds_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device,
     int *fds = trace->get_fds();
     //read
     if(trace_op.op == 0) {
+        trace->add_io_count(device);
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
         //rejected, go to next device (it should not have linnos enabled)
         if (ret < 0) {
             trace->add_fail();
             trace->add_unique_fail();
+            trace->add_io_count(2);
             ret = pread(fds[2], buf, trace_op.size, trace_op.offset);
             if (ret < 0) { 
                 printf("Second IO failed, this shouldn't happen! err %d\n", ret);
@@ -83,6 +90,7 @@ void strawman_2ssds_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device,
             }
         }
     } else if(trace_op.op == 1) {
+        trace->add_io_count(device);
         ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
     } else {
         printf("Wrong OP code! %d\n", trace_op.op);

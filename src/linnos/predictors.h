@@ -23,6 +23,7 @@
 extern bool* gpu_results;
 extern u32* window_size_hist;
 extern u32 n_used_gpu;
+extern u32 ios_on_device[NUMBER_DEVICES];
 bool batch_test(char *feat_vec, int n_vecs, long **weights);
 
 extern struct GPU_weights gpu_weights[NUMBER_DEVICES];

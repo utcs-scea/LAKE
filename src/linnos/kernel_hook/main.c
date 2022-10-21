@@ -51,10 +51,9 @@ static const char *devices[] = {
 	0
 };
 
-static long *weights[][4] = {
+long *weights[][4] = {
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
 	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
-	//{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
 	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
 	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
 };
@@ -114,6 +113,9 @@ static void gpu_detach(void) {
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
 
 	pr_warn("GPU was used %u times\n", n_used_gpu);
+	// for (i=0;i<NUMBER_DEVICES;i++) {
+	// 	pr_warn("IOs on device %d: %u\n", i, ios_on_device[i]);
+	// }
 	cuCtxDestroy(cuctx);
 }
 static void gpu_copy_weight(int idx) {
@@ -121,7 +123,7 @@ static void gpu_copy_weight(int idx) {
 	pr_warn("Copying weights for idx %d\n", idx);
 	copy_weights(wts, &gpu_weights[idx]);
 
-	first_weight_ptr_to_dev[idx] = weights[idx][0];
+	first_weight_ptr_to_dev[idx] = wts[0];
 }
 
 /*
@@ -184,8 +186,8 @@ static int attach_to_queue(int idx) {
 
 	q->weight_0_T = wts[0];
 	q->weight_1_T = wts[1];
-	q->bias_0 = wts[1];
-	q->bias_1 = wts[2];
+	q->bias_0 = wts[2];
+	q->bias_1 = wts[3];
 	q->predictor = fptr;
 	q->ml_enabled = true;
 	sysctl_lake_enable_linnos = true;

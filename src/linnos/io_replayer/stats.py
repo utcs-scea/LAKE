@@ -43,6 +43,7 @@ if __name__ == '__main__':
                 int(tok_list[3]),float(tok_list[4])])
 
     for io in sorted(sorted_io, key=itemgetter(0)):
+        # io here is inverted
         if (io[2] == 1): #read
             read_latencies.append(io[1])
             read_sizes.append(io[3])
@@ -58,14 +59,15 @@ if __name__ == '__main__':
     np_read_latencies = np.array(read_latencies)
 
     print ("==========Statistics==========")
-    #print(f"Total reads {len(read_latencies)}")
+    print(f"Total reads {len(read_latencies)}")
+    print(f"Total writes {len(write_latencies)}")
     #print (f"Min/Max inter arrival time  {min(inter_arrivals)}, {max(inter_arrivals)}")
     #print (f"Total writes: {len(write_latencies)}  percent: {len(write_latencies)/len(inter_arrivals)+1}")
     #print (f"Total reads: {len(read_latencies)}")
     #print (f"Write iops: {(float(totalwrite) / (last_io_time / 1000)):.2f}")
     #print (f"Read iops: {(float(totalread) / (last_io_time / 1000)):.2f}")
     #print (f"Average write bandwidth: {(writebandwidth / totalwrite):.2f} KB/s")
-    #print (f"Average write latency: {statistics.mean(write_latencies):.2f} us")
+    print (f"Average write latency: {statistics.mean(write_latencies):.2f} us")
     #print (f"Average read bandwidth: {(readbandwidth / totalread):.2f} KB/s")
     print (f"Average read latency: {statistics.mean(read_latencies):.2f} us")
     print (f"Stddev read latency:  {statistics.pstdev(read_latencies):.2f} us")

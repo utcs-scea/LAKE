@@ -17,7 +17,7 @@
 #include "replayer.hpp"
 #include "op_replayers.hpp"
 
-uint8_t N_THREADS = 32;
+uint8_t N_THREADS = 128;
 
 int main (int argc, char **argv)
 {

@@ -1,8 +1,8 @@
 import numpy as np
 import sys
 
-if len(sys.argv) != 2:
-    print("Need argument: <file output>")
+if len(sys.argv) != 6:
+    print("Need argument: <file output> <readpct e.g. 0.7> <total time in sec> <avg_size in KB> <arrival rate in us>")
     sys.exit(1)
 
 KB = 1024
@@ -11,10 +11,10 @@ GB = 1024*1024*1024 #i like dumb and readable
 S_TO_US = 1000*1000
 
 #configs
-TIME_US = 15*S_TO_US  #seconds times us
+TIME_US = int(sys.argv[3]) *S_TO_US  #seconds times us
 MAX_BYTE_OFFSET = 500*GB
 
-READ_PCT = 0.7
+READ_PCT = float(sys.argv[2])
 
 #AVG_SIZE_BYTES = 23*KB
 #BYTES_STDDEV =  2*KB
@@ -26,11 +26,10 @@ READ_PCT = 0.7
 #ARRIVAL_RATE_US = 100.0
 #ARRIVAL_STDDEV = 10.0
 
-AVG_SIZE_BYTES = 256*KB
-BYTES_STDDEV =  16*KB
-ARRIVAL_RATE_US = 50.0
-ARRIVAL_STDDEV = 5.0
-
+AVG_SIZE_BYTES = int(sys.argv[4])*KB
+BYTES_STDDEV =  int(int(sys.argv[4])/20) * KB #5%
+ARRIVAL_RATE_US = int(sys.argv[5])
+ARRIVAL_STDDEV = int(int(sys.argv[5])/20) 
 
 def get_next_multiple(A, B):
     if (A % B):
@@ -57,7 +56,7 @@ with open(sys.argv[1], "w") as fp:
             #clip stuff so we dont have negatives or close to +inf
             aligned_offset = get_next_multiple(abs(offsets[i]), 4096)
             aligned_offset = min(aligned_offset, MAX_BYTE_OFFSET)
-            aligned_offset = max(aligned_offset, 256*MB) #dont write to lower offsets
+            aligned_offset = max(aligned_offset, 128*MB) #dont write to lower offsets
 
             aligned_size = get_next_multiple(abs(sizes[i]), 4096)
             aligned_size = min(aligned_size, 10*AVG_SIZE_BYTES)
