@@ -26,6 +26,7 @@ static char *cubin_path = "linnos.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu predictor");
 
+
 //adding a model to a device requires:
 // 1. include the header with the weights
 // 2. put device name in devices
@@ -97,7 +98,6 @@ static int gpu_attach(void) {
 	window_size_hist = vmalloc(128);
 	for (i=0;i<128;i++) window_size_hist[i] = 0;
 
-	pr_warn("allocated, initing batch stuff\n", ndev);
 	predictors_mgpu_init();
 
 	return 0;
@@ -177,7 +177,6 @@ static int attach_to_queue(int idx) {
 		return -2;
 	}
 	q = bdev_get_queue(dev);
-	//pr_warn("wt test  %ld %ld %ld %ld \n", wts[0][0], wts[1][0], wts[2][0], wts[3][0]);
 
 	//more spaggheti, nice
 	if (is_gpu_inf) 
