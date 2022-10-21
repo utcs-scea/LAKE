@@ -32,30 +32,30 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu 
 // 3. set the pointers into a new array in weights (dont mess with the ending 0)
 
 #include "sde.h"
-#include "weights_header/w_nvme0n1.h"
+//#include "weights_header/w_nvme0n1.h"
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-//#include "weights_header/256k_3ssds/t1_256k_nvme0n1.h"
-//#include "weights_header/256k_3ssds/t2_256k_nvme1n1.h"
-//#include "weights_header/256k_3ssds/t3_256k_nvme2n1.h"
+#include "weights_header/256k_3ssds/t1_256k_nvme0n1.h"
+#include "weights_header/256k_3ssds/t2_256k_nvme1n1.h"
+#include "weights_header/256k_3ssds/t3_256k_nvme2n1.h"
 
 
 static const char *devices[] = {
-    "/dev/vdb",
+    //"/dev/vdb",
 	//"/dev/vdc",
-	///"/dev/nvme0n1",
-	///"/dev/nvme1n1",
-	///"/dev/nvme2n1",
+	"/dev/nvme0n1",
+	"/dev/nvme1n1",
+	//"/dev/nvme2n1",
 	0
 };
 
 static long *weights[][4] = {
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
 	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
-	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
-	//{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
-	//{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
+	//{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
+	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
+	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
 };
 
 //the predictor function to use

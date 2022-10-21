@@ -66,6 +66,29 @@ void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     }
 }
 
+void strawman_2ssds_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
+    int ret;
+    int *fds = trace->get_fds();
+    //read
+    if(trace_op.op == 0) {
+        ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
+        //rejected, go to next device (it should not have linnos enabled)
+        if (ret < 0) {
+            trace->add_fail();
+            trace->add_unique_fail();
+            ret = pread(fds[2], buf, trace_op.size, trace_op.offset);
+            if (ret < 0) { 
+                printf("Second IO failed, this shouldn't happen! err %d\n", ret);
+                trace->add_never_finished();
+            }
+        }
+    } else if(trace_op.op == 1) {
+        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+    } else {
+        printf("Wrong OP code! %d\n", trace_op.op);
+    }
+}
+
 
 void failover_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
     int ret, i;

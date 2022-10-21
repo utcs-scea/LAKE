@@ -59,9 +59,10 @@ int main (int argc, char **argv)
             else if (type == "strawman")
             {
                 targs[dev][j].executor = strawman_execute_op;
-            } else if (type == "failover")
-            {
+            } else if (type == "failover") {
                 targs[dev][j].executor = failover_execute_op;
+            } else if (type == "strawman2") {
+                targs[dev][j].executor = strawman_2ssds_execute_op;
             } else {
                 printf("I dont recognize type %s (second parameter)\n", type.c_str());
             }
