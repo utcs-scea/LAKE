@@ -53,8 +53,8 @@ long *test_weights[4] = { weight_0_T, weight_1_T, bias_0, bias_1};
 static int run_gpu(void) {
     int i, j;
     PRINT("Starting\n");
-    int batch_sizes[] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
-    int n_batches = 12;
+    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    int n_batches = 11;
     int max_batch_size = 1024;
     // n needs to be at least as large as the largest batch size
     const int n = 1024;
@@ -123,7 +123,8 @@ static int run_gpu(void) {
         avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
         best = best / 1000; best_total = best_total / 1000;
 
-        PRINT("GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        //PRINT("GPU_batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        PRINT("GPU_batch_%d,%lld,%lld\n", batch_size, avg, avg_total);
 	}
 
     // measuring cpu time
@@ -165,7 +166,8 @@ static int run_gpu(void) {
         avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
         best = best / 1000; best_total = best_total / 1000;
 
-        PRINT("CPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        //PRINT("CPU_batch_%d,%lld,%lld,%lld,%lld\n", batch_size, avg, avg_total, best, best_total);
+        PRINT("CPU_batch_%d,%lld\n", batch_size, avg);
 	}
 
     if(check_correctness) {
