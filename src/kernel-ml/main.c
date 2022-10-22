@@ -37,7 +37,8 @@ MODULE_PARM_DESC(cubin_path, "The path to kml.cubin, default ./kml.cubin");
 #endif
 
 
-#define RUNS 1
+#define RUNS 10
+#define USE_CUDA_SYNC 1
 
 
 static int run_cpu(void) {
@@ -191,11 +192,11 @@ static void setup_gpu(int batch_size) {
 static void copy_batch_inputs(int batch_size) {
     float *kbfuf_input = (float*) kava_alloc(sizeof(float) * input_cols * batch_size);
     memcpy(kbfuf_input, batch_input, sizeof(float) * input_cols * batch_size);
-    check_error(cuMemcpyHtoDAsync(d_input, kbfuf_input, sizeof(float) * input_cols * batch_size, 0), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(d_input, kbfuf_input, sizeof(float) * input_cols * batch_size), "cuMemcpyHtoD", __LINE__);
 }
 
 static void get_result_batch(int batch_size) {
-    check_error(cuMemcpyDtoHAsync(result, d_result_cols, sizeof(int) * batch_size, 0), "cuMemcpyDtoH", __LINE__);
+    check_error(cuMemcpyDtoH(result, d_result_cols, sizeof(int) * batch_size), "cuMemcpyDtoH", __LINE__);
 }
 
 void clean_batch(void) {
@@ -307,6 +308,9 @@ void autodiff_forward(int batch_size, int sync) {
 				0,   //shared mem
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
+    if (USE_CUDA_SYNC == 1) {
+        check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
+    }
 }
 
 void readahead_normalized_online_data(int batch_size) {
@@ -411,6 +415,7 @@ void readahead_normalized_online_data(int batch_size) {
 				0,   //shared mem
                 NULL, fargs, NULL),
 			"cuLaunchKernel", __LINE__);
+    
 }   
 
 void predict_readahead_class(int batch_size, int sync) {
