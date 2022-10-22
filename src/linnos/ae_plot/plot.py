@@ -15,21 +15,29 @@ gpucomp = {}
 
 for line in reversed(klog.splitlines()):
     print (line)
-    if "GPU_batch_" in line:
+    if "linnos_GPU_batch_" in line:
         #format:  GPU_batch_X,2,4     (2 is comp, 4 is comp+data)
-        m = re.search("GPU\_batch\_(\d+),(\d+),(\d+)", line) 
+        m = re.search("linnos_GPU\_batch\_(\d+),(\d+),(\d+)", line) 
         if not m:
             print("error parsing GPU string: ", line)
             sys.exit(1)
+        #maybe the workload was ran twice, so we skip if we already found it
+        if int(m.group(1)) in gpucomp.keys():
+            continue
+
         gpucomp[int(m.group(1))] = int(m.group(2))
         gpudata[int(m.group(1))] = int(m.group(3))
 
-    if "CPU_batch_" in line:
+    if "linnos_CPU_batch_" in line:
         #format:  CPU_batch_X,2
-        m = re.search("CPU\_batch\_(\d+),(\d+)", line) 
+        m = re.search("linnos_CPU\_batch\_(\d+),(\d+)", line) 
         if not m:
             print("error parsing CPU string: ", line)
             sys.exit(1)
+
+        #maybe the workload was ran twice, so we skip if we already found it
+        if int(m.group(1)) in cpu.keys():
+            continue
         cpu[int(m.group(1))] = int(m.group(2))
 
 

@@ -124,7 +124,7 @@ static int run_gpu(void) {
         best = best / 1000; best_total = best_total / 1000;
 
         //PRINT("GPU_batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-        PRINT("GPU_batch_%d,%lld,%lld\n", batch_size, avg, avg_total);
+        PRINT("linnos_GPU_batch_%d,%lld,%lld\n", batch_size, avg, avg_total);
 	}
 
     // measuring cpu time
@@ -167,7 +167,7 @@ static int run_gpu(void) {
         best = best / 1000; best_total = best_total / 1000;
 
         //PRINT("CPU_batch_%d,%lld,%lld,%lld,%lld\n", batch_size, avg, avg_total, best, best_total);
-        PRINT("CPU_batch_%d,%lld\n", batch_size, avg);
+        PRINT("linnos_CPU_batch_%d,%lld\n", batch_size, avg);
 	}
 
     if(check_correctness) {
