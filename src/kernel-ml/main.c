@@ -38,7 +38,7 @@ MODULE_PARM_DESC(cubin_path, "The path to kml.cubin, default ./kml.cubin");
 
 
 #define RUNS 10
-#define USE_CUDA_SYNC 1
+#define USE_CUDA_SYNC 0
 
 
 static int run_cpu(void) {
@@ -481,7 +481,7 @@ static int run_gpu(void) {
             usleep_range(1000, 2000);
 
             c_start = ktime_get_ns();
-            predict_readahead_class(batch_size, 1);
+            predict_readahead_class(batch_size, 0);
             c_stop = ktime_get_ns();
             
             usleep_range(1000, 2000);
