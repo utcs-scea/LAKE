@@ -16,7 +16,6 @@
 
 #include "variables.h"
 
-#define NUMBER_DEVICES 3
 
 #ifdef __KERNEL__
 //these externs are for batching

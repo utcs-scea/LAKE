@@ -91,8 +91,8 @@ static int gpu_attach(void) {
 		ndev++;
 	pr_warn("initing for %d devices\n", ndev);
 	multi_initialize_gpu(cubin_path, 512, ndev);
-	window_size_hist = vmalloc(128);
-	for (i=0;i<128;i++) window_size_hist[i] = 0;
+	window_size_hist = vmalloc(256);
+	for (i=0;i<256;i++) window_size_hist[i] = 0;
 
 	predictors_mgpu_init();
 

@@ -140,50 +140,57 @@ void copy_inputs_to_gpu(u64 n_inputs) {
     cuMemcpyHtoDAsync(d_input_vec_i, inputs_to_gpu, sizeof(long) * LEN_INPUT * n_inputs, 0);
 }
 
+/*
+ * Multi GPU, multi batch functions
+*/
+
 void multi_gpu_cuda_cleanup_dev(struct GPU_weights *state, int dev) {
     int i;
     pr_warn("Cleaning up GPU state\n");
     for(i = 0; i <4 ; i++) {
         cuMemFree((CUdeviceptr)state->weights[i]);
     }
-    cuMemFree(multi_d_input_vec_i[dev]);
-    cuMemFree(multi_d_mid_res_i[dev]);
-    cuMemFree(multi_d_final_res_i[dev]);
 
-    kava_free(multi_inputs_to_gpu[dev]);
-    kava_free(multi_gpu_outputs[dev]);
+    for(i = 0 ; i < MAX_DEV_BATCHES ; i++){
+        cuMemFree(multi_d_input_vec_i[dev][i]);
+        cuMemFree(multi_d_mid_res_i[dev][i]);
+        cuMemFree(multi_d_final_res_i[dev][i]);
+        kava_free(multi_inputs_to_gpu[dev][i]);
+        kava_free(multi_gpu_outputs[dev][i]);
+    }
 }
 
 void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) {
-    int i;
+    int i, j;
     //intialize kernels
-    if (cuctx) {
+    if (cuctx) 
         return;
-    }
+
     gpu_cuda_init(0);
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
     
     for(i = 0 ; i < ndev ; i++){
-        check_error(cuMemAlloc((CUdeviceptr*) &multi_d_input_vec_i[i], sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
-        check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_i[i], sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
-        check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[i], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
+        for(j = 0 ; j < MAX_DEV_BATCHES ; j++){
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_input_vec_i[i][j], sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_i[i][j], sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[i][j], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
-        multi_inputs_to_gpu[i] = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
-        if (!multi_inputs_to_gpu[i]) {
-            pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
-        }
-        multi_gpu_outputs[i] = kava_alloc(64 * max_batch_size * sizeof(long));
-        if (!multi_gpu_outputs[i]) {
-            pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
+            multi_inputs_to_gpu[i][j] = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
+            if (!multi_inputs_to_gpu[i][j]) 
+                pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
+            
+            multi_gpu_outputs[i][j] = kava_alloc(64 * max_batch_size * sizeof(long));
+            if (!multi_gpu_outputs[i][j]) 
+                pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
         }
     }
 }
 
-void multi_copy_inputs_to_gpu(u64 n_inputs, int dev) {
-    cuMemcpyHtoDAsync(multi_d_input_vec_i[dev], multi_inputs_to_gpu[dev], sizeof(long) * LEN_INPUT * n_inputs, 0);
+void multi_copy_inputs_to_gpu(u64 n_inputs, int dev, int batch_id) {
+    cuMemcpyHtoDAsync(multi_d_input_vec_i[dev][batch_id], multi_inputs_to_gpu[dev][batch_id], sizeof(long) * LEN_INPUT * n_inputs, 0);
 }
 
-void multi_copy_results_from_gpu(u64 n_inputs, int dev) {
-    cuMemcpyDtoH(multi_gpu_outputs[dev], multi_d_final_res_i[dev], sizeof(long) * 64 * n_inputs);
+void multi_copy_results_from_gpu(u64 n_inputs, int dev, int batch_id) {
+    cuMemcpyDtoH(multi_gpu_outputs[dev][batch_id], multi_d_final_res_i[dev][batch_id], sizeof(long) * 64 * n_inputs);
 }
