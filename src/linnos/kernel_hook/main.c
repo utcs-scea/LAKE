@@ -26,7 +26,6 @@ static char *cubin_path = "linnos.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu predictor");
 
-
 //adding a model to a device requires:
 // 1. include the header with the weights
 // 2. put device name in devices
@@ -37,8 +36,8 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu 
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-#include "weights_header/128k_50us/w_Trace_nvme0n1.h"
-#include "weights_header/128k_50us/w_Trace_nvme1n1.h"
+#include "weights_header/512k_200us_burst/w_Trace_nvme0n1.h"
+#include "weights_header/512k_200us_burst/w_Trace_nvme1n1.h"
 
 static const char *devices[] = {
     //"/dev/vdb",

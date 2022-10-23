@@ -39,8 +39,6 @@ private:
     std::atomic<uint64_t> *jobtracker;
     uint64_t *trace_line_count;
     uint64_t start_timestamp;
-    std::atomic<uint64_t> late_ios;
-    std::atomic<uint64_t> *io_count;
 
     //the traces themselves
     double **req_timestamps;
@@ -50,9 +48,11 @@ private:
     int *dev_fds;
 
     //failover stuff
-    std::atomic<uint64_t> fails;
-    std::atomic<uint64_t> unique_fails;
-    std::atomic<uint64_t> never_finished;
+    std::atomic<uint64_t> late_ios[3];
+    std::atomic<uint64_t> io_count[3];
+    std::atomic<uint64_t> fails[3];
+    std::atomic<uint64_t> unique_fails[3];
+    std::atomic<uint64_t> never_finished[3];
 
     /*log format:
     * 1: timestamp in ms
@@ -64,7 +64,6 @@ private:
     */
     std::ofstream outfile;  
     std::mutex io_mutex;
-
 
     void allocate_trace() {
         req_timestamps = new double*[ndevices];
@@ -100,12 +99,13 @@ public:
         trace_line_count = new uint64_t[ndevices]{0};
         ndevices = ndevices;
         allocate_trace();
-        std::atomic_init(&late_ios, (uint64_t)0);
-        std::atomic_init(&fails, (uint64_t)0);
-        std::atomic_init(&unique_fails, (uint64_t)0);
-        std::atomic_init(&never_finished, (uint64_t)0);
-
-        io_count = new std::atomic<uint64_t>[3]; //whatever
+        for (int i = 0 ; i < 3 ; i++) {
+            std::atomic_init(&late_ios[i], (uint64_t)0);
+            std::atomic_init(&io_count[i], (uint64_t)0);
+            std::atomic_init(&fails[i], (uint64_t)0);
+            std::atomic_init(&unique_fails[i], (uint64_t)0);
+            std::atomic_init(&never_finished[i], (uint64_t)0);
+        }
     }
 
     ~Trace() {
@@ -223,12 +223,8 @@ public:
         return traceop;
     }
 
-    void add_late_op() {
-        late_ios.fetch_add(1, std::memory_order_seq_cst);
-    }
-
-    uint64_t get_late_op() {
-        return late_ios.fetch_add(0, std::memory_order_seq_cst);
+    void add_late_op(uint32_t dev) {
+        late_ios[dev].fetch_add(1, std::memory_order_seq_cst);
     }
 
     void print_stats() {
@@ -236,32 +232,36 @@ public:
         for (int i = 0 ; i < ndevices ; i++) {
             total_lines += trace_line_count[i];
         }
-        printf("stats: %lu IOs failed\n", std::atomic_load(&fails));
-        printf("That's about %f of all IOs issued\n", std::atomic_load(&fails)/(float)total_lines);
-        printf("stats: %lu unique IOs failed\n", std::atomic_load(&unique_fails));
-        printf("That's about %f of unique IOs\n", std::atomic_load(&unique_fails)/(float)total_lines);
-        printf("stats: %lu IOs never finished\n", std::atomic_load(&never_finished));
 
         for (int i = 0 ; i < ndevices ; i++) {
-            printf("Device %d had %lu IOs\n", i, std::atomic_load(&io_count[i]));
+            uint64_t lio = std::atomic_load(&late_ios[i]);
+            uint64_t total = std::atomic_load(&io_count[i]);
+            printf("Device %d had %lu IOs, %lu late (%f%%)\n", i, total, lio, (lio/(float)total)*100);
+            uint64_t f = std::atomic_load(&fails[i]);
+            uint64_t nf = std::atomic_load(&never_finished[i]);
+            printf("\t%lu IOs were rejected (%f%%)  %lu never finished\n", f, (f/(float)total)*100, nf);
         }
 
     }
 
-    void add_fail(){
-        std::atomic_fetch_add(&fails, (uint64_t)1);
+    void add_fail(uint32_t dev){
+        std::atomic_fetch_add(&fails[dev], (uint64_t)1);
     }
 
-    void add_unique_fail() {
-        std::atomic_fetch_add(&unique_fails, (uint64_t)1);
+    void add_unique_fail(uint32_t dev) {
+        std::atomic_fetch_add(&unique_fails[dev], (uint64_t)1);
     }
 
-    void add_never_finished() {
-        std::atomic_fetch_add(&never_finished, (uint64_t)1);
+    void add_never_finished(uint32_t dev) {
+        std::atomic_fetch_add(&never_finished[dev], (uint64_t)1);
     }
 
     void add_io_count(int dev) {
         std::atomic_fetch_add(&io_count[dev], (uint64_t)1);
+    }
+
+    uint64_t get_io_count(int dev) {
+        return std::atomic_fetch_add(&io_count[dev], (uint64_t)0);
     }
 
 };

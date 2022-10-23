@@ -15,8 +15,8 @@ static int sleep_until(uint64_t next) {
 
     //if 0 or negative, we need to issue
     if(diff <= 0) {
-        //we're super late
-        if (diff < 1000) return 1;
+        //we're late by at least 2 us
+        if (diff <= -2000) return 1;
         return 0; //late but not that much
     }
     else 
@@ -54,13 +54,13 @@ void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
         //rejected, go to next device (it should not have linnos enabled)
         if (ret < 0) {
-            trace->add_fail();
-            trace->add_unique_fail();
+            trace->add_fail(device);
+            trace->add_unique_fail(device);
             trace->add_io_count(device+1);
             ret = pread(fds[device+1], buf, trace_op.size, trace_op.offset);
             if (ret < 0) { 
                 printf("Second IO failed, this shouldn't happen! err %d\n", ret);
-                trace->add_never_finished();
+                trace->add_never_finished(device);
             }
         }
     } else if(trace_op.op == 1) {
@@ -80,13 +80,13 @@ void strawman_2ssds_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device,
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
         //rejected, go to next device (it should not have linnos enabled)
         if (ret < 0) {
-            trace->add_fail();
-            trace->add_unique_fail();
+            trace->add_fail(device);
+            trace->add_unique_fail(device);
             trace->add_io_count(2);
             ret = pread(fds[2], buf, trace_op.size, trace_op.offset);
             if (ret < 0) { 
                 printf("Second IO failed, this shouldn't happen! err %d\n", ret);
-                trace->add_never_finished();
+                trace->add_never_finished(device);
             }
         }
     } else if(trace_op.op == 1) {
@@ -107,12 +107,12 @@ void failover_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
             //XXX hard coded
             ret = pread(fds[(device+i)%3], buf, trace_op.size, trace_op.offset);
             if (ret > 0) break;
-            trace->add_fail();
+            trace->add_fail(device);
         }
         //max fail.. it looped around, linnos never handled this case
         if (i == 3) {
             printf("IO never finished..\n");
-            trace->add_unique_fail();
+            trace->add_unique_fail(device);
         }
     } else if(trace_op.op == 1) {
         ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
@@ -144,7 +144,7 @@ void* replayer_fn(void* arg) {
         //timestamp in op is in microsecond float, so convert to nano
         uint64_t next = targ->start_ts + (uint64_t)(trace_op.timestamp*1000);
         if(sleep_until(next) == 1)
-            trace->add_late_op();
+            trace->add_late_op(device);
 
         uint64_t submission = get_ns_ts();
         auto begin = std::chrono::steady_clock::now();

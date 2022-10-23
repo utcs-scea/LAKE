@@ -11,12 +11,12 @@
 
 int PREDICT_GPU_SYNC = 0;
 
-//this is tough and rough
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 150*_us;
-const u32 max_batch_size = 12; //this cannot be more than 256 (allocated in main.c)
-const u32 cpu_gpu_threshold = 8; //less than this we use cpu
+const u64 window_size_ns = 120*_us;
+const u32 max_batch_size = 16; //this cannot be more than 256 (allocated in main.c)
+const u32 cpu_gpu_threshold = 12; //less than this we use cpu
+const u64 inter_arrival_threshold = 60*_us;
 
 //batch test variables
 u32* window_size_hist; //allocated in main.c of kernel_hook, 128 elements
@@ -42,6 +42,7 @@ int this_batch_size[NUMBER_DEVICES];
 int pending[NUMBER_DEVICES];
 u64 window_start_ns[NUMBER_DEVICES];
 u64 waiting[NUMBER_DEVICES];
+u64 last_arrival[NUMBER_DEVICES];
 
 //GPU inference variables
 struct GPU_weights gpu_weights[NUMBER_DEVICES]; //per-ssd weights, we are not going to have more than NUMBER_DEVICES ssds..
@@ -151,7 +152,7 @@ void do_gpu_inference(int n_vecs, long **weights, int dev) {
 bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_id;
 	bool my_prediction;
-	u64 my_arrival;
+	u64 my_arrival, tdiff;
 	u32 err, i, this_dev=99;
 	unsigned long irqflags, f2;
 	bool use_cpu;
@@ -187,9 +188,8 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	//if this is the first, we start the window time
 	if (my_id == 0) {
 		my_arrival = ktime_get_ns();
+		last_arrival[this_dev] = my_arrival;
 		window_start_ns[this_dev] = my_arrival;
-
-		//pr_warn("first arrived\n");
 
 		//spin_lock_irqsave(&batch_exited[this_dev], f2);
 		n_exited[this_dev] = 0;
@@ -217,6 +217,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 
 		//use cpu
 		if(this_batch_size[this_dev] < cpu_gpu_threshold) {
+		//if (1) {
 			use_cpu_instead[this_dev] = 1;
 			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
 			//my_prediction = false; //XXX
@@ -265,8 +266,13 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	 */
 	else {
 		my_arrival = ktime_get_ns();
+		tdiff = my_arrival - last_arrival[this_dev];
+		last_arrival[this_dev] = my_arrival;
+
 		//check if this batch should be finalized
-		if(my_arrival - window_start_ns[this_dev] >= window_size_ns || waiting[this_dev] == max_batch_size) {
+		if(my_arrival - window_start_ns[this_dev] >= window_size_ns 
+				|| waiting[this_dev] == max_batch_size
+				|| tdiff >= inter_arrival_threshold ) {
 			complete(&finalize_batch[this_dev]);
 		}
 		spin_unlock_irqrestore(&batch_lock[this_dev], irqflags);
@@ -305,7 +311,7 @@ bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
-	int i, j, k, offset, wat;
+	int i, j, k, offset;
 
 	for (i=0 ; i<LEN_INPUT; i++) {
 		input_vec_i[i] = (long)(feat_vec[i]);

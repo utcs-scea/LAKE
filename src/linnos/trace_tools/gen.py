@@ -10,8 +10,10 @@ MB = 1024*1024
 GB = 1024*1024*1024 #i like dumb and readable
 S_TO_US = 1000*1000
 
-BURST_EVERY_US = 200
-BURST_OPS = 32
+BURST_EVERY_US = 50000
+BURST_OPS = 64
+BURST_AVG = 512*KB
+BURST_STDDEV = 4*KB
 
 #configs
 TIME_US = int(sys.argv[3]) *S_TO_US  #seconds times us
@@ -35,8 +37,8 @@ step_size = 300
 total_time = 0
 done = False
 now = 0
-next_burst = 100 # in micro seconds
-burst_request_num = 16
+next_burst = BURST_EVERY_US # in micro seconds
+
 with open(sys.argv[1], "w") as fp:
     while not done:
         #timestamps_us = np.random.zipf(ARRIVE_RATE_US, step_size)
@@ -72,19 +74,20 @@ with open(sys.argv[1], "w") as fp:
             total_time += timestamps_us[i]
 
             if total_time >= next_burst:
-                read_sizes_burst = np.random.normal(AVG_READ_SIZE_BYTES, BYTES_STDDEV, 16)
-                offsets_burst = np.random.randint(0, MAX_BYTE_OFFSET, size=16)
+                read_sizes_burst = np.random.normal(BURST_AVG, BURST_STDDEV, BURST_OPS)
+                offsets_burst = np.random.randint(0, MAX_BYTE_OFFSET, size=BURST_OPS)
+
                 next_burst += BURST_EVERY_US
                 for j in range(BURST_OPS):
                     aligned_size = get_next_multiple(abs(read_sizes_burst[j]), 4096)
                     aligned_size = min(aligned_size, 10*AVG_READ_SIZE_BYTES)
-                    total_time += 0.01
+                    total_time += 0.001
 
                     aligned_offset = get_next_multiple(abs(offsets_burst[j]), 4096)
                     aligned_offset = min(aligned_offset, MAX_BYTE_OFFSET)
                     aligned_offset = max(aligned_offset, 128*MB) #dont write to lower offsets
 
-                    line = f"{total_time:.5f} 0 {int(aligned_offset)} {int(aligned_size)} {ops[i]}\n"
+                    line = f"{total_time:.5f} 0 {int(aligned_offset)} {int(aligned_size)} 0\n"
                     fp.write(line)
 
 

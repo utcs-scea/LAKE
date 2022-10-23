@@ -17,7 +17,7 @@
 #include "replayer.hpp"
 #include "op_replayers.hpp"
 
-uint8_t N_THREADS = 64;
+uint8_t N_THREADS = 128;
 
 int main (int argc, char **argv)
 {
@@ -90,9 +90,6 @@ int main (int argc, char **argv)
     uint64_t elaps =  std::chrono::duration_cast<std::chrono::seconds>(end - begin).count();
 
     printf("Trace took %lu seconds to finish.\n", elaps);
-    if (trace.get_late_op() > 0)
-    printf("There were %lu late IOs, consider upping the # of threads if too many\n", 
-        trace.get_late_op());
 
     trace.print_stats();
 
