@@ -1,6 +1,8 @@
 import re, csv, sys
 from subprocess import check_output
-
+import matplotlib.pyplot as plt
+import matplotlib
+import numpy as np
 
 KLOG_LINES = 200
 
@@ -44,7 +46,87 @@ for line in lines[1:]:
     added_line = f"{line.rstrip()},{gpudata[bsize]},{cpu[bsize]},{gpucomp[bsize]}\n"
     outlines.append(added_line)
 
-
 with open('tmp.csv', 'w') as f:
     for l in outlines:
         f.write(l)
+
+# Plot graphs
+batch_sizes = []
+cpu = []
+gpu = []
+gpu_data = []
+ae_cpu = []
+ae_gpu = []
+ae_gpu_data = []
+outlines = outlines[1:]
+for l in outlines:
+    vals = l.split(",")
+    batch_sizes.append(int(vals[0]))
+    gpu.append(int(vals[1]))
+    cpu.append(int(vals[2]))
+    gpu_data.append(int(vals[3]))
+    ae_gpu.append(int(vals[4]))
+    ae_cpu.append(int(vals[5]))
+    ae_gpu_data.append(int(vals[6]))
+
+x = np.arange(len(batch_sizes)) + 1
+cmap = matplotlib.cm.get_cmap("Paired")
+
+c0 =  cmap(0)
+c1 =  cmap(1)
+c2 =  cmap(2)
+c3 =  cmap(3)
+c4 =  cmap(4)
+c5 =  cmap(5)
+
+fig, ax = plt.subplots()
+
+#cpu
+ax.plot(x, cpu, label="CPU", color=c0,
+    linewidth=2, 
+    #linestyle=densely_dashdotdotted,
+    marker="o",
+    )
+
+ax.plot(x, ae_gpu, label="AE_CPU", color=c1,
+    linewidth=2, 
+    #linestyle=densely_dashdotdotted,
+    marker="*",
+    )
+
+#gpu
+ax.plot(x, gpu, label="LAKE", 
+    linewidth=2, linestyle="-", color=c2, 
+    marker="s")
+
+ax.plot(x, ae_gpu, label="AE_LAKE", 
+    linewidth=2, linestyle="-", color=c3, 
+    marker="v")
+
+#gpu + data
+ax.plot(x, gpu_data, label="LAKE (sync.)", linewidth=2, linestyle="-", color=c4,
+        marker="x")
+
+ax.plot(x, ae_gpu_data, label="AE_LAKE (sync.)", linewidth=2, linestyle="-", color=c5,
+        marker="^")
+
+#plt.xticks(np.asarray(batch_sizes), rotation=30, ha='right', rotation_mode="anchor")
+plt.ticklabel_format(axis='y', style='sci', scilimits=(2,2))
+ax.set_xticks(x)
+ax.set_xticklabels(batch_sizes)
+
+#ax.set_xlim(left=0, right=len(batch_sizes)-1)
+ax.set_ylabel('Time (us)')
+
+ax.set_xlabel('# I/Os having their latency predicted')
+
+
+ax.spines['right'].set_visible(True)
+ax.spines['top'].set_visible(True)
+ax.legend(fontsize = 7)
+
+fig.tight_layout()
+fig.set_size_inches(4, 2)
+fig.set_dpi(800)
+
+fig.savefig(f"linnos_ae.pdf", bbox_inches='tight', pad_inches=0.05)
