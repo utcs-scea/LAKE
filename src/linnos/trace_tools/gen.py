@@ -10,22 +10,13 @@ MB = 1024*1024
 GB = 1024*1024*1024 #i like dumb and readable
 S_TO_US = 1000*1000
 
+BURST_EVERY_US = 200
+BURST_OPS = 32
+
 #configs
 TIME_US = int(sys.argv[3]) *S_TO_US  #seconds times us
 MAX_BYTE_OFFSET = 500*GB
-
 READ_PCT = float(sys.argv[2])
-
-#AVG_SIZE_BYTES = 23*KB
-#BYTES_STDDEV =  2*KB
-#ARRIVAL_RATE_US = 200.0
-#ARRIVAL_STDDEV = 10.0
-
-#AVG_SIZE_BYTES = 1024*KB
-#BYTES_STDDEV =  256*KB
-#ARRIVAL_RATE_US = 100.0
-#ARRIVAL_STDDEV = 10.0
-
 AVG_SIZE_BYTES = int(sys.argv[4])*KB
 BYTES_STDDEV =  int(int(sys.argv[4])/20) * KB #5%
 ARRIVAL_RATE_US = float(sys.argv[6])
@@ -83,11 +74,11 @@ with open(sys.argv[1], "w") as fp:
             if total_time >= next_burst:
                 read_sizes_burst = np.random.normal(AVG_READ_SIZE_BYTES, BYTES_STDDEV, 16)
                 offsets_burst = np.random.randint(0, MAX_BYTE_OFFSET, size=16)
-                next_burst += 100
-                for j in range(16):
+                next_burst += BURST_EVERY_US
+                for j in range(BURST_OPS):
                     aligned_size = get_next_multiple(abs(read_sizes_burst[j]), 4096)
                     aligned_size = min(aligned_size, 10*AVG_READ_SIZE_BYTES)
-                    total_time += 0.1
+                    total_time += 0.01
 
                     aligned_offset = get_next_multiple(abs(offsets_burst[j]), 4096)
                     aligned_offset = min(aligned_offset, MAX_BYTE_OFFSET)

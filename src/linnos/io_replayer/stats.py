@@ -40,9 +40,10 @@ if __name__ == '__main__':
             tok = map(str.strip, line.split(","))
             tok_list = list(tok)
             sorted_io.append([float(tok_list[0]), int(tok_list[1]),float(tok_list[2]),
-                int(tok_list[3]),float(tok_list[4])])
+                int(tok_list[3]),float(tok_list[4]), float(tok_list[5]) ])
 
-    for io in sorted(sorted_io, key=itemgetter(0)):
+    #for io in sorted(sorted_io, key=itemgetter(0)):
+    for io in sorted(sorted_io, key=itemgetter(5)):
         # io here is inverted
         if (io[2] == 1): #read
             read_latencies.append(io[1])

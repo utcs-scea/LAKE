@@ -25,7 +25,7 @@ pip3 install scikit-learn
 for i in 0 1 2 
 do
    python3 traceParser.py direct 3 4 \
-   mlData/TrainTraceOutputbaseline mlData/temp1 \
+   mlData/TrainTraceOutput_baseline.data mlData/temp1 \
    mlData/"mldrive${i}.csv" "$i"
 done
 

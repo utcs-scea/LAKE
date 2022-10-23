@@ -17,7 +17,7 @@
 #include "replayer.hpp"
 #include "op_replayers.hpp"
 
-uint8_t N_THREADS = 128;
+uint8_t N_THREADS = 64;
 
 int main (int argc, char **argv)
 {
@@ -38,7 +38,6 @@ int main (int argc, char **argv)
         trace.parse_file(i, argv[5+i]);
     }
     
-
     pthread_barrier_t sync_barrier;
     int err = pthread_barrier_init(&sync_barrier, NULL, n_devices_to_trace*N_THREADS+1);
     if (err != 0) {
@@ -70,7 +69,7 @@ int main (int argc, char **argv)
         }
     }
 
-    trace.set_output_file(metrics_file+type);
+    trace.set_output_file(metrics_file+"_"+type+".data");
 
     usleep(20); //wait until everyone hits barrier
     uint64_t now = get_ns_ts();
