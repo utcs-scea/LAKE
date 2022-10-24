@@ -128,7 +128,6 @@ EXPORT_SYMBOL(kava_allocator_init);
  */
 void kava_allocator_fini(void)
 {
-
     pr_info("[kava-shm] Deallocate shared DMA memory region pa = 0x%lx, va = 0x%lx\n",
             (uintptr_t)virt_to_phys((void *)shm_start),
             (uintptr_t)shm_start);
@@ -164,7 +163,6 @@ void kava_free(void *p)
     myfree(p);
 }
 EXPORT_SYMBOL(kava_free);
-
 
 /**
  * kava_shm_offset - Offset of the address in the shared memory region

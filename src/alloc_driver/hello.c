@@ -10,13 +10,32 @@
 
 static int run_hello(void)
 {
+	int i, j;
     int *ptr[100];
-	for(int i = 0; i < 100; i++) {
+
+	for(i = 0; i < 100; i++) {
 		ptr[i] = (int *)kava_alloc(100*sizeof(int));
+		if(ptr[i] == 0) {
+			pr_warn("err on alloc\n");
+			return -1;
+		}
+		for (j = 0; j < 100 ; j++)
+			ptr[i][j] = i;
 	}
-	for(int i = 0; i < 100; i++) {
-		kava_free(100*sizeof(int));
+	
+	for(i = 0; i < 100; i++) {
+		kava_free(ptr[i]);
 	}
+	
+	// pr_warn("init");
+	// int *ptr = kava_alloc(100*sizeof(int));
+	// pr_warn("alloc");
+	// if(ptr == 0) {
+	// 	pr_warn("err on alloc\n");
+	// 	return -1;
+	// }
+	// kava_free(ptr);
+
 	return 0;
 }
 
