@@ -117,7 +117,6 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		return false;
 	}
 
-
 	spin_lock_irqsave(&batch_entry[this_dev], irqflags);
 enter_again:
 	my_batch = current_batch[this_dev];
@@ -134,31 +133,30 @@ enter_again:
 	}
 	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 
-	//i am welcome
+	//i am welcome, still holding this batch's lock
 	waiting[this_dev][my_batch] += 1;
 	if (my_id == 0) { //reinit here to avoid race cond.
 		reinit_completion(&finalize_batch[this_dev][my_batch]); 
 		reinit_completion(&batch_completed[this_dev][my_batch]);
-		window_start_ns[this_dev][my_batch] = ktime_get_ns();
 		n_exited[this_dev][my_batch] = 0;
+		window_start_ns[this_dev][my_batch] = ktime_get_ns();
+		last_arrival[this_dev][my_batch] = window_start_ns[this_dev][my_batch];
 	}
-	last_arrival[this_dev][my_batch] = ktime_get_ns();
 	//copy inputs to intermediary buffer, but we need to convert into longs for gpu
 	for (i = 0 ; i < LEN_INPUT ; i++)
 		multi_inputs_to_gpu[this_dev][my_batch][my_id*LEN_INPUT+i] = (long) feat_vec[i];
-	
-	spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 
 	/*
 	 * if this is the first, we start the window timer
 	 */
 	if (my_id == 0) {
+		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 		//when we wake up from this, we finalize a batch
 		wait_for_completion_timeout(&finalize_batch[this_dev][my_batch], usecs_to_jiffies(window_size_ns/1000));
 		
 		//when we get this lock, no one is welcome to this batch
 		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
-		//change our status to running so batches dont do a full circle and overwrite us
+		//this avoids ppl entering even if we release the lock
 		batch_running[this_dev][my_batch] = true;
 		window_size_hist[waiting[this_dev][my_batch]] += 1;
 		//we have to exclude ppl from waking us multiple times, they check based on waiting == 0
@@ -204,7 +202,7 @@ enter_again:
 	 *   if we are not the first
 	 */
 	else {
-		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
+		//spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 		my_arrival = ktime_get_ns();
 		tdiff = my_arrival - last_arrival[this_dev][my_batch];
 		last_arrival[this_dev][my_batch] = my_arrival;
