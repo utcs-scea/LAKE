@@ -471,7 +471,6 @@ static int run_gpu(void) {
 
 
         for (j = 0 ; j < RUNS ; j++) {
-            //PRINT(V_INFO, "Runing for batch size %d\n", batch_size);
             t_start = ktime_get_ns();
             copy_batch_inputs(batch_size);
             predict_readahead_class(batch_size, 0);
@@ -502,8 +501,7 @@ static int run_gpu(void) {
         best = best / 1000; best_total = best_total / 1000;
 
 #ifdef __KERNEL__
-        //PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-        PRINT(V_INFO, "KML_GPU_batch_%d,%lld,%lld\n", batch_size, avg, avg_total);
+        PRINT("KML_GPU_batch_%d,%lld,%lld\n", batch_size, avg, avg_total);
 #else
         printf("GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
 #endif

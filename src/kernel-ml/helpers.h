@@ -17,13 +17,7 @@
 #include "cuda.h"
 #include "lake_shm.h"
 
-#define V_ERROR 0
-#define V_INFO 1
-#define V_DEBUG_TIMING 2
-#define V_DEBUG 3
-#define VERBOSITY V_INFO
-#define PRINT(verbosity, ...) do { if (verbosity <= VERBOSITY) printk(KERN_INFO __VA_ARGS__); } while (0)
-
+#define PRINT(...) do { if (1) printk(KERN_INFO __VA_ARGS__); } while (0)
 #else
 #include <cuda.h>
 #include <stdio.h>
