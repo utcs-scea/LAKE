@@ -13,9 +13,9 @@ int PREDICT_GPU_SYNC = 0;
 
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 50*_us;
-const u32 max_batch_size = 16; //this cannot be more than 256 (allocated in main.c)
-const u32 cpu_gpu_threshold = 8; //less than this we use cpu
+const u64 window_size_ns = 10*_us;
+const u32 max_batch_size = 14; //this cannot be more than 256 (allocated in main.c)
+const u32 cpu_gpu_threshold = 12; //less than this we use cpu
 const u64 inter_arrival_threshold = 60*_us;
 
 //batch test variables
@@ -77,18 +77,17 @@ void multi_gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights, int d
 				n_vecs, 1, 1,          //blocks
 				256, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args, NULL),
+                cu_streams[dev][batch], 
+				args, NULL),
 			"cuLaunchKernel", __LINE__);
 
     check_error(cuLaunchKernel(batch_linnos_final_layer_kernel, 
 				n_vecs, 1, 1,          //blocks
 				64, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args1, NULL),
+                cu_streams[dev][batch], 
+				args1, NULL),
 			"cuLaunchKernel", __LINE__);
-	if(PREDICT_GPU_SYNC == 1) {
-		check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
-	}
 }
 
 void do_gpu_inference(int n_vecs, long **weights, int dev, int batch_id) {
@@ -118,71 +117,56 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		return false;
 	}
 
-enter_again:
+
 	spin_lock_irqsave(&batch_entry[this_dev], irqflags);
+enter_again:
 	my_batch = current_batch[this_dev];
 	my_id = waiting[this_dev][my_batch];
-	//if too many requests entered too quickly and id0 didnt have a change to get the lock, try to chill
-	if (my_id > 4*max_batch_size) { 
-		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
-		goto enter_again;
+
+	//am I welcome in this batch?
+	spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
+	if (batch_running[this_dev][my_batch] == true || my_id > max_batch_size) {
+		//no
+		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+		//move to next batch
+		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
+		goto enter_again; //we loop until we find a batch we can enter
 	}
-	//we are too fast, would overwrite a batch that is running
-	if (batch_running[this_dev][my_batch] == true) {
-		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
-		pr_warn(" ********* TOO FAST\n");
-		goto enter_again;
-	}
-	//pr_warn("dev %d, batch %d, id %d\n", this_dev, my_batch, my_id);
+	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
+
+	//i am welcome
 	waiting[this_dev][my_batch] += 1;
 	if (my_id == 0) { //reinit here to avoid race cond.
 		reinit_completion(&finalize_batch[this_dev][my_batch]); 
 		reinit_completion(&batch_completed[this_dev][my_batch]);
+		window_start_ns[this_dev][my_batch] = ktime_get_ns();
+		n_exited[this_dev][my_batch] = 0;
 	}
-	window_start_ns[this_dev][my_batch] = ktime_get_ns();
-	last_arrival[this_dev][my_batch] = window_start_ns[this_dev][my_batch];
-	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
-	
-	//pr_warn("dev %d   my_batch %d  my_id %d \n", this_dev, my_batch, my_id);
+	last_arrival[this_dev][my_batch] = ktime_get_ns();
 	//copy inputs to intermediary buffer, but we need to convert into longs for gpu
 	for (i = 0 ; i < LEN_INPUT ; i++)
 		multi_inputs_to_gpu[this_dev][my_batch][my_id*LEN_INPUT+i] = (long) feat_vec[i];
+	
+	spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 
 	/*
 	 * if this is the first, we start the window timer
 	 */
 	if (my_id == 0) {
-		//pr_warn(" >>> first is here\n");
-		n_exited[this_dev][my_batch] = 0;
 		//when we wake up from this, we finalize a batch
 		wait_for_completion_timeout(&finalize_batch[this_dev][my_batch], usecs_to_jiffies(window_size_ns/1000));
 		
-		//this batch is full, stop people from entering
-		spin_lock_irqsave(&batch_entry[this_dev], irqflags);
-		//add to current batch so next one starts
-		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
+		//when we get this lock, no one is welcome to this batch
+		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 		//change our status to running so batches dont do a full circle and overwrite us
 		batch_running[this_dev][my_batch] = true;
 		window_size_hist[waiting[this_dev][my_batch]] += 1;
 		//we have to exclude ppl from waking us multiple times, they check based on waiting == 0
-		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 		this_batch_size[this_dev][my_batch] = waiting[this_dev][my_batch];
 		waiting[this_dev][my_batch] = 0;
 		reinit_completion(&finalize_batch[this_dev][my_batch]); 
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
-		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 		
-		//use cpu
-		// if(this_batch_size[this_dev][my_batch] < cpu_gpu_threshold) {
-		// //if (1) {
-		// 	use_cpu_instead[this_dev][my_batch] = true;
-		// 	//easy case, if its cpu just let everyone go
-		// 	//pr_warn(" >>> cpu, letting everyone go\n");
-		// 	complete_all(&batch_completed[this_dev][my_batch]);
-		// 	batch_running[this_dev][my_batch] = false;
-		// 	return cpu_prediction_model(feat_vec, n_vecs, weights);
-		// }
-
 		if(this_batch_size[this_dev][my_batch] == 1) {
 			//lonely request :(
 			batch_running[this_dev][my_batch] = false;
@@ -205,13 +189,13 @@ enter_again:
 		//let waiters go
 		complete_all(&batch_completed[this_dev][my_batch]);
 		//wait for them to exit, reinit
-		pr_warn(" >>>>>:  %d/%d/%d FIRST waiting for non-firsts ...\n", this_dev, my_batch, my_id);
+		//pr_warn(" >>>>>:  %d/%d/%d FIRST waiting for non-firsts ...\n", this_dev, my_batch, my_id);
 		wait_for_completion(&finalize_batch[this_dev][my_batch]);
 		//reinit_completion(&batch_completed[this_dev][my_batch]);
 		if (use_cpu_instead[this_dev][my_batch])
 			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
 		
-		pr_warn(" >>>>>:  %d/%d/%d FIRST WAS LET GO!  batch %d is done\n", this_dev, my_batch, my_id, my_batch);
+		//pr_warn(" >>>>>:  %d/%d/%d FIRST WAS LET GO!  batch %d is done\n", this_dev, my_batch, my_id, my_batch);
 
 		batch_running[this_dev][my_batch] = false;
 		return my_prediction;
@@ -234,20 +218,19 @@ enter_again:
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 
 		//.. wait until first tell us its done
-		pr_warn("%d/%d/%d: waiting\n", this_dev, my_batch, my_id);
+		//pr_warn("%d/%d/%d: waiting\n", this_dev, my_batch, my_id);
 		wait_for_completion(&batch_completed[this_dev][my_batch]);
 
 		use_cpu = use_cpu_instead[this_dev][my_batch];
-		//pr_warn("%d/%d/%d: unblocked, finishing (cpu? %d)\n", this_dev, my_batch, my_id, use_cpu);
 		if (!use_cpu) 
 			my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
 		
 		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 		n_exited[this_dev][my_batch] += 1;
-		pr_warn("%d/%d/%d:  %d/%d left\n", this_dev, my_batch, my_id, n_exited[this_dev][my_batch], this_batch_size[this_dev][my_batch]);
+		//pr_warn("%d/%d/%d:  %d/%d left\n", this_dev, my_batch, my_id, n_exited[this_dev][my_batch], this_batch_size[this_dev][my_batch]);
 		if (n_exited[this_dev][my_batch] == this_batch_size[this_dev][my_batch]) {
 			complete(&finalize_batch[this_dev][my_batch]);
-			pr_warn("%d/%d/%d: Waking up first!", this_dev, my_batch, my_id);
+			//pr_warn("%d/%d/%d: Waking up first!", this_dev, my_batch, my_id);
 		}
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 

@@ -39,4 +39,6 @@ extern CUdeviceptr multi_d_final_res_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
 
 extern long *first_weight_ptr_to_dev[NUMBER_DEVICES];
 
+extern CUstream cu_streams[NUMBER_DEVICES][MAX_DEV_BATCHES];
+
 #endif

@@ -210,6 +210,16 @@ CUresult CUDAAPI cuStreamCreate(CUstream *phStream, unsigned int Flags) {
 }
 EXPORT_SYMBOL(cuStreamCreate);
 
+CUresult CUDAAPI cuStreamDestroy (CUstream hStream) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_cuStreamDestroy cmd = {
+        .API_ID = LAKE_API_cuStreamDestroy, .hStream = hStream
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+	return ret.res;
+}
+EXPORT_SYMBOL(cuStreamDestroy);
+
 CUresult CUDAAPI cuStreamSynchronize(CUstream hStream) {
     struct lake_cmd_ret ret;
 	struct lake_cmd_cuStreamSynchronize cmd = {

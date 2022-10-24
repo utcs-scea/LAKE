@@ -157,7 +157,7 @@ static int lake_handler_cuStreamSynchronize(void* buf, struct lake_cmd_ret* cmd_
  *********************/
 static int lake_handler_cuStreamDestroy(void* buf, struct lake_cmd_ret* cmd_ret) {
         struct lake_cmd_cuStreamDestroy *cmd = (struct lake_cmd_cuStreamDestroy *) buf;
-    cmd_ret->res = cuStreamDestroy(cmd->hStream);
+    cmd_ret->res = cuStreamDestroy_v2(cmd->hStream);
     return 0;
 }
 

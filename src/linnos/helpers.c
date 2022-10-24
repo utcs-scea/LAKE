@@ -158,12 +158,10 @@ void multi_gpu_cuda_cleanup_dev(struct GPU_weights *state, int dev) {
         cuMemFree(multi_d_mid_res_i[dev][batch]);
         cuMemFree(multi_d_final_res_i[dev][batch]);
 
-        pr_warn("kava free %p\n", multi_inputs_to_gpu[dev][batch]);
-        kava_free(multi_inputs_to_gpu[dev][batch]);
-        
-        pr_warn("kava free %p\n", multi_gpu_outputs[dev][batch]);
+        kava_free(multi_inputs_to_gpu[dev][batch]);        
         kava_free(multi_gpu_outputs[dev][batch]);
-        pr_warn("done\n");
+
+        cuStreamDestroy(cu_streams[dev][batch]);
     }
 }
 
@@ -183,6 +181,8 @@ void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) 
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_i[dev][batch]  , sizeof(long) * LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[dev][batch], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
+            cuStreamCreate(&cu_streams[dev][batch], 0);
+
             multi_inputs_to_gpu[dev][batch] = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
             if (!multi_inputs_to_gpu[dev][batch]) 
                 pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
@@ -195,9 +195,10 @@ void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) 
 }
 
 void multi_copy_inputs_to_gpu(u64 n_inputs, int dev, int batch_id) {
-    cuMemcpyHtoDAsync(multi_d_input_vec_i[dev][batch_id], multi_inputs_to_gpu[dev][batch_id], sizeof(long) * LEN_INPUT * n_inputs, 0);
+    cuMemcpyHtoDAsync(multi_d_input_vec_i[dev][batch_id], multi_inputs_to_gpu[dev][batch_id], sizeof(long) * LEN_INPUT * n_inputs, cu_streams[dev][batch_id]);
 }
 
 void multi_copy_results_from_gpu(u64 n_inputs, int dev, int batch_id) {
-    cuMemcpyDtoH(multi_gpu_outputs[dev][batch_id], multi_d_final_res_i[dev][batch_id], sizeof(long) * 64 * n_inputs);
+    cuMemcpyDtoHAsync(multi_gpu_outputs[dev][batch_id], multi_d_final_res_i[dev][batch_id], sizeof(long) * 64 * n_inputs, cu_streams[dev][batch_id]);
+    cuStreamSynchronize(cu_streams[dev][batch_id]);
 }

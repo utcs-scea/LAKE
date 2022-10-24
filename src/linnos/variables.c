@@ -24,3 +24,5 @@ CUdeviceptr multi_d_mid_res_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
 CUdeviceptr multi_d_final_res_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
 
 long *first_weight_ptr_to_dev[NUMBER_DEVICES];
+
+CUstream cu_streams[NUMBER_DEVICES][MAX_DEV_BATCHES];

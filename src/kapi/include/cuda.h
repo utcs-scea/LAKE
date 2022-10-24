@@ -93,7 +93,7 @@
     //#define cuCtxDestroy                        cuCtxDestroy_v2
     #define cuCtxPopCurrent                     cuCtxPopCurrent_v2
     #define cuCtxPushCurrent                    cuCtxPushCurrent_v2
-    #define cuStreamDestroy                     cuStreamDestroy_v2
+    //#define cuStreamDestroy                     cuStreamDestroy_v2
     #define cuEventDestroy                      cuEventDestroy_v2
 #endif /* __CUDA_API_VERSION_INTERNAL || __CUDA_API_VERSION >= 4000 */
 #if defined(__CUDA_API_VERSION_INTERNAL) || __CUDA_API_VERSION >= 4010
