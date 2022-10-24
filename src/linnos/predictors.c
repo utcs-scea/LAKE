@@ -13,8 +13,8 @@ int PREDICT_GPU_SYNC = 0;
 
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 10*_us;
-const u32 max_batch_size = 14; //this cannot be more than 256 (allocated in main.c)
+const u64 window_size_ns = 40*_us;
+const u32 max_batch_size = 32; //this cannot be more than 256 (allocated in main.c)
 const u32 cpu_gpu_threshold = 12; //less than this we use cpu
 const u64 inter_arrival_threshold = 60*_us;
 
@@ -120,22 +120,23 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	spin_lock_irqsave(&batch_entry[this_dev], irqflags);
 enter_again:
 	my_batch = current_batch[this_dev];
-	my_id = waiting[this_dev][my_batch];
-
 	//am I welcome in this batch?
-	spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
+	spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);  //TODO this serializes again... maybe just try to get it
+	my_id = waiting[this_dev][my_batch];
 	if (batch_running[this_dev][my_batch] == true || my_id > max_batch_size) {
-		//no
+		//not welcome
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 		//move to next batch
+		pr_warn("not welcome in batch %d\n", current_batch[this_dev]);
 		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
 		goto enter_again; //we loop until we find a batch we can enter
 	}
+	waiting[this_dev][my_batch] += 1;
 	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 
 	//i am welcome, still holding this batch's lock
-	waiting[this_dev][my_batch] += 1;
 	if (my_id == 0) { //reinit here to avoid race cond.
+		pr_warn("first of batch %d\n",my_batch);
 		reinit_completion(&finalize_batch[this_dev][my_batch]); 
 		reinit_completion(&batch_completed[this_dev][my_batch]);
 		n_exited[this_dev][my_batch] = 0;
@@ -167,6 +168,7 @@ enter_again:
 		
 		if(this_batch_size[this_dev][my_batch] == 1) {
 			//lonely request :(
+			pr_warn("single request on batch %d\n", my_batch);
 			batch_running[this_dev][my_batch] = false;
 			return cpu_prediction_model(feat_vec, n_vecs, weights);
 		} else if(this_batch_size[this_dev][my_batch] < cpu_gpu_threshold) {
@@ -187,13 +189,13 @@ enter_again:
 		//let waiters go
 		complete_all(&batch_completed[this_dev][my_batch]);
 		//wait for them to exit, reinit
-		//pr_warn(" >>>>>:  %d/%d/%d FIRST waiting for non-firsts ...\n", this_dev, my_batch, my_id);
+		pr_warn(" >>>>>:  %d/%d/%d FIRST waiting for non-firsts ...\n", this_dev, my_batch, my_id);
 		wait_for_completion(&finalize_batch[this_dev][my_batch]);
 		//reinit_completion(&batch_completed[this_dev][my_batch]);
 		if (use_cpu_instead[this_dev][my_batch])
 			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
 		
-		//pr_warn(" >>>>>:  %d/%d/%d FIRST WAS LET GO!  batch %d is done\n", this_dev, my_batch, my_id, my_batch);
+		pr_warn(" >>>>>:  %d/%d/%d FIRST WAS LET GO!  batch %d is done\n", this_dev, my_batch, my_id, my_batch);
 
 		batch_running[this_dev][my_batch] = false;
 		return my_prediction;
@@ -216,7 +218,7 @@ enter_again:
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 
 		//.. wait until first tell us its done
-		//pr_warn("%d/%d/%d: waiting\n", this_dev, my_batch, my_id);
+		pr_warn("%d/%d/%d: waiting\n", this_dev, my_batch, my_id);
 		wait_for_completion(&batch_completed[this_dev][my_batch]);
 
 		use_cpu = use_cpu_instead[this_dev][my_batch];
@@ -225,10 +227,10 @@ enter_again:
 		
 		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 		n_exited[this_dev][my_batch] += 1;
-		//pr_warn("%d/%d/%d:  %d/%d left\n", this_dev, my_batch, my_id, n_exited[this_dev][my_batch], this_batch_size[this_dev][my_batch]);
+		pr_warn("%d/%d/%d:  %d/%d left\n", this_dev, my_batch, my_id, n_exited[this_dev][my_batch], this_batch_size[this_dev][my_batch]);
 		if (n_exited[this_dev][my_batch] == this_batch_size[this_dev][my_batch]) {
 			complete(&finalize_batch[this_dev][my_batch]);
-			//pr_warn("%d/%d/%d: Waking up first!", this_dev, my_batch, my_id);
+			pr_warn("%d/%d/%d: Waking up first!", this_dev, my_batch, my_id);
 		}
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 
