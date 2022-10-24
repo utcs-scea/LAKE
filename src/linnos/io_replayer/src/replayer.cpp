@@ -55,8 +55,7 @@ int main (int argc, char **argv)
 
             if(type == "baseline")
                 targs[dev][j].executor = baseline_execute_op;
-            else if (type == "strawman")
-            {
+            else if (type == "strawman") {
                 targs[dev][j].executor = strawman_execute_op;
             } else if (type == "failover") {
                 targs[dev][j].executor = failover_execute_op;

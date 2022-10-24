@@ -91,7 +91,7 @@ public:
                 printf("Cannot open %s\n", dev_names[i].c_str());
                 exit(1);
             }
-            printf("Opened device %s\n", dev_names[i].c_str());
+            printf("Opened device %s at idx %d\n", dev_names[i].c_str(), i);
         }
 
         nr_workers = new uint32_t[ndevices];

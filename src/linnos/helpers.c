@@ -145,23 +145,28 @@ void copy_inputs_to_gpu(u64 n_inputs) {
 */
 
 void multi_gpu_cuda_cleanup_dev(struct GPU_weights *state, int dev) {
-    int i;
-    pr_warn("Cleaning up GPU state\n");
-    for(i = 0; i <4 ; i++) {
+    int i, batch;
+    pr_warn("Cleaning up GPU %d state\n", dev);
+    for(i = 0; i < 4 ; i++) {
         cuMemFree((CUdeviceptr)state->weights[i]);
     }
 
-    for(i = 0 ; i < MAX_DEV_BATCHES ; i++){
-        cuMemFree(multi_d_input_vec_i[dev][i]);
-        cuMemFree(multi_d_mid_res_i[dev][i]);
-        cuMemFree(multi_d_final_res_i[dev][i]);
-        kava_free(multi_inputs_to_gpu[dev][i]);
-        kava_free(multi_gpu_outputs[dev][i]);
+    for(batch = 0 ; batch < MAX_DEV_BATCHES ; batch++){
+        pr_warn("Freeing for %d/%d\n", dev, batch);
+        cuMemFree(multi_d_input_vec_i[dev][batch]);
+        cuMemFree(multi_d_mid_res_i[dev][batch]);
+        cuMemFree(multi_d_final_res_i[dev][batch]);
+
+        // pr_warn("kava free %p\n", multi_inputs_to_gpu[dev][batch]);
+        // kava_free(multi_inputs_to_gpu[dev][batch]);
+        // pr_warn("kava free %p\n", multi_gpu_outputs[dev][batch]);
+        // kava_free(multi_gpu_outputs[dev][batch]);
+        // pr_warn("done\n");
     }
 }
 
 void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) {
-    int i, j;
+    int dev, batch;
     //intialize kernels
     if (cuctx) 
         return;
@@ -170,19 +175,22 @@ void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) 
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
     
-    for(i = 0 ; i < ndev ; i++){
-        for(j = 0 ; j < MAX_DEV_BATCHES ; j++){
-            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_input_vec_i[i][j], sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
-            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_i[i][j], sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
-            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[i][j], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
+    for(dev = 0 ; dev < ndev ; dev++){
+        for(batch = 0 ; batch < MAX_DEV_BATCHES ; batch++){
+            pr_warn("Allocating for %d/%d\n", dev, batch);
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_input_vec_i[dev][batch], sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_i[dev][batch]  , sizeof(long) * LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[dev][batch], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
-            multi_inputs_to_gpu[i][j] = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
-            if (!multi_inputs_to_gpu[i][j]) 
+            multi_inputs_to_gpu[dev][batch] = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
+            pr_warn("kava alloc %p\n", multi_inputs_to_gpu[dev][batch]);
+            if (!multi_inputs_to_gpu[dev][batch]) 
                 pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
             
-            multi_gpu_outputs[i][j] = kava_alloc(64 * max_batch_size * sizeof(long));
-            if (!multi_gpu_outputs[i][j]) 
+            multi_gpu_outputs[dev][batch] = kava_alloc(64 * max_batch_size * sizeof(long));
+            if (!multi_gpu_outputs[dev][batch]) 
                 pr_warn("error allocating inputs_to_gpu:  %lu\n", LEN_INPUT * max_batch_size * sizeof(long));
+            pr_warn("kava alloc %p\n", multi_gpu_outputs[dev][batch]);
         }
     }
 }

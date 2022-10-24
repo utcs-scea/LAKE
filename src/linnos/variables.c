@@ -1,6 +1,8 @@
 #include "cuda.h"
 #include "lake_shm.h"
 
+#include "variables.h"
+
 CUdeviceptr d_input_vec_i;
 CUdeviceptr d_mid_res_i;
 CUdeviceptr d_final_res_i;
@@ -15,10 +17,11 @@ long *gpu_outputs = 0;
 
 
 //these are host
-long *multi_inputs_to_gpu[3];
-long *multi_gpu_outputs[3];
+long *multi_inputs_to_gpu[NUMBER_DEVICES][MAX_DEV_BATCHES];
+long *multi_gpu_outputs[NUMBER_DEVICES][MAX_DEV_BATCHES];
 
-CUdeviceptr multi_d_input_vec_i[3];
-CUdeviceptr multi_d_mid_res_i[3];
-CUdeviceptr multi_d_final_res_i[3];
-long *first_weight_ptr_to_dev[3];
+CUdeviceptr multi_d_input_vec_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
+CUdeviceptr multi_d_mid_res_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
+CUdeviceptr multi_d_final_res_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
+
+long *first_weight_ptr_to_dev[NUMBER_DEVICES];

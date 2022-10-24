@@ -36,22 +36,23 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu 
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-#include "weights_header/512k_200us_burst/w_Trace_nvme0n1.h"
-#include "weights_header/512k_200us_burst/w_Trace_nvme1n1.h"
+//#include "weights_header/512k_200us_burst/w_Trace_nvme0n1.h"
+//#include "weights_header/512k_200us_burst/w_Trace_nvme1n1.h"
 
 static const char *devices[] = {
-    //"/dev/vdb",
+    "/dev/vdb",
 	//"/dev/vdc",
-	"/dev/nvme0n1",
-	"/dev/nvme1n1",
+	//"/dev/nvme0n1",
+	//"/dev/nvme1n1",
 	//"/dev/nvme2n1",
 	0
 };
 
 long *weights[][4] = {
-	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
-	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
-	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
+	{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde},
+	{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
+	//{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
+	//{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
 	//{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
 };
 
@@ -102,9 +103,13 @@ static int gpu_attach(void) {
 static void gpu_detach(void) {
 	const char *devs;
 	int i;
-	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i])
+	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
+		pr_warn("Cleaning GPU %d\n", i);
 		multi_gpu_cuda_cleanup_dev(&gpu_weights[i], i);
-
+	}
+	
+	//multi_gpu_cuda_cleanup_dev(&gpu_weights[0], 0);
+	
 	for (i=0;i<128;i++)
 		if (window_size_hist[i] != 0)
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);

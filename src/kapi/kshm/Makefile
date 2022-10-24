@@ -1,5 +1,5 @@
-obj-m += lake_shm.o
-lake_shm-y += kshm_main.o backend.o
+obj-m += lake_shm.o 
+lake_shm-y += kshm_main.o backend.o mymemory.o
 ccflags-y += -I. -I$(src)/../include -O3 -g
 
 all:
