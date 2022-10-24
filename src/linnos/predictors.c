@@ -13,7 +13,7 @@ int PREDICT_GPU_SYNC = 0;
 
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 200*_us;
+const u64 window_size_ns = 50*_us;
 const u32 max_batch_size = 16; //this cannot be more than 256 (allocated in main.c)
 const u32 cpu_gpu_threshold = 8; //less than this we use cpu
 const u64 inter_arrival_threshold = 60*_us;
@@ -91,7 +91,7 @@ void multi_gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights, int d
 void do_gpu_inference(int n_vecs, long **weights, int dev, int batch_id) {
 	multi_copy_inputs_to_gpu(n_vecs, dev, batch_id);
 	multi_gpu_predict_batch(0, n_vecs, weights, dev, batch_id);
-	multi_copy_results_from_gpu(n_vecs, dev, batch_id);
+	//multi_copy_results_from_gpu(n_vecs, dev, batch_id);
 }
 
 //this is what an IO calls when it calls predict()
@@ -115,9 +115,15 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		return false;
 	}
 
+enter_again:
 	spin_lock_irqsave(&batch_entry[this_dev], irqflags);
 	my_batch = current_batch[this_dev];
 	my_id = waiting[this_dev][my_batch];
+	//if too many requests entered too quickly and id0 didnt have a change to get the lock, try to chill
+	if (my_id > 4*max_batch_size) { 
+		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
+		goto enter_again;
+	}
 	//pr_warn("dev %d, batch %d, id %d\n", this_dev, my_batch, my_id);
 	waiting[this_dev][my_batch] += 1;
 	if (my_id == 0) { //reinit here to avoid race cond.
@@ -128,7 +134,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	last_arrival[this_dev][my_batch] = window_start_ns[this_dev][my_batch];
 	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 	
-
+	//pr_warn("dev %d   my_batch %d  my_id %d \n", this_dev, my_batch, my_id);
 	//copy inputs to intermediary buffer, but we need to convert into longs for gpu
 	for (i = 0 ; i < LEN_INPUT ; i++)
 		multi_inputs_to_gpu[this_dev][my_batch][my_id*LEN_INPUT+i] = (long) feat_vec[i];
@@ -147,6 +153,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		spin_lock_irqsave(&batch_entry[this_dev], irqflags);
 		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
 		window_size_hist[waiting[this_dev][my_batch]] += 1;
+		waiting[this_dev][my_batch] = 0;
 		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 
 		pr_warn(" >>> batch entry released, now it is batch %d\n", current_batch[this_dev]);
@@ -164,7 +171,6 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 			return cpu_prediction_model(feat_vec, n_vecs, weights);
 		}
 
-		pr_warn("using gpu\n");
 		//use GPU
 		n_used_gpu++;
 		use_cpu_instead[this_dev][my_batch] = false;

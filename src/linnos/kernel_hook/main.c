@@ -17,7 +17,6 @@
 extern unsigned long sysctl_lake_enable_linnos;
 extern unsigned long sysctl_lake_linnos_debug;
 
-
 static char *predictor_str = "fake";
 module_param(predictor_str, charp, 0444);
 MODULE_PARM_DESC(predictor_str, "What predictor to use: fake, cpu, gpu, batchtest, queudepth");
@@ -104,11 +103,8 @@ static void gpu_detach(void) {
 	const char *devs;
 	int i;
 	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
-		pr_warn("Cleaning GPU %d\n", i);
 		multi_gpu_cuda_cleanup_dev(&gpu_weights[i], i);
 	}
-	
-	//multi_gpu_cuda_cleanup_dev(&gpu_weights[0], 0);
 	
 	for (i=0;i<128;i++)
 		if (window_size_hist[i] != 0)
