@@ -37,18 +37,21 @@ u16 waiting[NUMBER_DEVICES][MAX_DEV_BATCHES];
 u64 window_start_ns[NUMBER_DEVICES][MAX_DEV_BATCHES];
 u64 last_arrival[NUMBER_DEVICES][MAX_DEV_BATCHES];
 bool use_cpu_instead[NUMBER_DEVICES][MAX_DEV_BATCHES];
+//0=idle, 1=id0 waiting, 2=running
+bool batch_running[NUMBER_DEVICES][MAX_DEV_BATCHES];
 
 void predictors_mgpu_init(void) {
 	int i, j;
 	for (i=0 ; i < NUMBER_DEVICES ; i++) {
 		current_batch[i] = 0;
+		ios_on_device[i] = 0;
 		spin_lock_init(&batch_entry[i]);
 		for (j=0 ; j < MAX_DEV_BATCHES ; j++) {
 			n_exited[i][j] = 0;
 			this_batch_size[i][j] = 0;
 			window_start_ns[i][j] = 0;
 			waiting[i][j] = 0;
-			ios_on_device[i] = 0;
+			batch_running[i][j] = false;
 			init_completion(&batch_completed[i][j]);
 			init_completion(&finalize_batch[i][j]);
 			spin_lock_init(&per_batch_lock[i][j]);
@@ -91,7 +94,7 @@ void multi_gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights, int d
 void do_gpu_inference(int n_vecs, long **weights, int dev, int batch_id) {
 	multi_copy_inputs_to_gpu(n_vecs, dev, batch_id);
 	multi_gpu_predict_batch(0, n_vecs, weights, dev, batch_id);
-	//multi_copy_results_from_gpu(n_vecs, dev, batch_id);
+	multi_copy_results_from_gpu(n_vecs, dev, batch_id);
 }
 
 //this is what an IO calls when it calls predict()
@@ -124,6 +127,12 @@ enter_again:
 		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 		goto enter_again;
 	}
+	//we are too fast, would overwrite a batch that is running
+	if (batch_running[this_dev][my_batch] == true) {
+		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
+		pr_warn(" ********* TOO FAST\n");
+		goto enter_again;
+	}
 	//pr_warn("dev %d, batch %d, id %d\n", this_dev, my_batch, my_id);
 	waiting[this_dev][my_batch] += 1;
 	if (my_id == 0) { //reinit here to avoid race cond.
@@ -147,82 +156,104 @@ enter_again:
 		n_exited[this_dev][my_batch] = 0;
 		//when we wake up from this, we finalize a batch
 		wait_for_completion_timeout(&finalize_batch[this_dev][my_batch], usecs_to_jiffies(window_size_ns/1000));
-		//pr_warn(" >>> first woke up!\n");
-
-		//this batch is full
+		
+		//this batch is full, stop people from entering
 		spin_lock_irqsave(&batch_entry[this_dev], irqflags);
+		//add to current batch so next one starts
 		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
+		//change our status to running so batches dont do a full circle and overwrite us
+		batch_running[this_dev][my_batch] = true;
 		window_size_hist[waiting[this_dev][my_batch]] += 1;
-		waiting[this_dev][my_batch] = 0;
-		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
-
-		pr_warn(" >>> batch entry released, now it is batch %d\n", current_batch[this_dev]);
-
-		//bookkeeping
+		//we have to exclude ppl from waking us multiple times, they check based on waiting == 0
+		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 		this_batch_size[this_dev][my_batch] = waiting[this_dev][my_batch];
-
+		waiting[this_dev][my_batch] = 0;
+		reinit_completion(&finalize_batch[this_dev][my_batch]); 
+		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
+		
 		//use cpu
-		if(this_batch_size[this_dev][my_batch] < cpu_gpu_threshold) {
-		//if (1) {
-			use_cpu_instead[this_dev][my_batch] = true;
-			//easy case, if its cpu just let everyone go
-			//pr_warn(" >>> cpu, letting everyone go\n");
-			complete_all(&batch_completed[this_dev][my_batch]);
+		// if(this_batch_size[this_dev][my_batch] < cpu_gpu_threshold) {
+		// //if (1) {
+		// 	use_cpu_instead[this_dev][my_batch] = true;
+		// 	//easy case, if its cpu just let everyone go
+		// 	//pr_warn(" >>> cpu, letting everyone go\n");
+		// 	complete_all(&batch_completed[this_dev][my_batch]);
+		// 	batch_running[this_dev][my_batch] = false;
+		// 	return cpu_prediction_model(feat_vec, n_vecs, weights);
+		// }
+
+		if(this_batch_size[this_dev][my_batch] == 1) {
+			//lonely request :(
+			batch_running[this_dev][my_batch] = false;
 			return cpu_prediction_model(feat_vec, n_vecs, weights);
+		} else if(this_batch_size[this_dev][my_batch] < cpu_gpu_threshold) {
+			use_cpu_instead[this_dev][my_batch] = true;
 		}
-
-		//use GPU
-		n_used_gpu++;
-		use_cpu_instead[this_dev][my_batch] = false;
-		do_gpu_inference(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
-		//for (i=0 ; i<128 ; i++) //fake inference for testin
-		//	multi_gpu_outputs[this_dev][my_batch][i] = false;
-
+		else {
+			n_used_gpu++;
+			use_cpu_instead[this_dev][my_batch] = false;
+			do_gpu_inference(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
+			//use GPU
+			//for (i=0 ; i<128 ; i++) //fake inference for testin
+			//	multi_gpu_outputs[this_dev][my_batch][i] = false;
+			my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
+		}
 		//we have completed
 		n_exited[this_dev][my_batch] += 1;
-		my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
+
 		//let waiters go
 		complete_all(&batch_completed[this_dev][my_batch]);
 		//wait for them to exit, reinit
+		pr_warn(" >>>>>:  %d/%d/%d FIRST waiting for non-firsts ...\n", this_dev, my_batch, my_id);
 		wait_for_completion(&finalize_batch[this_dev][my_batch]);
 		//reinit_completion(&batch_completed[this_dev][my_batch]);
+		if (use_cpu_instead[this_dev][my_batch])
+			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+		
+		pr_warn(" >>>>>:  %d/%d/%d FIRST WAS LET GO!  batch %d is done\n", this_dev, my_batch, my_id, my_batch);
+
+		batch_running[this_dev][my_batch] = false;
 		return my_prediction;
 	}
 	/*
 	 *   if we are not the first
 	 */
 	else {
-		my_arrival = ktime_get_ns();
 		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
+		my_arrival = ktime_get_ns();
 		tdiff = my_arrival - last_arrival[this_dev][my_batch];
 		last_arrival[this_dev][my_batch] = my_arrival;
 		//check if this batch should be finalized
-		if(my_arrival - window_start_ns[this_dev][my_batch] >= window_size_ns 
-				|| waiting[this_dev][my_batch] == max_batch_size
-				|| tdiff >= inter_arrival_threshold ) {
+		if( waiting[this_dev][my_batch] != 0  &&  //first cannot be awake
+				(my_arrival - window_start_ns[this_dev][my_batch] >= window_size_ns //window time
+				|| waiting[this_dev][my_batch] == max_batch_size  //batch is full
+				|| tdiff >= inter_arrival_threshold) ) {   //too long since someone arrived
 			complete(&finalize_batch[this_dev][my_batch]);
 		}
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 
 		//.. wait until first tell us its done
-		//pr_warn("id %d/%d waiting\n", my_batch, my_id);
+		pr_warn("%d/%d/%d: waiting\n", this_dev, my_batch, my_id);
 		wait_for_completion(&batch_completed[this_dev][my_batch]);
-		//pr_warn("id %d/%d was let go, finishing\n", my_batch, my_id);
 
 		use_cpu = use_cpu_instead[this_dev][my_batch];
-		//if its cpu, just return
-		if (use_cpu) 
-			return cpu_prediction_model(feat_vec, n_vecs, weights);
-
-		my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
+		//pr_warn("%d/%d/%d: unblocked, finishing (cpu? %d)\n", this_dev, my_batch, my_id, use_cpu);
+		if (!use_cpu) 
+			my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
+		
 		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 		n_exited[this_dev][my_batch] += 1;
-		//pr_warn("%d have left on dev %d:  %d/%d\n", n_exited[this_dev], this_dev, n_exited[this_dev], this_batch_size[this_dev]);
+		pr_warn("%d/%d/%d:  %d/%d left\n", this_dev, my_batch, my_id, n_exited[this_dev][my_batch], this_batch_size[this_dev][my_batch]);
 		if (n_exited[this_dev][my_batch] == this_batch_size[this_dev][my_batch]) {
 			complete(&finalize_batch[this_dev][my_batch]);
+			pr_warn("%d/%d/%d: Waking up first!", this_dev, my_batch, my_id);
 		}
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 
+		//if its cpu we can tell we exited and do the inference later (here)
+		if (use_cpu)
+			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
 		return my_prediction;
 	}
 }
