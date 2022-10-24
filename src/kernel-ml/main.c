@@ -426,9 +426,9 @@ void predict_readahead_class(int batch_size, int sync) {
 static int run_gpu(void) {
     int i, j;
     const int n = 1024;
-    int batch_sizes[] = {512,1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     //int batch_sizes[] = {512};
-    int n_batches = 12;
+    int n_batches = 11;
 
     int batch_size;
     u64 t_start, t_stop, c_start, c_stop;
@@ -502,7 +502,8 @@ static int run_gpu(void) {
         best = best / 1000; best_total = best_total / 1000;
 
 #ifdef __KERNEL__
-        PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        //PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        PRINT("KML_GPU_batch_%d,%lld,%lld\n", batch_size, avg, avg_total);
 #else
         printf("GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
 #endif
