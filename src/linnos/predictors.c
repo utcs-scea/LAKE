@@ -11,6 +11,8 @@
 
 int PREDICT_GPU_SYNC = 0;
 
+bool NEVER_REJECT = false;
+
 #define _us 1000
 //batch variables
 const u64 window_size_ns = 500*_us;
@@ -217,12 +219,14 @@ enter_again:
 			//lonely request :(
 			//pr_warn("single request on batch %d\n", my_batch);
 			batch_running[this_dev][my_batch] = false;
-			return cpu_prediction_model(feat_vec, n_vecs, weights);
+			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			return NEVER_REJECT ? false : my_prediction; 
 		} else if(this_batch_size[this_dev][my_batch] < cpu_gpu_threshold) {
 			use_cpu_instead[this_dev][my_batch] = true;
 			complete_all(&batch_completed[this_dev][my_batch]); //XXX
 			batch_running[this_dev][my_batch] = false;
-			return cpu_prediction_model(feat_vec, n_vecs, weights);
+			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			return NEVER_REJECT ? false : my_prediction;
 		}
 		else {
 			n_used_gpu++;
@@ -254,11 +258,10 @@ enter_again:
 		//XXX
 		//if (use_cpu_instead[this_dev][my_batch])
 		//	my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
-		
 		//pr_warn(" >>>>>:  %d/%d/%d FIRST WAS LET GO!  batch %d is done\n", this_dev, my_batch, my_id, my_batch);
 
 		batch_running[this_dev][my_batch] = false;
-		return my_prediction;
+		return NEVER_REJECT ? false : my_prediction;
 	}
 	/*
 	 *   if we are not the first
@@ -282,8 +285,10 @@ enter_again:
 		wait_for_completion(&batch_completed[this_dev][my_batch]);
 
 		use_cpu = use_cpu_instead[this_dev][my_batch];
-		if (use_cpu)
-			return cpu_prediction_model(feat_vec, n_vecs, weights);
+		if (use_cpu) {
+			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			return NEVER_REJECT ? false : my_prediction;
+		}
 		
 		if (!use_cpu) 
 			my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
@@ -300,7 +305,7 @@ enter_again:
 		//if its cpu we can tell we exited and do the inference later (here)
 		//if (use_cpu)
 		//	my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
-		return my_prediction;
+		return NEVER_REJECT ? false : my_prediction;
 	}
 }
 
