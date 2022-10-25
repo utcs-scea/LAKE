@@ -49,7 +49,7 @@ module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin");
 #endif
 
-long *test_weights[4] = { weight_0_T, weight_1_T, bias_0, bias_1, weight_M_1_T, bias_M_1};
+long *test_weights[6] = { weight_0_T, weight_1_T, bias_0, bias_1, weight_M_1_T, bias_M_1};
 
 static int run_gpu(void) {
     int i, j;
