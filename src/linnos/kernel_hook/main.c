@@ -50,9 +50,19 @@ static const char *devices[] = {
 long *weights[][4] = {
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde},
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
-	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
-	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
-	//{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
+	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
+	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
+	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
+
+	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1, weight_2_T_nvme0n1, bias_2_nvme0n1 ,0,0},
+	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1, weight_2_T_nvme1n1, bias_2_nvme1n1 ,0,0},
+	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1, weight_2_T_nvme2n1, bias_2_nvme2n1 ,0,0},
+
+	
+	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1, weight_2_T_nvme0n1, bias_2_nvme0n1 ,weight_3_T_nvme0n1, bias_3_nvme0n1},
+	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1, weight_2_T_nvme1n1, bias_2_nvme1n1 ,weight_3_T_nvme1n1, bias_3_nvme1n1},
+	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1, weight_2_T_nvme2n1, bias_2_nvme2n1 ,weight_3_T_nvme2n1, bias_3_nvme2n1},
+
 };
 
 //the predictor function to use
