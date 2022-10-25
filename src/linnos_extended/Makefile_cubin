@@ -1,0 +1,15 @@
+NVCCFLAGS     := -O3
+CUDA_PATH     := /usr/local/cuda
+CUDA_INC_PATH := $(CUDA_PATH)/include
+CUDA_LIB_PATH := $(CUDA_PATH)/lib64
+INCLUDES      := -I$(CUDA_INC_PATH) -I.
+LDFLAGS       := -L$(CUDA_LIB_PATH) -lcuda
+
+ifeq ($(shell hostname), santacruz)
+	GENCODE_FLAGS   := -gencode arch=compute_80,code=sm_80
+else
+	GENCODE_FLAGS   := -gencode arch=compute_61,code=sm_61
+endif
+
+all: 
+	nvcc $(NVCCFLAGS) --cubin $(GENCODE_FLAGS) $(INCLUDES) -o linnos.cubin kernels.cu $(LDFLAGS)
