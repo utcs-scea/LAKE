@@ -168,7 +168,7 @@ void copy_inputs_to_gpu(u64 n_inputs) {
 void multi_gpu_cuda_cleanup_dev(struct GPU_weights *state, int dev) {
     int i, batch;
     pr_warn("Cleaning up GPU %d state\n", dev);
-    for(i = 0; i < 4 ; i++) {
+    for(i = 0; i < 6 ; i++) {
         cuMemFree((CUdeviceptr)state->weights[i]);
     }
 
@@ -176,6 +176,7 @@ void multi_gpu_cuda_cleanup_dev(struct GPU_weights *state, int dev) {
         //pr_warn("Freeing for %d/%d\n", dev, batch);
         cuMemFree(multi_d_input_vec_i[dev][batch]);
         cuMemFree(multi_d_mid_res_i[dev][batch]);
+        cuMemFree(multi_d_mid_res_1_i[dev][batch]);
         cuMemFree(multi_d_final_res_i[dev][batch]);
 
         kava_free(multi_inputs_to_gpu[dev][batch]);        
@@ -194,11 +195,13 @@ void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) 
     gpu_cuda_init(0);
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
+    gpu_get_cufunc(cubin_path, "_Z28prediction_mid_layer_1_batchPlS_S_S_", &batch_linnos_mid_layer_1_kernel);
     
     for(dev = 0 ; dev < ndev ; dev++){
         for(batch = 0 ; batch < MAX_DEV_BATCHES ; batch++){
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_input_vec_i[dev][batch], sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_i[dev][batch]  , sizeof(long) * LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_1_i[dev][batch]  , sizeof(long) * LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[dev][batch], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
             cuStreamCreate(&cu_streams[dev][batch], 0);

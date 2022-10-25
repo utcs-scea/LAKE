@@ -37,6 +37,7 @@ extern long *multi_gpu_outputs[NUMBER_DEVICES][MAX_DEV_BATCHES];
 
 extern CUdeviceptr multi_d_input_vec_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
 extern CUdeviceptr multi_d_mid_res_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
+extern CUdeviceptr multi_d_mid_res_1_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
 extern CUdeviceptr multi_d_final_res_i[NUMBER_DEVICES][MAX_DEV_BATCHES];
 
 extern long *first_weight_ptr_to_dev[NUMBER_DEVICES];

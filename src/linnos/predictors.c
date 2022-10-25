@@ -90,9 +90,47 @@ void multi_gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights, int d
 			"cuLaunchKernel", __LINE__);
 }
 
+void multi_gpu_predict_batch_plus_1(char *__feat_vec, int n_vecs, long **weights, int dev, int batch) {
+	//do inference
+	void *args[] = {
+		&weights[0], &weights[2], &multi_d_input_vec_i[dev][batch], &multi_d_mid_res_i[dev][batch]
+	};
+	void *args1[] = {
+		&weights[1], &weights[3], &multi_d_mid_res_1_i[dev][batch], &multi_d_final_res_i[dev][batch]
+	};
+
+	void *args2[] = {
+		&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
+	};
+
+    check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
+				n_vecs, 1, 1,          //blocks
+				256, 1, 1,   //threads per block
+				0,   //shared mem
+                cu_streams[dev][batch], 
+				args, NULL),
+			"cuLaunchKernel", __LINE__);
+
+	check_error(cuLaunchKernel(batch_linnos_mid_layer_1_kernel, 
+				n_vecs, 1, 1,          //blocks
+				256, 1, 1,   //threads per block
+				0,   //shared mem
+                NULL, args2, NULL),
+			"cuLaunchKernel", __LINE__);
+
+    check_error(cuLaunchKernel(batch_linnos_final_layer_kernel, 
+				n_vecs, 1, 1,          //blocks
+				64, 1, 1,   //threads per block
+				0,   //shared mem
+                cu_streams[dev][batch], 
+				args1, NULL),
+			"cuLaunchKernel", __LINE__);
+}
+
 void do_gpu_inference(int n_vecs, long **weights, int dev, int batch_id) {
 	multi_copy_inputs_to_gpu(n_vecs, dev, batch_id);
-	multi_gpu_predict_batch(0, n_vecs, weights, dev, batch_id);
+	//multi_gpu_predict_batch(0, n_vecs, weights, dev, batch_id);
+	multi_gpu_predict_batch_plus_1(0, n_vecs, weights, dev, batch_id);
 	multi_copy_results_from_gpu(n_vecs, dev, batch_id);
 }
 
