@@ -18,6 +18,9 @@ const u32 max_batch_size = 9; //this cannot be more than 256 (allocated in main.
 const u32 cpu_gpu_threshold = 8; //less than this we use cpu
 const u64 inter_arrival_threshold = 400*_us;
 
+//use normal (0), +1 or +2
+extern u8 model_size;
+
 //batch test variables
 u32* window_size_hist; //allocated in main.c of kernel_hook, 128 elements
 u32 n_used_gpu = 0;
@@ -129,7 +132,13 @@ void multi_gpu_predict_batch_plus_1(char *__feat_vec, int n_vecs, long **weights
 
 void do_gpu_inference(int n_vecs, long **weights, int dev, int batch_id) {
 	multi_copy_inputs_to_gpu(n_vecs, dev, batch_id);
-	//multi_gpu_predict_batch(0, n_vecs, weights, dev, batch_id);
+	multi_gpu_predict_batch(0, n_vecs, weights, dev, batch_id);
+	//multi_gpu_predict_batch_plus_1(0, n_vecs, weights, dev, batch_id);
+	multi_copy_results_from_gpu(n_vecs, dev, batch_id);
+}
+
+void do_gpu_inference_plus_one(int n_vecs, long **weights, int dev, int batch_id) {
+	multi_copy_inputs_to_gpu(n_vecs, dev, batch_id);
 	multi_gpu_predict_batch_plus_1(0, n_vecs, weights, dev, batch_id);
 	multi_copy_results_from_gpu(n_vecs, dev, batch_id);
 }
@@ -218,7 +227,15 @@ enter_again:
 		else {
 			n_used_gpu++;
 			use_cpu_instead[this_dev][my_batch] = false;
-			do_gpu_inference(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
+
+			if (model_size == 0)
+				do_gpu_inference(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
+			else if (model_size == 1)
+				do_gpu_inference_plus_one
+			else
+				//TODO +2
+				do_gpu_inference_plus_one
+	
 			//use GPU
 			//for (i=0 ; i<128 ; i++) //fake inference for testin
 			//	multi_gpu_outputs[this_dev][my_batch][i] = false;

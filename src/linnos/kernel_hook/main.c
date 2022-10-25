@@ -25,6 +25,10 @@ static char *cubin_path = "linnos.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu predictor");
 
+u8 model_size = 0;
+module_param(model_size, int, 0444);
+MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
+
 //adding a model to a device requires:
 // 1. include the header with the weights
 // 2. put device name in devices

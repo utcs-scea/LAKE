@@ -16,8 +16,8 @@ struct GPU_weights {
     //CUdeviceptr d_weight_1_T_ent;
     //CUdeviceptr d_bias_0_ent;
     //CUdeviceptr d_bias_1_ent;
-    //then 2 for +1
-    //then 2 for +2
+    //then 2 for +1 wt,bias
+    //then 2 for +2 wt,bias
     long *weights[8];
 };
 
