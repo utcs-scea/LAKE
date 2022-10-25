@@ -24,11 +24,13 @@ struct GPU_weights {
 extern CUdeviceptr d_input_vec_i;
 extern CUdeviceptr d_mid_res_i;
 extern CUdeviceptr d_mid_res_1_i;
+extern CUdeviceptr d_mid_res_2_i;
 extern CUdeviceptr d_final_res_i;
 
 extern CUfunction batch_linnos_final_layer_kernel;
 extern CUfunction batch_linnos_mid_layer_kernel;
 extern CUfunction batch_linnos_mid_layer_1_kernel;
+extern CUfunction batch_linnos_mid_layer_2_kernel;
 extern CUcontext cuctx;
 extern long *inputs_to_gpu;
 extern long *gpu_outputs;

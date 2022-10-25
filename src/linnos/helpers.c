@@ -38,9 +38,11 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     long *kbuf_weight_0_T_ent;
     long *kbuf_weight_1_T_ent;
     long *kbuf_weight_M_1;
+    long *kbuf_weight_M_2;
     long *kbuf_bias_0_ent;
     long *kbuf_bias_1_ent;
     long *kbuf_bias_M_1;
+    long *kbuf_bias_M_2;
 
     //initialize variables
 	kbuf_weight_0_T_ent = (long*) kava_alloc(256*31*sizeof(long));
@@ -49,6 +51,8 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     memcpy(kbuf_weight_1_T_ent, weights[1], 256*2*sizeof(long));
     kbuf_weight_M_1 = (long*) kava_alloc(256*256*sizeof(long));
     memcpy(kbuf_weight_M_1, weights[4], 256*256*sizeof(long));
+    kbuf_weight_M_2 = (long*) kava_alloc(256*256*sizeof(long));
+    memcpy(kbuf_weight_M_2, weights[4], 256*256*sizeof(long));
 
     kbuf_bias_0_ent = (long*) kava_alloc(256*sizeof(long));
     memcpy(kbuf_bias_0_ent, weights[2], 256*sizeof(long));
@@ -56,6 +60,8 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     memcpy(kbuf_bias_1_ent, weights[3], 2*sizeof(long));
     kbuf_bias_M_1 = (long*) kava_alloc(256*sizeof(long));
     memcpy(kbuf_bias_M_1, weights[5], 256*sizeof(long));
+    kbuf_bias_M_2 = (long*) kava_alloc(256*sizeof(long));
+    memcpy(kbuf_bias_M_2, weights[5], 256*sizeof(long));
 
 
 	//check_error(cuMemAlloc((CUdeviceptr*) &state->d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
@@ -68,6 +74,8 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     check_error(cuMemAlloc((CUdeviceptr*) &state->weights[3], sizeof(long) * 2), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &state->weights[4], sizeof(long) * 256 * 256), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &state->weights[5], sizeof(long) * 256), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &state->weights[6], sizeof(long) * 256 * 256), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &state->weights[7], sizeof(long) * 256), "cuMemAlloc ", __LINE__);
 
 
     check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[0], kbuf_weight_0_T_ent, sizeof(long) * 256*31), "cuMemcpyHtoD", __LINE__);
@@ -76,6 +84,9 @@ void copy_weights(long **weights, struct GPU_weights *state) {
 	check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[3], kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
     check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[4], kbuf_weight_M_1, sizeof(long) * 256 * 256), "cuMemcpyHtoD", __LINE__);
     check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[5], kbuf_bias_M_1, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[6], kbuf_weight_M_2, sizeof(long) * 256 * 256), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[7], kbuf_bias_M_2, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+
 
     kava_free(kbuf_weight_0_T_ent);
     kava_free(kbuf_weight_1_T_ent);
@@ -83,6 +94,9 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     kava_free(kbuf_bias_1_ent);
     kava_free(kbuf_weight_M_1);
     kava_free(kbuf_bias_M_1);
+        kava_free(kbuf_weight_M_2);
+    kava_free(kbuf_bias_M_2);
+
 
 }
 
@@ -100,10 +114,12 @@ void initialize_gpu(const char* cubin_path, int max_batch_size) {
     gpu_get_cufunc(cubin_path, "_Z28prediction_final_layer_batchPlS_S_S_", &batch_linnos_final_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z26prediction_mid_layer_batchPlS_S_S_", &batch_linnos_mid_layer_kernel);
     gpu_get_cufunc(cubin_path, "_Z28prediction_mid_layer_1_batchPlS_S_S_", &batch_linnos_mid_layer_1_kernel);
+    gpu_get_cufunc(cubin_path, "_Z28prediction_mid_layer_2_batchPlS_S_S_", &batch_linnos_mid_layer_2_kernel);
 
     check_error(cuMemAlloc((CUdeviceptr*) &d_input_vec_i, sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_1_i, sizeof(long) *LEN_LAYER_M_1 * max_batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_2_i, sizeof(long) *LEN_LAYER_M_2 * max_batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
     inputs_to_gpu = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
@@ -119,12 +135,13 @@ void initialize_gpu(const char* cubin_path, int max_batch_size) {
 void gpu_cuda_cleanup(struct GPU_weights *state) {
     int i;
     pr_warn("Cleaning up GPU state\n");
-    for(i = 0; i <6 ; i++) {
+    for(i = 0; i <8 ; i++) {
         cuMemFree((CUdeviceptr)state->weights[i]);
     }
     cuMemFree(d_input_vec_i);
     cuMemFree(d_mid_res_i);
     cuMemFree(d_mid_res_1_i);
+    cuMemFree(d_mid_res_2_i);
     cuMemFree(d_final_res_i);
 
     if (!inputs_to_gpu) {
