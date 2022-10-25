@@ -35,8 +35,8 @@ MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu 
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-#include "weights_header/512k_200us_burst/w_Trace_nvme0n1.h"
-#include "weights_header/512k_200us_burst/w_Trace_nvme1n1.h"
+#include "weights_header/ladder/10us/w_Trace_nvme0n1.h"
+#include "weights_header/ladder/10us/w_Trace_nvme1n1.h"
 
 static const char *devices[] = {
     //"/dev/vdb",

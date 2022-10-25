@@ -84,23 +84,6 @@ with open(sys.argv[1], "w") as fp:
             
             total_time += timestamps_us[i]
 
-            if total_time >= next_burst:
-                read_sizes_burst = np.random.normal(AVG_READ_SIZE_BYTES, BYTES_STDDEV, 16)
-                offsets_burst = np.random.randint(0, MAX_BYTE_OFFSET, size=16)
-                next_burst += 100
-                for j in range(16):
-                    aligned_size = get_next_multiple(abs(read_sizes_burst[j]), 4096)
-                    aligned_size = min(aligned_size, 10*AVG_READ_SIZE_BYTES)
-                    total_time += 0.1
-
-                    aligned_offset = get_next_multiple(abs(offsets_burst[j]), 4096)
-                    aligned_offset = min(aligned_offset, MAX_BYTE_OFFSET)
-                    aligned_offset = max(aligned_offset, 128*MB) #dont write to lower offsets
-
-                    line = f"{total_time:.5f} 0 {int(aligned_offset)} {int(aligned_size)} {ops[i]}\n"
-                    fp.write(line)
-
-
             if total_time >= TIME_US:
                 done = True
                 break

@@ -44,7 +44,7 @@ cp mldrive1.csv.* drive1weights
 cp mldrive2.csv.* drive2weights
 
 cd ..
-mkdir -p weights_header
-python3 mlHeaderGen.py Trace nvme0n1 mlData/drive0weights weights_header
-python3 mlHeaderGen.py Trace nvme1n1 mlData/drive1weights weights_header
-python3 mlHeaderGen.py Trace nvme2n1 mlData/drive2weights weights_header
+mkdir -p weights_header_og
+python3 mlHeaderGen.py Trace nvme0n1 mlData/drive0weights weights_header_og
+python3 mlHeaderGen.py Trace nvme1n1 mlData/drive1weights weights_header_og
+python3 mlHeaderGen.py Trace nvme2n1 mlData/drive2weights weights_header_og

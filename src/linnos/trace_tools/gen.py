@@ -10,15 +10,12 @@ MB = 1024*1024
 GB = 1024*1024*1024 #i like dumb and readable
 S_TO_US = 1000*1000
 
-BURST_EVERY_US = 50000
-BURST_OPS = 64
-BURST_AVG = 512*KB
-BURST_STDDEV = 4*KB
-
 #configs
 TIME_US = int(sys.argv[3]) *S_TO_US  #seconds times us
-MAX_BYTE_OFFSET = 500*GB
+MAX_BYTE_OFFSET = 800*GB
+
 READ_PCT = float(sys.argv[2])
+
 AVG_SIZE_BYTES = int(sys.argv[4])*KB
 BYTES_STDDEV =  int(int(sys.argv[4])/20) * KB #5%
 ARRIVAL_RATE_US = float(sys.argv[6])
@@ -37,8 +34,6 @@ step_size = 300
 total_time = 0
 done = False
 now = 0
-next_burst = BURST_EVERY_US # in micro seconds
-
 with open(sys.argv[1], "w") as fp:
     while not done:
         #timestamps_us = np.random.zipf(ARRIVE_RATE_US, step_size)
@@ -58,12 +53,11 @@ with open(sys.argv[1], "w") as fp:
             aligned_offset = max(aligned_offset, 128*MB) #dont write to lower offsets
 
             if ops[i] == 0:
-                aligned_size = get_next_multiple(abs(write_sizes[i]), 4096)
+                aligned_size = get_next_multiple(abs(read_sizes[i]), 4096)
                 aligned_size = min(aligned_size, 10*AVG_WRITE_SIZE_BYTES)
             else:
-                aligned_size = get_next_multiple(abs(read_sizes[i]), 4096)
+                aligned_size = get_next_multiple(abs(write_sizes[i]), 4096)
                 aligned_size = min(aligned_size, 10*AVG_READ_SIZE_BYTES)
-
 
             if aligned_size > max_size:
                 max_size = aligned_size
@@ -72,25 +66,6 @@ with open(sys.argv[1], "w") as fp:
             fp.write(line)
             
             total_time += timestamps_us[i]
-
-            if total_time >= next_burst:
-                read_sizes_burst = np.random.normal(BURST_AVG, BURST_STDDEV, BURST_OPS)
-                offsets_burst = np.random.randint(0, MAX_BYTE_OFFSET, size=BURST_OPS)
-
-                next_burst += BURST_EVERY_US
-                for j in range(BURST_OPS):
-                    aligned_size = get_next_multiple(abs(read_sizes_burst[j]), 4096)
-                    aligned_size = min(aligned_size, 10*AVG_READ_SIZE_BYTES)
-                    total_time += 0.001
-
-                    aligned_offset = get_next_multiple(abs(offsets_burst[j]), 4096)
-                    aligned_offset = min(aligned_offset, MAX_BYTE_OFFSET)
-                    aligned_offset = max(aligned_offset, 128*MB) #dont write to lower offsets
-
-                    line = f"{total_time:.5f} 0 {int(aligned_offset)} {int(aligned_size)} 0\n"
-                    fp.write(line)
-
-
             if total_time >= TIME_US:
                 done = True
                 break
