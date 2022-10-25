@@ -42,6 +42,8 @@ u64 get_tsns() {
 bool check_correctness = true; 
 #define CORRECTNESS_CHECKS 1000
 
+u8 model_size = 0;
+
 static char *cubin_path = "linnos.cubin";
 #ifdef __KERNEL__
 module_param(cubin_path, charp, 0444);
