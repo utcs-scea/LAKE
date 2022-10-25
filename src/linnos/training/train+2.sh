@@ -31,7 +31,7 @@ done
 
 for i in 0 1 2 
 do
-   python3 pred1.py \
+   python3 pred1_+2.py \
    mlData/"mldrive${i}.csv" $4 > mlData/"mldrive${i}results".txt
 done
 
@@ -45,6 +45,6 @@ cp mldrive2.csv.* drive2weights
 
 cd ..
 mkdir -p "weights_header+2"
-python3 mlHeaderGen.py Trace nvme0n1 mlData/drive0weights "weights_header+2"
-python3 mlHeaderGen.py Trace nvme1n1 mlData/drive1weights "weights_header+2"
-python3 mlHeaderGen.py Trace nvme2n1 mlData/drive2weights "weights_header+2"
+python3 mlHeaderGen+2.py Trace nvme0n1 mlData/drive0weights "weights_header+2"
+python3 mlHeaderGen+2.py Trace nvme1n1 mlData/drive1weights "weights_header+2"
+python3 mlHeaderGen+2.py Trace nvme2n1 mlData/drive2weights "weights_header+2"

@@ -107,9 +107,6 @@ for i in range(50):
         count += 1
 
 
-
-
-
 '''
 from keras.models import model_from_json
 import os
