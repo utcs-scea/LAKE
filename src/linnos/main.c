@@ -39,7 +39,7 @@ u64 get_tsns() {
 #define LEN_LAYER_1 2
 
 #define RUNS 3
-bool check_correctness = true; 
+bool check_correctness = false; 
 #define CORRECTNESS_CHECKS 1000
 
 static char *cubin_path = "linnos.cubin";
@@ -48,7 +48,8 @@ module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin");
 #endif
 
-long *test_weights[4] = { weight_0_T, weight_1_T, bias_0, bias_1};
+long *test_weights[6] = { weight_0_T, weight_1_T, bias_0, bias_1, weight_M_1_T, bias_M_1};
+
 
 static int run_gpu(void) {
     int i, j;
@@ -86,7 +87,7 @@ static int run_gpu(void) {
         copy_inputs_to_gpu(batch_size);
 
         //warmup
-        gpu_predict_batch(0, batch_size, state.weights);
+        gpu_predict_batch_plus_1(0, batch_size, state.weights);
         copy_results_from_gpu(batch_size);
         
         cuCtxSynchronize();
@@ -96,7 +97,7 @@ static int run_gpu(void) {
             PREDICT_GPU_SYNC = 0;
             t_start = ktime_get_ns();
             copy_inputs_to_gpu(batch_size);
-            gpu_predict_batch(0, batch_size, state.weights);
+            gpu_predict_batch_plus_1(0, batch_size, state.weights);
             copy_results_from_gpu(batch_size);
             t_stop = ktime_get_ns();
             
@@ -132,7 +133,7 @@ static int run_gpu(void) {
         batch_size = batch_sizes[i];
 
         //warmup
-        cpu_prediction_model(input, 1, test_weights);
+        cpu_prediction_model_plus_1(input, 1, test_weights);
         
         usleep_range(250, 1000);
     
@@ -141,7 +142,7 @@ static int run_gpu(void) {
             for(int k = 0; k < batch_size; k++) {
                 char input_copy[31];
                 memcpy (input_copy, input, sizeof(input));
-                cpu_prediction_model(input, 1, test_weights);
+                cpu_prediction_model_plus_1(input, 1, test_weights);
             }
             t_stop = ktime_get_ns();
             

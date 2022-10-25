@@ -4,6 +4,7 @@
 #define FEAT_31
 #define LEN_INPUT 31
 #define LEN_LAYER_0 256
+#define LEN_LAYER_M_1 256
 #define LEN_LAYER_0_HALF 128
 #define LEN_LAYER_1 2
 
@@ -31,7 +32,9 @@ extern struct GPU_weights gpu_weights[NUMBER_DEVICES];
 bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights);
 bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights);
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights);
+bool cpu_prediction_model_plus_1(char *feat_vec, int n_vecs, long **weights);
 void gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights);
+void gpu_predict_batch_plus_1(char *__feat_vec, int n_vecs, long **weights);
 
 void predictors_mgpu_init(void);
 
