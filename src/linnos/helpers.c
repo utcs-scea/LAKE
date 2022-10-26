@@ -47,22 +47,14 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     //initialize variables
 	kbuf_weight_0_T_ent = (long*) kava_alloc(256*31*sizeof(long));
     memcpy(kbuf_weight_0_T_ent, weights[0], 256*31*sizeof(long));
-    kbuf_weight_1_T_ent = (long*) kava_alloc(256*2*sizeof(long));
-    memcpy(kbuf_weight_1_T_ent, weights[1], 256*2*sizeof(long));
-    kbuf_weight_M_1 = (long*) kava_alloc(256*256*sizeof(long));
-    memcpy(kbuf_weight_M_1, weights[4], 256*256*sizeof(long));
-    kbuf_weight_M_2 = (long*) kava_alloc(256*256*sizeof(long));
-    memcpy(kbuf_weight_M_2, weights[4], 256*256*sizeof(long));
-
     kbuf_bias_0_ent = (long*) kava_alloc(256*sizeof(long));
     memcpy(kbuf_bias_0_ent, weights[2], 256*sizeof(long));
+
+
+    kbuf_weight_1_T_ent = (long*) kava_alloc(256*2*sizeof(long));
+    memcpy(kbuf_weight_1_T_ent, weights[1], 256*2*sizeof(long));
     kbuf_bias_1_ent = (long*) kava_alloc(2*sizeof(long));
     memcpy(kbuf_bias_1_ent, weights[3], 2*sizeof(long));
-    kbuf_bias_M_1 = (long*) kava_alloc(256*sizeof(long));
-    memcpy(kbuf_bias_M_1, weights[5], 256*sizeof(long));
-    kbuf_bias_M_2 = (long*) kava_alloc(256*sizeof(long));
-    memcpy(kbuf_bias_M_2, weights[5], 256*sizeof(long));
-
 
 	//check_error(cuMemAlloc((CUdeviceptr*) &state->d_weight_0_T_ent, sizeof(long) * 256*31), "cuMemAlloc ", __LINE__);
     //check_error(cuMemAlloc((CUdeviceptr*) &state->d_weight_1_T_ent, sizeof(long) * 256*2), "cuMemAlloc ", __LINE__);
@@ -82,22 +74,35 @@ void copy_weights(long **weights, struct GPU_weights *state) {
 	check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[1], kbuf_weight_1_T_ent, sizeof(long) * 256*2), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[2], kbuf_bias_0_ent, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
 	check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[3], kbuf_bias_1_ent, sizeof(long) * 2), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[4], kbuf_weight_M_1, sizeof(long) * 256 * 256), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[5], kbuf_bias_M_1, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[6], kbuf_weight_M_2, sizeof(long) * 256 * 256), "cuMemcpyHtoD", __LINE__);
-    check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[7], kbuf_bias_M_2, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
 
+    //test if +1
+    if (weights[4] && weights[5]) {
+        kbuf_weight_M_1 = (long*) kava_alloc(256*256*sizeof(long));
+        memcpy(kbuf_weight_M_1, weights[4], 256*256*sizeof(long));
+        kbuf_bias_M_1 = (long*) kava_alloc(256*sizeof(long));
+        memcpy(kbuf_bias_M_1, weights[5], 256*sizeof(long));
+        check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[4], kbuf_weight_M_1, sizeof(long) * 256 * 256), "cuMemcpyHtoD", __LINE__);
+        check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[5], kbuf_bias_M_1, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+        kava_free(kbuf_weight_M_1);
+        kava_free(kbuf_bias_M_1);
+    }
+    
+    //test if +2
+    if (weights[6] && weights[7]) {
+        kbuf_weight_M_2 = (long*) kava_alloc(256*256*sizeof(long));
+        memcpy(kbuf_weight_M_2, weights[6], 256*256*sizeof(long));
+        kbuf_bias_M_2 = (long*) kava_alloc(256*sizeof(long));
+        memcpy(kbuf_bias_M_2, weights[7], 256*sizeof(long));
+        check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[6], kbuf_weight_M_2, sizeof(long) * 256 * 256), "cuMemcpyHtoD", __LINE__);
+        check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[7], kbuf_bias_M_2, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
+        kava_free(kbuf_weight_M_2);
+        kava_free(kbuf_bias_M_2);
+    }
 
     kava_free(kbuf_weight_0_T_ent);
     kava_free(kbuf_weight_1_T_ent);
     kava_free(kbuf_bias_0_ent);
     kava_free(kbuf_bias_1_ent);
-    kava_free(kbuf_weight_M_1);
-    kava_free(kbuf_bias_M_1);
-        kava_free(kbuf_weight_M_2);
-    kava_free(kbuf_bias_M_2);
-
-
 }
 
 void copy_results_from_gpu(u64 n_inputs) {

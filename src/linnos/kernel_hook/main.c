@@ -25,7 +25,7 @@ static char *cubin_path = "linnos.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu predictor");
 
-u8 model_size = 0;
+int model_size = 0;
 module_param(model_size, int, 0444);
 MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 
@@ -39,8 +39,8 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-#include "weights_header/ladder/10us/w_Trace_nvme0n1.h"
-#include "weights_header/ladder/10us/w_Trace_nvme1n1.h"
+#include "weights_header/azure/2ssds_85/w_Trace_nvme0n1.h"
+#include "weights_header/azure/2ssds_85/w_Trace_nvme1n1.h"
 
 static const char *devices[] = {
     //"/dev/vdb",
@@ -51,20 +51,24 @@ static const char *devices[] = {
 	0
 };
 
-long *weights[][4] = {
+long *weights[][8] = {
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde},
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
+	
+	//NN
 	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
 	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
-	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
+	//{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
 
-	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1, weight_2_T_nvme0n1, bias_2_nvme0n1 ,0,0},
-	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1, weight_2_T_nvme1n1, bias_2_nvme1n1 ,0,0},
-	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1, weight_2_T_nvme2n1, bias_2_nvme2n1 ,0,0},
+	// NN+1
+	// {weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1, weight_2_T_nvme0n1, bias_2_nvme0n1 ,0,0},
+	// {weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1, weight_2_T_nvme1n1, bias_2_nvme1n1 ,0,0},
+	// {weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1, weight_2_T_nvme2n1, bias_2_nvme2n1 ,0,0},
 
-	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1, weight_2_T_nvme0n1, bias_2_nvme0n1 ,weight_3_T_nvme0n1, bias_3_nvme0n1},
-	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1, weight_2_T_nvme1n1, bias_2_nvme1n1 ,weight_3_T_nvme1n1, bias_3_nvme1n1},
-	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1, weight_2_T_nvme2n1, bias_2_nvme2n1 ,weight_3_T_nvme2n1, bias_3_nvme2n1},
+	//NN+2
+	// {weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1, weight_2_T_nvme0n1, bias_2_nvme0n1 ,weight_3_T_nvme0n1, bias_3_nvme0n1},
+	// {weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1, weight_2_T_nvme1n1, bias_2_nvme1n1 ,weight_3_T_nvme1n1, bias_3_nvme1n1},
+	// {weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1, weight_2_T_nvme2n1, bias_2_nvme2n1 ,weight_3_T_nvme2n1, bias_3_nvme2n1},
 
 };
 
@@ -199,6 +203,13 @@ static int attach_to_queue(int idx) {
 	q->weight_1_T = wts[1];
 	q->bias_0 = wts[2];
 	q->bias_1 = wts[3];
+
+	q->weight_2_T = wts[4];
+	q->bias_2 = wts[5];
+	q->weight_3_T = wts[6];
+	q->bias_3 = wts[7];
+
+
 	q->predictor = fptr;
 	q->ml_enabled = true;
 	sysctl_lake_enable_linnos = true;
@@ -226,6 +237,12 @@ static int gpu_detach_queue(int idx) {
 	q->weight_1_T = 0;
 	q->bias_0 = 0;
 	q->bias_1 = 0;
+
+	q->weight_2_T = 0;
+	q->bias_2 = 0;
+	q->weight_3_T = 0;
+	q->bias_3 = 0;
+
 	pr_warn("Dettached!\n");
 	return 0;
 }

@@ -12,6 +12,7 @@ if __name__ == '__main__':
     inter_arrivals = []
 
     read_sizes = []
+    write_sizes = []
     reads = 0
     writes = 0
     last_io_time = -1
@@ -33,7 +34,8 @@ if __name__ == '__main__':
                 reads += 1
             else:
                 writes += 1
-
+                write_sizes.append(size)
+                
             if last_io_time != -1:
                 inter = timestamp - last_io_time
                 inter_arrivals.append(inter)
@@ -48,6 +50,9 @@ if __name__ == '__main__':
     print(f"Min/Max inter arrival time  {min(inter_arrivals):.2f}, {max(inter_arrivals):.2f}")
     print(f"Read size avg: {statistics.mean(read_sizes)/1024:.2f} KB")
     print(f"Read size stddev: {statistics.pstdev(read_sizes)/1024:.2f} KB")
+    print(f"Write size avg: {statistics.mean(write_sizes)/1024:.2f} KB")
+    last_io_time_s = last_io_time/(1000*1000) #us to s
+    print(f"Avg IOPS  {(reads+writes)/ last_io_time_s} ")
     print(f"==============================")
 
     # count, x = np.histogram(inters, bins=500)

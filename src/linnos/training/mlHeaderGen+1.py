@@ -50,7 +50,6 @@ output_folder = sys.argv[4]
 if output_folder[-1] != '/':
     output_folder += '/'
 
-os.makedirs(output_folder)
 # print(output_folder)
 
 # workload = 'bingindex'
