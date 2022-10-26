@@ -49,7 +49,8 @@ if __name__ == '__main__':
     print(f"IO inter arrival stddev {statistics.pstdev(inter_arrivals):.2f}us")
     print(f"Min/Max inter arrival time  {min(inter_arrivals):.2f}, {max(inter_arrivals):.2f}")
     print(f"Read size avg: {statistics.mean(read_sizes)/1024:.2f} KB")
-    print(f"Read size stddev: {statistics.pstdev(read_sizes)/1024:.2f} KB")
+    print(f"Read min max: {min(read_sizes)/1024}/{max(read_sizes)/1024} KB")
+    #print(f"Read size stddev: {statistics.pstdev(read_sizes)/1024:.2f} KB")
     print(f"Write size avg: {statistics.mean(write_sizes)/1024:.2f} KB")
     last_io_time_s = last_io_time/(1000*1000) #us to s
     print(f"Avg IOPS  {(reads+writes)/ last_io_time_s} ")

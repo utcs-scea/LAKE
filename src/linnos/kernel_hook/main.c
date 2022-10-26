@@ -39,15 +39,16 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
-#include "weights_header/azure/2ssds_85/w_Trace_nvme0n1.h"
-#include "weights_header/azure/2ssds_85/w_Trace_nvme1n1.h"
+#include "weights_header/bing_i85/w_Trace_nvme0n1.h"
+#include "weights_header/bing_i85/w_Trace_nvme1n1.h"
+#include "weights_header/bing_i85/w_Trace_nvme2n1.h"
 
 static const char *devices[] = {
     //"/dev/vdb",
 	//"/dev/vdc",
 	"/dev/nvme0n1",
 	"/dev/nvme1n1",
-	//"/dev/nvme2n1",
+	"/dev/nvme2n1",
 	0
 };
 
@@ -58,7 +59,7 @@ long *weights[][8] = {
 	//NN
 	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
 	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
-	//{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
+	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
 
 	// NN+1
 	// {weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1, weight_2_T_nvme0n1, bias_2_nvme0n1 ,0,0},

@@ -15,8 +15,8 @@ bool NEVER_REJECT = false;
 
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 60*_us;
-const u32 max_batch_size = 12; //this cannot be more than 256 (allocated in main.c)
+const u64 window_size_ns = 700*_us;
+const u32 max_batch_size = 8; //this cannot be more than 256 (allocated in main.c)
 const u32 cpu_gpu_threshold = 8; //less than this we use cpu
 const u64 inter_arrival_threshold = 400*_us;
 

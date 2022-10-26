@@ -173,10 +173,6 @@ public:
             sscanf(line.c_str(), "%lf %d %lu %lu %u", 
                 &timestamp, &trash, &offset, &size, &op_type);
 
-            if (offset < 256*1e6) { //new gen handles this
-                offset + 256*1e6; 
-            }
-
             //in >> timestamp >> trash >> offset >> size >> op_type;
             req_timestamps[device][i] = timestamp;
             req_offsets[device][i] = offset;
