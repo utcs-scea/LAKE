@@ -77,10 +77,13 @@ void copy_weights(long **weights, struct GPU_weights *state) {
 
     //test if +1
     if (weights[4] && weights[5]) {
+        pr_warn("Copying weights for +1\n");
         kbuf_weight_M_1 = (long*) kava_alloc(256*256*sizeof(long));
         memcpy(kbuf_weight_M_1, weights[4], 256*256*sizeof(long));
+
         kbuf_bias_M_1 = (long*) kava_alloc(256*sizeof(long));
         memcpy(kbuf_bias_M_1, weights[5], 256*sizeof(long));
+        
         check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[4], kbuf_weight_M_1, sizeof(long) * 256 * 256), "cuMemcpyHtoD", __LINE__);
         check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[5], kbuf_bias_M_1, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
         kava_free(kbuf_weight_M_1);
@@ -89,10 +92,13 @@ void copy_weights(long **weights, struct GPU_weights *state) {
     
     //test if +2
     if (weights[6] && weights[7]) {
+        pr_warn("Copying weights for +2\n");
         kbuf_weight_M_2 = (long*) kava_alloc(256*256*sizeof(long));
         memcpy(kbuf_weight_M_2, weights[6], 256*256*sizeof(long));
+
         kbuf_bias_M_2 = (long*) kava_alloc(256*sizeof(long));
         memcpy(kbuf_bias_M_2, weights[7], 256*sizeof(long));
+        
         check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[6], kbuf_weight_M_2, sizeof(long) * 256 * 256), "cuMemcpyHtoD", __LINE__);
         check_error(cuMemcpyHtoD((CUdeviceptr )state->weights[7], kbuf_bias_M_2, sizeof(long) * 256), "cuMemcpyHtoD", __LINE__);
         kava_free(kbuf_weight_M_2);
@@ -122,9 +128,9 @@ void initialize_gpu(const char* cubin_path, int max_batch_size) {
     gpu_get_cufunc(cubin_path, "_Z28prediction_mid_layer_2_batchPlS_S_S_", &batch_linnos_mid_layer_2_kernel);
 
     check_error(cuMemAlloc((CUdeviceptr*) &d_input_vec_i, sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i, sizeof(long) *LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_1_i, sizeof(long) *LEN_LAYER_M_1 * max_batch_size), "cuMemAlloc ", __LINE__);
-    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_2_i, sizeof(long) *LEN_LAYER_M_2 * max_batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_i,   sizeof(long) * LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_1_i, sizeof(long) * LEN_LAYER_M_1 * max_batch_size), "cuMemAlloc ", __LINE__);
+    check_error(cuMemAlloc((CUdeviceptr*) &d_mid_res_2_i, sizeof(long) * LEN_LAYER_M_2 * max_batch_size), "cuMemAlloc ", __LINE__);
     check_error(cuMemAlloc((CUdeviceptr*) &d_final_res_i, sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
     inputs_to_gpu = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
@@ -225,8 +231,8 @@ void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) 
         for(batch = 0 ; batch < MAX_DEV_BATCHES ; batch++){
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_input_vec_i[dev][batch], sizeof(long) * LEN_INPUT * max_batch_size), "cuMemAlloc ", __LINE__);
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_i[dev][batch], sizeof(long) * LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
-            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_1_i[dev][batch], sizeof(long) * LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
-            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_2_i[dev][batch], sizeof(long) * LEN_LAYER_0 * max_batch_size), "cuMemAlloc ", __LINE__);
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_1_i[dev][batch], sizeof(long) * LEN_LAYER_M_1 * max_batch_size), "cuMemAlloc ", __LINE__);
+            check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_2_i[dev][batch], sizeof(long) * LEN_LAYER_M_2 * max_batch_size), "cuMemAlloc ", __LINE__);
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[dev][batch], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
             cuStreamCreate(&cu_streams[dev][batch], 0);

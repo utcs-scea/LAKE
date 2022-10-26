@@ -11,13 +11,13 @@
 
 int PREDICT_GPU_SYNC = 0;
 
-bool NEVER_REJECT = false;
+bool NEVER_REJECT = true;
 
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 700*_us;
-const u32 max_batch_size = 8; //this cannot be more than 256 (allocated in main.c)
-const u32 cpu_gpu_threshold = 8; //less than this we use cpu
+const u64 window_size_ns = 80*_us;
+const u32 max_batch_size = 6; //this cannot be more than 256 (allocated in main.c)
+const u32 cpu_gpu_threshold = 2; //less than this we use cpu
 const u64 inter_arrival_threshold = 400*_us;
 
 //use normal (0), +1 or +2
@@ -103,7 +103,6 @@ void multi_gpu_predict_batch_plus_1(char *__feat_vec, int n_vecs, long **weights
 	void *args1[] = {
 		&weights[1], &weights[3], &multi_d_mid_res_1_i[dev][batch], &multi_d_final_res_i[dev][batch]
 	};
-
 	void *args2[] = {
 		&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
 	};
@@ -120,7 +119,7 @@ void multi_gpu_predict_batch_plus_1(char *__feat_vec, int n_vecs, long **weights
 				n_vecs, 1, 1,          //blocks
 				256, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args2, NULL),
+                cu_streams[dev][batch], args2, NULL),
 			"cuLaunchKernel", __LINE__);
 
     check_error(cuLaunchKernel(batch_linnos_final_layer_kernel, 
@@ -141,13 +140,22 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
 		&weights[1], &weights[3], &multi_d_mid_res_2_i[dev][batch], &multi_d_final_res_i[dev][batch]
 	};
 
+	// void *args2[] = {
+	// 	&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
+	// };
+
+	// void *args3[] = {
+	// 	&weights[6], &weights[7], &multi_d_mid_res_1_i[dev][batch], &multi_d_mid_res_2_i[dev][batch]
+	// };
+
 	void *args2[] = {
 		&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
 	};
 
 	void *args3[] = {
-		&weights[6], &weights[7], &multi_d_mid_res_1_i[dev][batch], &multi_d_mid_res_2_i[dev][batch]
+		&weights[6], &weights[7],  &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
 	};
+
 
     check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
 				n_vecs, 1, 1,          //blocks
@@ -161,15 +169,23 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
 				n_vecs, 1, 1,          //blocks
 				256, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args2, NULL),
+                cu_streams[dev][batch], args2, NULL),
 			"cuLaunchKernel", __LINE__);
 
-	check_error(cuLaunchKernel(batch_linnos_mid_layer_2_kernel, 
+	check_error(cuLaunchKernel(batch_linnos_mid_layer_1_kernel, 
 				n_vecs, 1, 1,          //blocks
 				256, 1, 1,   //threads per block
 				0,   //shared mem
-                NULL, args3, NULL),
+                cu_streams[dev][batch], args3, NULL),
 			"cuLaunchKernel", __LINE__);
+
+	//Isha, there's a bug here somewhere, it crashes santacruz
+	// check_error(cuLaunchKernel(batch_linnos_mid_layer_2_kernel, 
+	// 			n_vecs, 1, 1,          //blocks
+	// 			256, 1, 1,   //threads per block
+	// 			0,   //shared mem
+    //             cu_streams[dev][batch], args3, NULL),
+	// 		"cuLaunchKernel", __LINE__);
 
     check_error(cuLaunchKernel(batch_linnos_final_layer_kernel, 
 				n_vecs, 1, 1,          //blocks
@@ -183,7 +199,6 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
 void do_gpu_inference(int n_vecs, long **weights, int dev, int batch_id) {
 	multi_copy_inputs_to_gpu(n_vecs, dev, batch_id);
 	multi_gpu_predict_batch(0, n_vecs, weights, dev, batch_id);
-	//multi_gpu_predict_batch_plus_1(0, n_vecs, weights, dev, batch_id);
 	multi_copy_results_from_gpu(n_vecs, dev, batch_id);
 }
 
@@ -402,7 +417,6 @@ void gpu_predict_batch_plus_1(char *__feat_vec, int n_vecs, long **weights) {
 	void *args2[] = {
 		&weights[4], &weights[5], &d_mid_res_i, &d_mid_res_1_i
 	};
-
     check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
 				n_vecs, 1, 1,          //blocks
 				256, 1, 1,   //threads per block
@@ -482,10 +496,12 @@ bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
 
+
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
 	int i, j, k, offset;
+	bool end;
 
 	for (i=0 ; i<LEN_INPUT; i++) {
 		input_vec_i[i] = (long)(feat_vec[i]);
@@ -567,15 +583,16 @@ bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	}
 	// apply bias
 	final_res_i[1] += bias_1_ent[1];
-
-    return (final_res_i[0]>=final_res_i[1])? false: true;
+    end = (final_res_i[0]>=final_res_i[1])? false: true;
+	return NEVER_REJECT ? false : end; 
 }
+
 
 bool cpu_prediction_model_plus_1(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], mid_res_m_1[LEN_LAYER_M_1], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent, *weight_M_1, *bias_M_1; 
 	int i, j, k, offset;
-
+	bool end;
 	for (i=0 ; i<LEN_INPUT; i++) {
 		input_vec_i[i] = (long)(feat_vec[i]);
 	}
@@ -674,14 +691,18 @@ bool cpu_prediction_model_plus_1(char *feat_vec, int n_vecs, long **weights) {
 	// apply bias
 	final_res_i[1] += bias_1_ent[1];
 
-    return (final_res_i[0]>=final_res_i[1])? false: true;
+    //return (final_res_i[0]>=final_res_i[1])? false: true;
+
+	end = (final_res_i[0]>=final_res_i[1])? false: true;
+	return NEVER_REJECT ? false : end; 
 }
+
 
 bool cpu_prediction_model_plus_2(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], mid_res_m_1[LEN_LAYER_M_1], mid_res_m_2[LEN_LAYER_M_2], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent, *weight_M_1, *bias_M_1, *weight_M_2, *bias_M_2; 
 	int i, j, k, offset;
-
+	bool end;
 	for (i=0 ; i<LEN_INPUT; i++) {
 		input_vec_i[i] = (long)(feat_vec[i]);
 	}
@@ -797,12 +818,12 @@ bool cpu_prediction_model_plus_2(char *feat_vec, int n_vecs, long **weights) {
 	// apply bias
 	final_res_i[1] += bias_1_ent[1];
 
-    return (final_res_i[0]>=final_res_i[1])? false: true;
+    //return (final_res_i[0]>=final_res_i[1])? false: true;
+	end = (final_res_i[0]>=final_res_i[1])? false: true;
+	return NEVER_REJECT ? false : end; 
 }
-
 
 
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
-
