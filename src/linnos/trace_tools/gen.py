@@ -65,7 +65,7 @@ with open(sys.argv[1], "w") as fp:
         read_sizes = np.random.lognormal(math.log(avg_rd), stdev_rd, step_size)
         write_sizes = np.random.lognormal(math.log(avg_wt), stdev_wt, step_size)
         read_sizes[read_sizes > max_rd] = max_rd
-        write_sizes[write_sizes > max_rd] = max_wt
+        write_sizes[write_sizes > max_wt] = max_wt
 
         offsets = np.random.randint(0, MAX_BYTE_OFFSET, size=step_size)
         ops = np.random.choice([0, 1], size=step_size, p=[READ_PCT, 1-READ_PCT])
