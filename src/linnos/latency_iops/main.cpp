@@ -33,14 +33,20 @@ int KB = 1024; int MB = 1024*1024; int GB = 1024*1024*1024;
 
 int iops[] = { 10, 100, 1000, 2000, 5000, 10000};
 int sizes[] = {4*KB, 16*KB, 64*KB, 256*KB, 1024*KB};
-std::multimap<int, int> stats;
 int fds[] = {0,0,0};
 uint32_t lates[] = {0,0,0};
+uint32_t total[] = {0,0,0};
 std::vector<int> init;
 std::vector<std::vector<int>> io_latency_1(3, init);
-int io_latency[3][100000] = {0};
-int last_index_latency[] = {-1, -1, -1};
-int num_devices = 2;
+const int num_devices = 2;
+
+// arrays for stats
+double lat_stat_avg[5][num_devices][6];
+double lat_stat_std[5][num_devices][6];
+
+int total_io[5][num_devices][6];
+int late_io[5][num_devices][6];
+double percent_late[5][num_devices][6];
 
 uint32_t runtime_us = 100000;
     
@@ -95,15 +101,12 @@ void* replayer_fn(void* arg) {
             printf("Error on pread %d\n", errno);
             break;
         }
+        total[device]++;
         auto end = std::chrono::steady_clock::now();        
         uint32_t latency =  std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
 
         //TODO store latency somewhere so that later we can calculate avg and stddev
         io_latency_1[device].push_back(latency);
-        // if(last_index_latency[device] < 100000) {
-        //     last_index_latency[device]++;
-        //     io_latency[device][last_index_latency[device]] = latency;
-        // }
 
         if(latency > period_us) {
             //if we are late, we cant even sleep
@@ -145,7 +148,11 @@ void print_stats(int io_idx, int size_idx) {
         const size_t sz = io_latency_1[dev].size();
         double mean = std::accumulate(io_latency_1[dev].begin(), io_latency_1[dev].end(), 0.0) / sz;
         std::cout << "\tmean = "<<mean;
-        stats.insert(std::pair<int, int>(io, mean));
+        lat_stat_avg[size_idx][dev][io_idx] = mean;
+        lat_stat_std[size_idx][dev][io_idx] = sqrt(variance(io_latency_1[dev]));
+        total_io[size_idx][dev][io_idx] = total[dev];
+        late_io[size_idx][dev][io_idx] = lates[dev];
+        percent_late[size_idx][dev][io_idx] = (double)lates[dev]/ (double) total[dev];
         std::cout << "\tVariance = "<<variance(io_latency_1[dev]);
         io_latency_1[dev].clear();
     }
@@ -200,14 +207,40 @@ int main (int argc, char **argv)
             print_stats(io_idx, size_idx);
         }
     }
-    std::cout <<"Printing stats"<<std::endl;
-    std::multimap<int, int>::iterator itr;
-    for (itr = stats.begin(); itr != stats.end(); ++itr) {
-        std::cout << ',' << itr->first ;
+    for(int i = 0; i < 5; i++) {
+        for(int j = 0; j < num_devices; j++) {
+            std::cout <<"\n_"<<sizes[i]<<"_dev_"<<j<<" = [ ";
+            for(int k = 0; k < 6; k++) {
+                std::cout<< lat_stat_avg[i][j][k];
+                if(k != 5)
+                    std::cout<< ", ";
+            }
+            std::cout <<"]";
+        }
     }
-    std::cout <<std::endl;
-    for (itr = stats.begin(); itr != stats.end(); ++itr) {
-        std::cout << ',' << itr->second;
+
+    for(int i = 0; i < 5; i++) {
+        for(int j = 0; j < num_devices; j++) {
+            std::cout <<"\n_"<<sizes[i]<<"_dev_"<<j<<"e = [ ";
+            for(int k = 0; k < 6; k++) {
+                std::cout<< lat_stat_std[i][j][k];
+                if(k != 5)
+                    std::cout<< ", ";
+            }
+            std::cout <<"]";
+        }
+    }
+
+    for(int i = 0; i < 5; i++) {
+        for(int j = 0; j < num_devices; j++) {
+            std::cout <<"\n_"<<sizes[i]<<"_dev_"<<j<<"percent_late_io = [ ";
+            for(int k = 0; k < 6; k++) {
+                std::cout<< percent_late[i][j][k];
+                if(k != 5)
+                    std::cout<< ", ";
+            }
+            std::cout <<"]";
+        }
     }
     return 0;
 }
