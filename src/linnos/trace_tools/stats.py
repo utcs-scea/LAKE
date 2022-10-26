@@ -52,6 +52,7 @@ if __name__ == '__main__':
     print(f"Read min max: {min(read_sizes)/1024}/{max(read_sizes)/1024} KB")
     #print(f"Read size stddev: {statistics.pstdev(read_sizes)/1024:.2f} KB")
     print(f"Write size avg: {statistics.mean(write_sizes)/1024:.2f} KB")
+    print(f"Write min max: {min(write_sizes)/1024}/{max(write_sizes)/1024} KB")
     last_io_time_s = last_io_time/(1000*1000) #us to s
     print(f"Avg IOPS  {(reads+writes)/ last_io_time_s} ")
     print(f"==============================")

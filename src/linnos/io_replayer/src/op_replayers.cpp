@@ -104,8 +104,8 @@ void failover_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     //read
     if(trace_op.op == 0) {
         for (i = 0 ; i < MAX_FAIL ; i++) {
-            trace->add_io_count((device+i)%3);
-            ret = pread(fds[(device+i)%3], buf, trace_op.size, trace_op.offset);
+            trace->add_io_count((device+i)%2);
+            ret = pread(fds[(device+i)%2], buf, trace_op.size, trace_op.offset);
             if (ret > 0) {
                 success = true;
                 break;

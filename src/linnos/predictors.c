@@ -11,14 +11,14 @@
 
 int PREDICT_GPU_SYNC = 0;
 
-bool NEVER_REJECT = true;
+bool NEVER_REJECT = false;
 
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 80*_us;
-const u32 max_batch_size = 6; //this cannot be more than 256 (allocated in main.c)
-const u32 cpu_gpu_threshold = 2; //less than this we use cpu
-const u64 inter_arrival_threshold = 400*_us;
+const u64 window_size_ns = 0*_us;
+const u32 max_batch_size = 1; //this cannot be more than 256 (allocated in main.c)
+const u32 cpu_gpu_threshold = 8; //less than this we use cpu
+const u64 inter_arrival_threshold = 800*_us;
 
 //use normal (0), +1 or +2
 extern u8 model_size;
@@ -587,7 +587,8 @@ bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return NEVER_REJECT ? false : end; 
 }
 
-
+//#pragma GCC push_options
+//#pragma GCC optimize ("O0")
 bool cpu_prediction_model_plus_1(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], mid_res_m_1[LEN_LAYER_M_1], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent, *weight_M_1, *bias_M_1; 
@@ -696,8 +697,11 @@ bool cpu_prediction_model_plus_1(char *feat_vec, int n_vecs, long **weights) {
 	end = (final_res_i[0]>=final_res_i[1])? false: true;
 	return NEVER_REJECT ? false : end; 
 }
+//#pragma GCC pop_options
 
 
+//#pragma GCC push_options
+//#pragma GCC optimize ("O0")
 bool cpu_prediction_model_plus_2(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], mid_res_m_1[LEN_LAYER_M_1], mid_res_m_2[LEN_LAYER_M_2], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent, *weight_M_1, *bias_M_1, *weight_M_2, *bias_M_2; 
@@ -822,7 +826,7 @@ bool cpu_prediction_model_plus_2(char *feat_vec, int n_vecs, long **weights) {
 	end = (final_res_i[0]>=final_res_i[1])? false: true;
 	return NEVER_REJECT ? false : end; 
 }
-
+//#pragma GCC pop_options
 
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	return false;

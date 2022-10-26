@@ -11,7 +11,7 @@
 #include <string>
 #include <fcntl.h>
 
-#define LARGEST_REQUEST_BYTES (16*1024*1024)
+#define LARGEST_REQUEST_BYTES (64*1024*1024)
 #define MEM_ALIGN 4096
 #define SINGLE_IO_LIMIT 1024*1024
 

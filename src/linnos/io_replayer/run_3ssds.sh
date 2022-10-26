@@ -10,6 +10,8 @@ fi
 PID=$!
 
 sudo ./replayer $1 3ssds 3 /dev/nvme0n1-/dev/nvme1n1-/dev/nvme2n1 $2 $3 $4
+#sudo ./replayer $1 3ssds 2 /dev/nvme0n1-/dev/nvme2n1 $2 $3 $4
+
 
 kill -SIGINT  $PID
 out=$(cat backingfile)

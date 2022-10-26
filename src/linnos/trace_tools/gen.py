@@ -6,7 +6,7 @@ import scipy.stats as stats
 import statistics
 
 if len(sys.argv) != 7:
-    print("Need argument: <file output> <readpct e.g. 0.7> <total time in sec> avg_read/min/max/stdev avg_write/min/max/stdev <arrival rate in us>")
+    print("Need argument: <file output> <readpct e.g. 0.7> <total time in sec> avg_read/max avg_write/min/max/stdev <arrival rate in us>")
     sys.exit(1)
 
 KB = 1024
@@ -15,27 +15,27 @@ GB = 1024*1024*1024 #i like dumb and readable
 S_TO_US = 1000*1000
 
 #configs
-MAX_BYTE_OFFSET = 500*GB
+MAX_BYTE_OFFSET = 800*GB
 READ_PCT = float(sys.argv[2])
 TIME_US = int(sys.argv[3]) *S_TO_US  #seconds times us
 
-avg_rd, min_rd, max_rd, st_rd = [int(x)*KB for x in sys.argv[4].split("/")]
-avg_wt, min_wt, max_wt, st_wt = [int(x)*KB for x in sys.argv[5].split("/")]
+avg_rd, max_rd = [int(x)*KB for x in sys.argv[4].split("/")]
+avg_wt, max_wt = [int(x)*KB for x in sys.argv[5].split("/")]
 
 print(f"rd avg {avg_rd}")
 print(f"wt avg {avg_wt}")
 stdev_rd =  (math.log(max_rd) - math.log(avg_rd))/3
 stdev_wt =  (math.log(max_wt) - math.log(avg_wt))/3
 
-lower, upper = min_rd, max_rd
-mu, sigma = avg_rd, st_rd
-Xrd = stats.truncnorm(
-    (lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
+# lower, upper = min_rd, max_rd
+# mu, sigma = avg_rd, st_rd
+# Xrd = stats.truncnorm(
+#     (lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
 
-lower, upper = min_wt, max_wt
-mu, sigma = avg_wt, st_wt
-Xwt = stats.truncnorm(
-    (lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
+# lower, upper = min_wt, max_wt
+# mu, sigma = avg_wt, st_wt
+# Xwt = stats.truncnorm(
+#     (lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma)
 
 # AVG_READ_SIZE_BYTES = int(avg_rd)
 # AVG_WRITE_SIZE_BYTES = int(avg_wt)

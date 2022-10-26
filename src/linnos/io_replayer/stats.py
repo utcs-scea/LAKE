@@ -68,7 +68,6 @@ if __name__ == '__main__':
     #print (f"Write iops: {(float(totalwrite) / (last_io_time / 1000)):.2f}")
     #print (f"Read iops: {(float(totalread) / (last_io_time / 1000)):.2f}")
     #print (f"Average write bandwidth: {(writebandwidth / totalwrite):.2f} KB/s")
-    #print (f"Average write latency: {statistics.mean(write_latencies):.2f} us")
     #print (f"Average read bandwidth: {(readbandwidth / totalread):.2f} KB/s")
     print (f"Average read latency: {statistics.mean(read_latencies):.2f} us")
     #print (f"Stddev read latency:  {statistics.pstdev(read_latencies):.2f} us")
@@ -79,6 +78,7 @@ if __name__ == '__main__':
     print (f"Read latency p99: {np.percentile(np_read_latencies, 99)} us")
     #print (f"Read latency p99.5: {np.percentile(np_read_latencies, 99.5)} us")
     #print (f"Read latency p99.9: {np.percentile(np_read_latencies, 99.9)} us")
+    print (f"Average write latency: {statistics.mean(write_latencies):.2f} us")
     print (f"IO inter arrival time average {statistics.mean(inter_arrivals):.2f}us")
     #print (f"==============================")
 
@@ -97,18 +97,18 @@ if __name__ == '__main__':
     # plt.plot(bins_count[1:], cdf, label="CDF")
 
 
-    # sort the data:
-    data_sorted = np.sort(np_read_latencies)
-    # calculate the proportional values of samples
-    p = 1. * np.arange(len(np_read_latencies)) / (len(np_read_latencies) - 1)
-    plt.plot(data_sorted, p)
+    # # sort the data:
+    # data_sorted = np.sort(np_read_latencies)
+    # # calculate the proportional values of samples
+    # p = 1. * np.arange(len(np_read_latencies)) / (len(np_read_latencies) - 1)
+    # plt.plot(data_sorted, p)
 
-    #plt.legend()
-    plt.grid(visible=True)
-    plt.xlabel('Latency (us)')
-    plt.ylabel('CDF %')
-    #plt.ylim(bottom=0)
-    plt.title(sys.argv[1])
-    plt.xlim(right=np.percentile(np_read_latencies, 99.9), left=min(np_read_latencies))
+    # #plt.legend()
+    # plt.grid(visible=True)
+    # plt.xlabel('Latency (us)')
+    # plt.ylabel('CDF %')
+    # #plt.ylim(bottom=0)
+    # plt.title(sys.argv[1])
+    # plt.xlim(right=np.percentile(np_read_latencies, 99.9), left=min(np_read_latencies))
     
-    plt.savefig(sys.argv[1]+"_cdf.pdf")
+    # plt.savefig(sys.argv[1]+"_cdf.pdf")
