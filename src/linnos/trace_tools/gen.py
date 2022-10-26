@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
@@ -23,6 +24,8 @@ avg_wt, min_wt, max_wt, st_wt = [int(x)*KB for x in sys.argv[5].split("/")]
 
 print(f"rd avg {avg_rd}")
 print(f"wt avg {avg_wt}")
+stdev_rd =  (math.log(max_rd) - math.log(avg_rd))/3
+stdev_wt =  (math.log(max_wt) - math.log(avg_wt))/3
 
 lower, upper = min_rd, max_rd
 mu, sigma = avg_rd, st_rd
@@ -57,8 +60,12 @@ with open(sys.argv[1], "w") as fp:
         
         #read_sizes = np.full(step_size, AVG_READ_SIZE_BYTES)
         #write_sizes = np.full(step_size, AVG_WRITE_SIZE_BYTES)
-        read_sizes = Xrd.rvs(step_size)
-        write_sizes = Xwt.rvs(step_size)
+        # read_sizes = Xrd.rvs(step_size)
+        # write_sizes = Xwt.rvs(step_size)
+        read_sizes = np.random.lognormal(math.log(avg_rd), stdev_rd, step_size)
+        write_sizes = np.random.lognormal(math.log(avg_wt), stdev_wt, step_size)
+        read_sizes[read_sizes > max_rd] = max_rd
+        write_sizes[write_sizes > max_rd] = max_wt
 
         offsets = np.random.randint(0, MAX_BYTE_OFFSET, size=step_size)
         ops = np.random.choice([0, 1], size=step_size, p=[READ_PCT, 1-READ_PCT])
