@@ -64,7 +64,7 @@ __global__ void prediction_mid_layer_1_batch(long *weight_M_1, long *bias_M_1, l
 
 	int threadId = threadIdx.x;
     int stride = blockDim.x;
-	int input_ind = blockIdx.x*LEN_INPUT;
+	int input_ind = blockIdx.x*256;
 	int blockId = blockIdx.x;
 	for (j = threadId, offset=threadId*256; j < LEN_LAYER_0; j+=stride, offset+=256*stride) {
 		int update_index = blockId*stride + j;
@@ -74,7 +74,7 @@ __global__ void prediction_mid_layer_1_batch(long *weight_M_1, long *bias_M_1, l
 			mid_res_1_i[update_index] += weight_M_1[offset + k] * mid_res_i[input_ind + k];
 		}
 
-        // apply bias
+        // // apply bias
         mid_res_1_i[update_index] += bias_M_1[threadId];
         // relu
         if (mid_res_1_i[update_index] < 0) {
@@ -88,7 +88,7 @@ __global__ void prediction_mid_layer_2_batch(long *weight_M_2, long *bias_M_2, l
 
 	int threadId = threadIdx.x;
     int stride = blockDim.x;
-	int input_ind = blockIdx.x*LEN_INPUT;
+	int input_ind = blockIdx.x*256;
 	int blockId = blockIdx.x;
 	for (j = threadId, offset=threadId*256; j < LEN_LAYER_0; j+=stride, offset+=256*stride) {
 		int update_index = blockId*stride + j;

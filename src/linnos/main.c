@@ -107,7 +107,7 @@ static int run_gpu(void) {
 
             PREDICT_GPU_SYNC = 1;
             c_start = ktime_get_ns();
-            gpu_predict_batch(0, batch_size, state.weights);
+            gpu_predict_batch_plus_2(0, batch_size, state.weights);
             c_stop = ktime_get_ns();
             
             usleep_range(500, 2000);
@@ -186,11 +186,11 @@ static int run_gpu(void) {
             //the 1's here mean we only do 1 input, easy to adapt to n
             copy_input_to_shm(input_64, 64);
             copy_inputs_to_gpu(64);
-            gpu_predict_batch(0, 64, state.weights);
+            gpu_predict_batch_plus_2(0, 64, state.weights);
             copy_results_from_gpu(64);
             
             for(int bnum = 0; bnum < 64; bnum++) {
-                int cpu_result = cpu_prediction_model(input_64 + LEN_INPUT * bnum * sizeof(char), 1, test_weights);
+                int cpu_result = cpu_prediction_model_plus_2(input_64 + LEN_INPUT * bnum * sizeof(char), 1, test_weights);
                 res = gpu_outputs[bnum*64]>=(gpu_outputs[bnum * 64 + 32])? false: true;
                 //PRINT("Test [%d]: (%d) %s\n", bnum, res, res==cpu_result ? "Ok" : "WRONG");
                 if (res!=cpu_result) result_mismatches++;
