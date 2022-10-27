@@ -181,29 +181,34 @@ int main (int argc, char **argv)
     // for (int idx=0; idx < 2 ; idx++) {
     for(int size_idx = 0 ; size_idx < 5; size_idx++) {
         for(int io_idx = 0; io_idx < 6; io_idx++) {
-            pthread_barrier_t sync_barrier;
-            int err = pthread_barrier_init(&sync_barrier, NULL, num_devices + 1);
-            if (err != 0) {
-                printf("Error creating barrier\n");
-                exit(1);
-            }
-            pthread_t threads[num_devices];
-            Thread_arg targs[num_devices];
+            int runs = 1;
+            if(size_idx == 0)
+                runs = 2;
+            for(int r = 0; r < runs; r++) {
+                pthread_barrier_t sync_barrier;
+                int err = pthread_barrier_init(&sync_barrier, NULL, num_devices + 1);
+                if (err != 0) {
+                    printf("Error creating barrier\n");
+                    exit(1);
+                }
+                pthread_t threads[num_devices];
+                Thread_arg targs[num_devices];
 
-            for (int dev=0; dev < num_devices ; dev++) {
-                targs[dev].device = dev;
-                targs[dev].sync_barrier = &sync_barrier;
-                targs[dev].size_idx = size_idx;
-                targs[dev].iops_idx = io_idx;
-                pthread_create(&threads[dev], NULL, replayer_fn, (void*)&targs[dev]);
+                for (int dev=0; dev < num_devices ; dev++) {
+                    targs[dev].device = dev;
+                    targs[dev].sync_barrier = &sync_barrier;
+                    targs[dev].size_idx = size_idx;
+                    targs[dev].iops_idx = io_idx;
+                    pthread_create(&threads[dev], NULL, replayer_fn, (void*)&targs[dev]);
+                }
+                pthread_barrier_wait(&sync_barrier);
+                //wait for workers
+                for (int dev=0; dev < num_devices; dev++) {
+                    pthread_join(threads[dev], 0);
+                }
+                usleep(100);
+                print_stats(io_idx, size_idx);
             }
-            pthread_barrier_wait(&sync_barrier);
-            //wait for workers
-            for (int dev=0; dev < num_devices; dev++) {
-                pthread_join(threads[dev], 0);
-            }
-            usleep(100);
-            print_stats(io_idx, size_idx);
         }
     }
     for(int i = 0; i < 5; i++) {
