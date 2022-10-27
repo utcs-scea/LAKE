@@ -31,14 +31,14 @@ uint8_t N_THREADS = 1;
 #define MEM_ALIGN 4096
 int KB = 1024; int MB = 1024*1024; int GB = 1024*1024*1024;
 
-int iops[] = { 10, 100, 1000, 2000, 5000, 10000};
+int iops[] = {100, 1000, 5000, 10000, 20000, 50000};
 int sizes[] = {4*KB, 16*KB, 64*KB, 256*KB, 1024*KB};
 int fds[] = {0,0,0};
 uint32_t lates[] = {0,0,0};
 uint32_t total[] = {0,0,0};
 std::vector<int> init;
 std::vector<std::vector<int>> io_latency_1(3, init);
-const int num_devices = 2;
+const int num_devices = 3;
 
 // arrays for stats
 double lat_stat_avg[5][num_devices][6];
@@ -48,7 +48,7 @@ int total_io[5][num_devices][6];
 int late_io[5][num_devices][6];
 double percent_late[5][num_devices][6];
 
-uint32_t runtime_us = 100000;
+uint32_t runtime_us = 10 * 100000;
     
 struct Thread_arg {
     uint32_t device;
@@ -155,17 +155,15 @@ void print_stats(int io_idx, int size_idx) {
         percent_late[size_idx][dev][io_idx] = (double)lates[dev]/ (double) total[dev];
         std::cout << "\tVariance = "<<variance(io_latency_1[dev]);
         io_latency_1[dev].clear();
-    }
-    std::cout <<"\n Total lates =";
-    for(int dev = 0; dev < num_devices; dev++) { 
-        std::cout << "\ndevice = "<<fds[dev]<<"\t"<<lates[dev];
         lates[dev] = 0;
+        total[dev] = 0;
     }
+    
 }
 
 int main (int argc, char **argv)
 {   
-    std::string dev_names[num_devices] = {"/dev/vdc", "/dev/vdb"};
+    std::string dev_names[num_devices] = {"/dev/nvme0n1", "/dev/nvme1n1", "/dev/nvme2n1"};
     for (int i=0; i < num_devices ; i++) {
         //TODO open fds, check replayer.hpp for "open" to know how to
         fds[i] = open(dev_names[i].c_str(), O_DIRECT | O_RDWR);
@@ -204,6 +202,7 @@ int main (int argc, char **argv)
             for (int dev=0; dev < num_devices; dev++) {
                 pthread_join(threads[dev], 0);
             }
+            usleep(100);
             print_stats(io_idx, size_idx);
         }
     }
