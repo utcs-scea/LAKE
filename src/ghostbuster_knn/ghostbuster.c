@@ -77,7 +77,7 @@ struct cuda_ctx ctx;
 //static int ref_nb = 16384;
 static int ref_nb = 4096;
 //static int query_nb = 4096;
-static int query_nb = 1024;
+//static int query_nb = 1024;
 static int k        = 16;
 
 int init_cuda(void)
@@ -335,7 +335,7 @@ int test(const FLOAT *ref, int ref_nb, const FLOAT *query, int query_nb,
             usleep_range(2000, 5000);
         }
     }
-    PRINT("gpu_%d, %lld, %lld\n", dim, ctimes / (RUNS * 1000), ttimes / (RUNS * 1000));
+    PRINT("gpu_%d, %lld, %lld\n", query_nb, ctimes / (RUNS * 1000), ttimes / (RUNS * 1000));
 
 out:
     kava_free(test_knn_dist);
@@ -352,14 +352,16 @@ int run_knn(void)
     FLOAT *query;
     int ref_sz;
     int query_sz;
-    int i, dim;
-    int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
-    int ndims = 11;
+    int query_nbs[] = {8, 16, 32, 64, 128,256,512,1024};
+    int query_nb;
+    int i;
+    int dim = 128;
+    int ndims = 8;
     //int dims[] = {256,512,1024};
     //int ndims = 3;
 
     for (i = 0; i < ndims; i++) {
-        dim = dims[i];
+        query_nb = query_nbs[i];
         ref_sz = ref_nb * dim * sizeof(FLOAT);
         query_sz = query_nb * dim * sizeof(FLOAT);
         ref = (FLOAT *)kava_alloc(ref_sz);
