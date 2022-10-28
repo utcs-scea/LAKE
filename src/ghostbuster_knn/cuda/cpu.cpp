@@ -6,6 +6,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
+#include <algorithm>
 
 #include "knncuda.h"
 
@@ -169,7 +170,7 @@ double knn_c(const float * ref,
         // Copy k smallest distances and their associated index
         for (int j=0; j<k; ++j) {
             knn_dist[j * query_nb + i]  = dist[j];
-            knn_index[j * query_nb + i] = index[j];
+            //knn_index[j * query_nb + i] = index[j];
         }
     }
 
@@ -282,14 +283,16 @@ bool test(const float * ref,
     float precision_accuracy = nb_correct_precisions / ((float) query_nb * k);
     float index_accuracy     = nb_correct_indexes    / ((float) query_nb * k);
 
+    printf("%s_%d, %.0f\n", name, query_nb, (sum / nb_iterations)*1000000);
+
     // Display report
-    if (precision_accuracy >= min_accuracy && index_accuracy >= min_accuracy ) {
-        //printf("PASSED in %8.5f seconds (averaged over %3d iterations)\n", elapsed_time / nb_iterations, nb_iterations);
-        printf("%s_%d, %.5f\n", name, dim, (sum / nb_iterations)*1000000);
-    }
-    else {
-        printf("FAILED\n");
-    }
+    // if (precision_accuracy >= min_accuracy && index_accuracy >= min_accuracy ) {
+    //     //printf("PASSED in %8.5f seconds (averaged over %3d iterations)\n", elapsed_time / nb_iterations, nb_iterations);
+    //     printf("%s_%d, %.5f\n", name, dim, (sum / nb_iterations)*1000000);
+    // }
+    // else {
+    //     printf("FAILED\n");
+    // }
 
     // Free memory
     free(test_knn_dist);
@@ -308,8 +311,8 @@ int main(int argc, char** argv) {
 
     // Parameters
     const int ref_nb   = 4096;
-    const int query_nb = 1024;
-    //const int dim      = 128;  //features
+    //const int query_nb = 1024;
+    const int dim      = 128;  //features
     const int k        = 16;
 
     // Display
@@ -319,10 +322,11 @@ int main(int argc, char** argv) {
     // printf("- Dimension of points     : %d\n",   dim);
     // printf("- Number of neighbors     : %d\n\n", k);
 
-    int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
+    //int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
     //int dims[] = {16};
+    int query_nbs[] = {1, 2, 4,8, 16, 32, 64, 128,256,512,1024};
 
-    for (int &dim : dims) {
+    for (int &query_nb : query_nbs) {
         // Sanity check
         if (ref_nb<k) {
             printf("Error: k value is larger that the number of reference points\n");
