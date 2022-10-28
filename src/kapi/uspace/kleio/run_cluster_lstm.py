@@ -1,8 +1,8 @@
 import sys, csv, math, gc
 import os
 # switch between "" and "0" to use cpu or gpu
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 gpus = tf.config.experimental.list_physical_devices('GPU')
 print(gpus)
@@ -41,8 +41,8 @@ def kleio_inference(inputs, n):
     #print("input: ", inputs)
     #print("type: ", type(inputs))
     #print("len ", len(inputs))
-    inputs = np.array(inputs)
-    inputs = np.resize(inputs, (n,) )
+    #inputs = np.array(inputs)
+    #inputs = np.resize(inputs, (n,) )
 
     kinput = LSTM_input(inputs)
     history_length = 6 # periods
@@ -67,11 +67,11 @@ if __name__ == "__main__":
     kleio_load_model("../../../kleio/lstm_page_539")
 
     t = [60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140] 
-    for i in range(1, 130, 8):
+    for i in range(1, 500, 20):
         time = kleio_inference(t, i)
         print(f"{i} : {time}ms")
 
-    for i in range(1, 130, 8):
-        time = kleio_inference(t, i)
-        print(f"{i} : {time}ms")
+    #for i in range(1, 130, 8):
+    #    time = kleio_inference(t, i)
+    #    print(f"{i} : {time}ms")
 

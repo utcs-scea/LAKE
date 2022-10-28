@@ -9,7 +9,7 @@
 #define NTEST 15
 #define ELAPSED_TIME_MICRO_SEC(start, stop) ((stop.tv_sec - start.tv_sec) * 1000000 + (stop.tv_usec - start.tv_usec))
 
-char outs[18][1024];
+char outs[200][1024];
 
 int main() {
     //char filepath[1024];
@@ -22,9 +22,10 @@ int main() {
     long total_time = 0;
     int num_syscall = 0;
     uint32_t *syscalls = NULL;
-    
+    int count = 0;
     //for (int i=26 ; i <= 26 ; i++) {
-    for (int i=1, j=0 ; i <= 129 ; i+=8, j++) {
+    //for (int i=1, j=0 ; i <= 129 ; i+=8, j++) {
+    for (int i=20, j=0 ; i <= 1200 ; i+=60, j++) {
         num_syscall = i;
         syscalls = (int *)malloc(sizeof(int) * num_syscall);
         int sum = 0;
@@ -48,12 +49,12 @@ int main() {
 
         printf("Time of %d: %ldms\n",num_syscall, sum/NTEST);
         sprintf(outs[j], "%d,%ld\n", num_syscall, sum/NTEST);
-        
+        count++;
         free(syscalls);
     }
     kleio_force_gc();
 
-    for (int i = 0 ; i < 18 ; i++) 
+    for (int i = 0 ; i < count ; i++) 
         printf("%s", outs[i]);
 
     return 0;
