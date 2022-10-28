@@ -335,7 +335,7 @@ int test(const FLOAT *ref, int ref_nb, const FLOAT *query, int query_nb,
             usleep_range(2000, 5000);
         }
     }
-    PRINT("gpu_%d, %lld, %lld\n", query_nb, ctimes / (RUNS * 1000), ttimes / (RUNS * 1000));
+    PRINT("knn_GPU_BATCH_%d, %lld, %lld\n", query_nb, ctimes / (RUNS * 1000), ttimes / (RUNS * 1000));
 
 out:
     kava_free(test_knn_dist);

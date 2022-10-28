@@ -324,7 +324,7 @@ int main(int argc, char** argv) {
 
     //int dims[] = {1,2,4,8, 16, 32, 64, 128,256,512,1024};
     //int dims[] = {16};
-    int query_nbs[] = {1, 2, 4,8, 16, 32, 64, 128,256,512,1024};
+    int query_nbs[] = {8, 16, 32, 64, 128,256,512,1024};
 
     for (int &query_nb : query_nbs) {
         // Sanity check
