@@ -5,13 +5,13 @@ CC=gcc
 CXX=g++
 LINKER=gcc
 
-PY_COMPILE_FLAGS = $(shell python3.6-config --cflags)
-PY_LINKER_FLAGS = $(shell python3.6-config --libs)
+PY_COMPILE_FLAGS = $(shell python3.10-config --cflags --embed)
+PY_LINKER_FLAGS = $(shell python3.10-config --embed --libs)
 
 all:
-	gcc $(PY_COMPILE_FLAGS) -fPIE -c py_wrapper.c -o py_wrapper.o
-	gcc $(PY_COMPILE_FLAGS) -fPIE -c wrapper_test.c -o wrapper_test.o
-	gcc py_wrapper.o wrapper_test.o $(PY_LINKER_FLAGS) -o test
+	gcc -c py_wrapper.c -o py_wrapper.o $(PY_COMPILE_FLAGS) -fPIE  $(PY_LINKER_FLAGS)
+	gcc -c wrapper_test.c -o wrapper_test.o $(PY_COMPILE_FLAGS) -fPIE $(PY_LINKER_FLAGS)
+	gcc py_wrapper.o wrapper_test.o  -o test $(PY_LINKER_FLAGS)
 
 clean:
 	rm -rf *.o

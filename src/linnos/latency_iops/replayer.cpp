@@ -70,7 +70,7 @@ int main (int argc, char **argv)
 
     trace.set_output_file(metrics_file+"_"+type+".data");
 
-    usleep(20); //wait until everyone hits barrier
+    usleep(100); //wait until everyone hits barrier
     uint64_t now = get_ns_ts();
     //give threads most up do date starting time
     for (int dev=0; dev < n_devices_to_trace ; dev++) 

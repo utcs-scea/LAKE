@@ -22,12 +22,18 @@ if __name__ == '__main__':
     read_sizes = []
     write_latencies = []
 
-    # 1: timestamp in us
-    # 2: latency in us
-    # 3: r/w type [0 for r, 1 for w]
-    # 4: I/O size in bytes
-    # 5: offset in bytes
-    # 6: IO submission time (not used)*/
+    rd_lat_dev = [[], [], []]
+
+    #       sprintf(buf, "%.3ld,%d,%d,%ld,%lu,%.3ld,%u", 
+    # ts, latency, !op,  size, offset, submission, device);
+
+    # 0: timestamp in us
+    # 1: latency in us
+    # 2: r/w type [0 for r, 1 for w]
+    # 3: I/O size in bytes
+    # 4: offset in bytes
+    # 5: IO submission time (not used)*/
+    # 6: device 0-2
 
     last_io_time = -1
     last_write_time = -1
@@ -40,7 +46,7 @@ if __name__ == '__main__':
             tok = map(str.strip, line.split(","))
             tok_list = list(tok)
             sorted_io.append([float(tok_list[0]), int(tok_list[1]),float(tok_list[2]),
-                int(tok_list[3]),float(tok_list[4]), float(tok_list[5]) ])
+                int(tok_list[3]),float(tok_list[4]), float(tok_list[5]), int(tok_list[6]) ])
 
     #for io in sorted(sorted_io, key=itemgetter(0)):
     for io in sorted(sorted_io, key=itemgetter(5)):
@@ -48,6 +54,7 @@ if __name__ == '__main__':
         if (io[2] == 1): #read
             read_latencies.append(io[1])
             read_sizes.append(io[3])
+            rd_lat_dev[io[6]].append(io[1])
 
         if (io[2] == 0): #write
             write_latencies.append(io[1])
@@ -79,8 +86,12 @@ if __name__ == '__main__':
     #print (f"Read latency p99.5: {np.percentile(np_read_latencies, 99.5)} us")
     #print (f"Read latency p99.9: {np.percentile(np_read_latencies, 99.9)} us")
     print (f"Average write latency: {statistics.mean(write_latencies):.2f} us")
-    print (f"IO inter arrival time average {statistics.mean(inter_arrivals):.2f}us")
     #print (f"==============================")
+
+    for i in range(3):
+        print(f"Avg read for drive [{i}]: {statistics.mean(rd_lat_dev[i]):.2f}")
+    print (f"IO inter arrival time average {statistics.mean(inter_arrivals):.2f}us")
+
 
     # count, x = np.histogram(inters, bins=500)
     # print("Inter arrival histogram (ms):")

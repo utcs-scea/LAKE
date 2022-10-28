@@ -11,13 +11,14 @@
 
 int PREDICT_GPU_SYNC = 0;
 
-bool NEVER_REJECT = false;
+bool NEVER_REJECT = true;
 
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 0*_us;
-const u32 max_batch_size = 1; //this cannot be more than 256 (allocated in main.c)
-const u32 cpu_gpu_threshold = 8; //less than this we use cpu
+const u64 window_size_ns = 30*_us;  //1;  //1*_us;
+//const u64 window_size_ns = 1;
+const u32 max_batch_size = 6; //this cannot be more than 256 (allocated in main.c)
+const u32 cpu_gpu_threshold = 2; //less than this we use cpu
 const u64 inter_arrival_threshold = 800*_us;
 
 //use normal (0), +1 or +2
@@ -247,6 +248,8 @@ enter_again:
 		//move to next batch
 		//pr_warn("not welcome in batch %d\n", current_batch[this_dev]);
 		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
+		//XXX
+		udelay(1);
 		goto enter_again; //we loop until we find a batch we can enter
 	}
 	waiting[this_dev][my_batch] += 1;
@@ -261,6 +264,14 @@ enter_again:
 		window_start_ns[this_dev][my_batch] = ktime_get_ns();
 		last_arrival[this_dev][my_batch] = window_start_ns[this_dev][my_batch];
 	}
+
+	//XXX hack
+	if(window_size_ns < 100) {
+		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+		waiting[this_dev][my_batch] = 0;
+		goto lonely;
+	}
+
 	//copy inputs to intermediary buffer, but we need to convert into longs for gpu
 	for (i = 0 ; i < LEN_INPUT ; i++)
 		multi_inputs_to_gpu[this_dev][my_batch][my_id*LEN_INPUT+i] = (long) feat_vec[i];
@@ -285,6 +296,7 @@ enter_again:
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 		
 		if(this_batch_size[this_dev][my_batch] == 1) {
+lonely:
 			//lonely request :(
 			//pr_warn("single request on batch %d\n", my_batch);
 			batch_running[this_dev][my_batch] = false;

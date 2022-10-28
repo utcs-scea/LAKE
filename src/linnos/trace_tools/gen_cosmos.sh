@@ -2,8 +2,9 @@
 
 #1x 400
 #2x 200
+#4x 100
 
-mkdir -p cosmos
-python3 gen.py cosmos/cosmosxx1.trace 0.23 5 430/7000 107/32000 200
-python3 gen.py cosmos/cosmosxx2.trace 0.23 5 430/7000 107/32000 300
-python3 gen.py cosmos/cosmosxx3.trace 0.23 5 430/7000 107/32000 200
+mkdir -p cosmos0.5
+python3 gen.py cosmos0.5/cosmos1.trace 0.23 10 430/7000 107/32000 300
+python3 gen.py cosmos0.5/cosmos2.trace 0.23 10 430/7000 107/32000 300
+python3 gen.py cosmos0.5/cosmos3.trace 0.23 10 430/7000 107/32000 300

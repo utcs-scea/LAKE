@@ -99,17 +99,18 @@ class LSTM_model:
 
   def infer(self, kinput, batch_size):
     inputs = kinput.trainX_categor
+    #Infering: (20, 6, 621)
     print(f"Infering: {inputs.shape}")
 
-    if batch_size != 0:
-      if batch_size < 20:
-        inputs = inputs[:batch_size,:,:]
-      else:
-        x,y,z = inputs.shape
-        inputs = np.resize(inputs, (batch_size,y,z) )
-        #print(f"resizing to {(batch_size,y,z)}")
+    # if batch_size != 0:
+    #   if batch_size < 20:
+    #     inputs = inputs[:batch_size,:,:]
+    #   else:
+    #     x,y,z = inputs.shape
+    #     inputs = np.resize(inputs, (batch_size,y,z) )
+    #     print(f"resizing to {(batch_size,y,z)}")
 
-    #print(f"changed to: {inputs.shape}")
+    # print(f"changed to: {inputs.shape}")
 
     predictY = self.model.predict(inputs)
     
