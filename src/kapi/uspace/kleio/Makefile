@@ -27,9 +27,12 @@ PY_COMPILE_FLAGS = -I/usr/include/$(pyver) -DNDEBUG -O2 -lcrypt -ldl  -lm
 
 current_dir = $(shell pwd)
 model:=/../../../kleio/lstm_page_539
-fullp:=$(current_dir)$(model)
+fullp:=$(realpath  $(current_dir)$(model))
 CFLAGS += -D__MODELPATH__=\"$(fullp)\"
 CFLAGS += -D__INCPATH__=\"$(current_dir)\"
+pypackages:=$(realpath  $(current_dir)/../../../../lakevenv/lib/python3.10/site-packages/)
+CFLAGS += -D__INCPATH2__=\"$(pypackages)\"
+
 
 all:
 	gcc -c py_wrapper.c -o py_wrapper.o $(CFLAGS) $(PY_COMPILE_FLAGS) -fPIE  $(PY_LINKER_FLAGS)

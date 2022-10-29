@@ -1,5 +1,8 @@
 import sys, csv, math, gc
-import os
+import os, sys
+
+print(f"sys path: {sys.path}")
+
 # switch between "" and "0" to use cpu or gpu
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 

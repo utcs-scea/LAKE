@@ -28,6 +28,8 @@ model:=/../../kleio/lstm_page_539
 fullp:=$(current_dir)$(model)
 CFLAGS += -D__MODELPATH__=\"$(fullp)\"
 CFLAGS += -D__INCPATH__=\"$(current_dir)/kleio\"
+pypackages:=$(current_dir)/../../../lakevenv/lib/python3.10/site-packages/
+CFLAGS += -D__INCPATH2__=\"$(pypackages)\"
 
 all: lake_uspace
 

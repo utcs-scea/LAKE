@@ -21,8 +21,8 @@ int kleio_load_model(const char *filepath) {
     _import_array();
 
     PyObject* sysPath = PySys_GetObject("path");
-    PyList_Append(sysPath, PyUnicode_FromString(__FILE__));
     PyList_Append(sysPath, PyUnicode_FromString(__INCPATH__));
+    PyList_Append(sysPath, PyUnicode_FromString(__INCPATH2__));
     PyObject *moduleString = PyUnicode_FromString("run_cluster_lstm");
     PyObject *PyPredict = PyImport_Import(moduleString);
     if (!PyPredict) {
