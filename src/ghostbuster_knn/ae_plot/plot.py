@@ -47,17 +47,26 @@ for line in reversed(klog.splitlines()):
 with open('knn.csv') as f:
     lines = f.readlines()
 
+cpu_data = {}
+#getting ae_cpu numbers
+with open('ae_cpu.csv') as csv_file:
+    csv_reader = csv.reader(csv_file, delimiter=',')
+    for row in csv_reader:
+        cpu_data[int(row[1])] = int(row[2])
+
 outlines = []
-header = f"{lines[0].rstrip()},ae_gpu,ae_gpu_data\n"
+header = f"{lines[0].rstrip()},ae_gpu,ae_cpu, ae_gpu_data\n"
 outlines.append(header)
 for line in lines[1:]:
     bsize = int(line.split(',')[0])
-    added_line = f"{line.rstrip()},{gpucomp[bsize]},{gpudata[bsize]}\n"
+    added_line = f"{line.rstrip()},{gpucomp[bsize]},{cpu_data[bsize]}, {gpudata[bsize]}\n"
     outlines.append(added_line)
 
 with open('tmp.csv', 'w') as f:
     for l in outlines:
         f.write(l)
+
+
 
 # Plot graphs
 batch_sizes = []
@@ -75,8 +84,8 @@ for l in outlines:
     cpu.append(int(vals[2]))
     gpu_data.append(int(vals[3]))
     ae_gpu.append(int(vals[4]))
-    #ae_cpu.append(int(vals[5]))
-    ae_cpu.append(int(vals[2]))
+    ae_cpu.append(int(vals[5]))
+    #ae_cpu.append(int(vals[2]))
     ae_gpu_data.append(int(vals[5]))
 
 x = np.arange(len(batch_sizes)) + 1

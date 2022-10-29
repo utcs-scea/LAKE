@@ -283,7 +283,7 @@ bool test(const float * ref,
     float precision_accuracy = nb_correct_precisions / ((float) query_nb * k);
     float index_accuracy     = nb_correct_indexes    / ((float) query_nb * k);
 
-    printf("%s_%d, %.0f\n", name, query_nb, (sum / nb_iterations)*1000000);
+    printf("%s, %d, %.0f\n", name, query_nb, (sum / nb_iterations)*1000000);
 
     // Display report
     // if (precision_accuracy >= min_accuracy && index_accuracy >= min_accuracy ) {
