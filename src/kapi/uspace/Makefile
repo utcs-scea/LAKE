@@ -3,10 +3,28 @@ ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 LIBS=$(shell pkg-config --libs libnl-3.0) -L/usr/local/cuda/lib64 -lcuda -lnvidia-ml
 CFLAGS=$(shell pkg-config --cflags libnl-3.0) -I$(ROOT_DIR)/../include
 
+python_version_full := $(wordlist 2,4,$(subst ., ,$(shell python --version 2>&1)))
+python_version_major := $(word 1,${python_version_full})
+python_version_minor := $(word 2,${python_version_full})
+
+#This string is python3.10 or whatever version you have.
+#if this doesnt work, hard code it by commenting it out
+#and adding something like:
+#pyver := "python3.8"   (replace with your version)
+pyver := python$(python_version_major).$(python_version_minor)
+
+PY_LINKER_FLAGS = $(shell $(pyver)-config --embed --libs)
+#PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags --embed)
+#nvcc doesnt understand flags from this, build manually
+PY_COMPILE_FLAGS = -I/usr/include/$(pyver) -DNDEBUG -O2 -l$(pyver) -lcrypt -ldl  -lm
+
 all: lake_uspace
 
-lake_uspace: *.c *.cpp
-	nvcc $(CFLAGS) $^ -o $@ $(LIBS)
+kleio/py_wrapper.o:
+	cd kleio && make
+
+lake_uspace: *.c *.cpp kleio/py_wrapper.o
+	nvcc $(CFLAGS) $(PY_COMPILE_FLAGS) $^ -o $@ $(LIBS)  $(PY_LINKER_FLAGS)
 
 clean:
 	rm -f lake_uspace

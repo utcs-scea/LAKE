@@ -28,6 +28,9 @@ enum lake_api_ids {
     LAKE_API_cuMemcpyHtoDAsync,
     LAKE_API_cuMemcpyDtoHAsync,
     LAKE_API_cuMemAllocPitch,
+    LAKE_API_kleioLoadModel,
+    LAKE_API_kleioInference,
+    LAKE_API_kleioForceGC,
 };
 
 struct lake_cmd_ret {
@@ -172,5 +175,21 @@ struct lake_cmd_cuMemAllocPitch {
     unsigned int ElementSizeBytes;
 };
 
+struct lake_cmd_kleioLoadModel {
+    u32 API_ID;
+    const void *srcHost;
+    size_t len;
+};
+
+struct lake_cmd_kleioInference {
+    u32 API_ID;
+    const void *srcHost;
+    size_t len;
+    int use_gpu;
+};
+
+struct lake_cmd_kleioForceGC {
+    u32 API_ID;
+};
 
 #endif

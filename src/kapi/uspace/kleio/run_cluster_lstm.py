@@ -31,7 +31,7 @@ def kleio_load_model(path):
 def kleio_force_gc():
     gc.collect()
 
-def kleio_inference(inputs, n):
+def kleio_inference(inputs, n, use_gpu):
     #print("input: ", inputs)
     #print("type: ", type(inputs))
     #print("len ", len(inputs))
@@ -44,15 +44,17 @@ def kleio_inference(inputs, n):
     #inputs = np.array(inputs)
     #inputs = np.resize(inputs, (n,) )
 
-    kinput = LSTM_input(inputs)
-    history_length = 6 # periods
-    kinput.timeseries_to_history_seq(history_length)
-    kinput.split_data(1)
-    num_classes = max(set(inputs)) + 1
-    kinput.to_categor(num_classes)
-    kleio_lstm.infer(kinput, n)
-    end = timer()
-    return (end-start)*1000
+    dev_str = "/gpu:0" if use_gpu else '/CPU:0'
+    with tf.device(dev_str):
+        kinput = LSTM_input(inputs)
+        history_length = 6 # periods
+        kinput.timeseries_to_history_seq(history_length)
+        kinput.split_data(1)
+        num_classes = max(set(inputs)) + 1
+        kinput.to_categor(num_classes)
+        kleio_lstm.infer(kinput, n)
+        end = timer()
+        return (end-start)*1000
 
 if __name__ == "__main__":
     import tensorflow as tf

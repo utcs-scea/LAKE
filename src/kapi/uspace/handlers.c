@@ -5,6 +5,7 @@
 #include "lake_shm.h"
 #include "lake_kapi.h"
 #include "kargs.h"
+#include "kleio/py_wrapper.h"
 
 #define DRY_RUN 0
 
@@ -190,6 +191,30 @@ static int lake_handler_cuMemAllocPitch(void* buf, struct lake_cmd_ret* cmd_ret)
 }
 
 /*********************
+ *  kleioLoadModel   
+ *********************/
+//int kleio_load_model(const char *filepath)
+static int lake_handler_kleioLoadModel(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_kleioLoadModel *cmd = (struct lake_cmd_kleioLoadModel *) buf;
+    kleio_load_model(0);
+    cmd_ret->res = 0;
+    return 0;
+}
+
+static int lake_handler_kleioInference(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_kleioInference *cmd = (struct lake_cmd_kleioInference *) buf;
+    kleio_inference(0, cmd->len, cmd->use_gpu);
+    cmd_ret->res = 0;
+    return 0;
+}
+
+static int lake_handler_kleioForceGC(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_kleioForceGC *cmd = (struct lake_cmd_kleioForceGC *) buf;
+    cmd_ret->res = 0;
+    return 0;
+}
+
+/*********************
  * 
  *  END OF HANDLERS
  *    
@@ -216,6 +241,9 @@ static int (*kapi_handlers[])(void* buf, struct lake_cmd_ret* cmd_ret) = {
     lake_handler_cuMemcpyHtoDAsync,
     lake_handler_cuMemcpyDtoHAsync,
     lake_handler_cuMemAllocPitch,
+    lake_handler_kleioLoadModel,
+    lake_handler_kleioInference,
+    lake_handler_kleioForceGC
 };
 
 void lake_handle_cmd(void* buf, struct lake_cmd_ret* cmd_ret) {

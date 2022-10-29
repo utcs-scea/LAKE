@@ -1067,6 +1067,10 @@ extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_
 //extern CUresult CUDAAPI cuEventRecord(CUevent hEvent, CUstream hStream);
 //extern CUresult CUDAAPI cuEventSynchronize(CUevent hEvent);
 
+extern CUresult CUDAAPI kleioLoadModel(const void *srcHost, size_t len);
+extern CUresult CUDAAPI kleioInference(const void *srcHost, size_t len, int use_gpu);
+extern CUresult CUDAAPI kleioForceGC(void);
+
 #endif // __cuda_cuda_h__
 
 #endif // __KAVA_CUDA_H__
