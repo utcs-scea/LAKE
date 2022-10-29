@@ -133,7 +133,7 @@ static int run_cpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
             avg += total_run_times[j];
         }
         avg = avg / (1000*RUNS); 
-        PRINT(V_INFO, "cpu %d, "LLU"\n", batch_size, avg);
+        PRINT(V_INFO, "MLLB_CPU_batch_%d, "LLU", "LLU"\n", batch_size, avg, avg);
     }
 
     for (j = 0 ; j < max_batch ; j++) {
@@ -224,7 +224,7 @@ static int run_gpu(int* batch_sizes, int n_batches, int max_batch, int RUNS, int
         best_total = best_total / 1000;
 
         //PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-        PRINT(V_INFO, "%d, "LLD", "LLD"\n", batch_size, avg, avg_total);
+        PRINT(V_INFO, "MLLB_GPU_batch_%d, "LLD", "LLD"\n", batch_size, avg, avg_total);
         gpu_clean(d_inputs, d_w1, d_b1, d_w2, d_results);
         kava_free(outs);
 
