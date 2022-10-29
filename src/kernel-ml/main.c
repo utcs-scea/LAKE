@@ -502,6 +502,7 @@ static int run_gpu(void) {
 
             c_start = ktime_get_ns();
             predict_readahead_class(batch_size, 0);
+            cuCtxSynchronize();
             c_stop = ktime_get_ns();
             
             usleep_range(1000, 2000);

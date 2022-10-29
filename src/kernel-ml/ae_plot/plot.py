@@ -14,7 +14,6 @@ cpu = {}
 gpucomp = {}
 
 for line in reversed(klog.splitlines()):
-    print (line)
     if "KML_GPU_batch_" in line:
         #format:  GPU_batch_X,2,4     (2 is comp, 4 is comp+data)
         m = re.search("KML_GPU\_batch\_(\d+),(\d+),(\d+)", line) 
