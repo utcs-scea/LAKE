@@ -1,4 +1,5 @@
 #include <linux/vmalloc.h>
+#include <asm/fpu/api.h>
 #include "weights.h"
 
 
@@ -176,7 +177,7 @@ int linear_w_columns, float *bias_vector, int layer_index, float *out, int batch
 
 }
 
-void cpu_autodiff_forward(float *input, int batch_size) { 
+int cpu_autodiff_forward(float *input, int batch_size) { 
     // layer 0
     out0 = allocate(w0_rows * batch_size);
     linear_layer_forward(input, w0, w0_rows, w0_cols, b0, 0, out0, batch_size);
@@ -187,17 +188,22 @@ void cpu_autodiff_forward(float *input, int batch_size) {
     out2 = allocate(w2_rows * out1_rows);
     linear_layer_forward(out1, w2, w2_rows, w2_cols, b2, 2, out2, batch_size);
     matrix_argmax(out2, w2_rows,out2_rows, result_cols);
+    return result_cols[0];
 }
 
-void readahead_class_net_inference(float *input, int batch_size) {
-    cpu_autodiff_forward(input, batch_size);
+int readahead_class_net_inference(float *input, int batch_size) {
+    return cpu_autodiff_forward(input, batch_size);
 }
 
-void cpu_predict_readahead_class(int batch_size) {
+int cpu_predict_readahead_class(int batch_size) {
     int cpu_readahead_online_data_cols = 5;
+    int res;
     float *d_readahead_norm_online_data = allocate(cpu_readahead_online_data_cols * batch_size);
+    kernel_fpu_begin();
     get_normalized_readahead_data(cpu_batch_input, d_readahead_norm_online_data, batch_size);
-    readahead_class_net_inference(d_readahead_norm_online_data, batch_size);
+    res = readahead_class_net_inference(d_readahead_norm_online_data, batch_size);
+    kernel_fpu_end();
+    return res;
 }
 
 void cleanup(void) {
