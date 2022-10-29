@@ -13,7 +13,7 @@ gpu = {}
 cpu = {}
 
 for line in reversed(klog.splitlines()):
-    if "linnos_GPU_batch_" in line:
+    if "kleio_" in line:
         m = re.search("kleio\_(\d+),(\d+),(\d+)", line) 
         if not m:
             print("error parsing GPU string: ", line)
@@ -31,10 +31,12 @@ x = []
 cpucol = []
 gpucol = []
 
+
 for i in sorted(cpu.keys()):
-    x.append(x)
+    x.append(i)
     cpucol.append(cpu[i])
     gpucol.append(gpu[i])
+
 
 lakecpu = np.loadtxt('kleio.csv',dtype=int, delimiter=',',skiprows=1,usecols=(1,))
 lakegpu=  np.loadtxt('kleio.csv',dtype=int, delimiter=',',skiprows=1,usecols=(2,))
@@ -55,7 +57,7 @@ ax.plot(x, lakecpu, label="CPU", color=c0,
     marker="o",
     )
 
-ax.plot(x, cpu, label="AE_CPU", color=c1,
+ax.plot(x, cpucol, label="AE_CPU", color=c1,
     linewidth=2, 
     #linestyle=densely_dashdotdotted,
     marker="*",
@@ -66,14 +68,14 @@ ax.plot(x, lakegpu, label="LAKE",
     linewidth=2, linestyle="-", color=c2, 
     marker="s")
 
-ax.plot(x, gpu, label="AE_LAKE", 
+ax.plot(x, gpucol, label="AE_LAKE", 
     linewidth=2, linestyle="-", color=c3, 
     marker="v")
 
 
 #plt.xticks(np.asarray(batch_sizes), rotation=30, ha='right', rotation_mode="anchor")
 plt.ticklabel_format(axis='y', style='sci', scilimits=(2,2))
-ax.set_xticks(x)
+ax.set_xticks(x, rotation=90)
 #ax.set_xticklabels(batch_sizes)
 
 #ax.set_xlim(left=0, right=len(batch_sizes)-1)
