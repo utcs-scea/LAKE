@@ -1,23 +1,15 @@
-#include <stdio.h>
-#include <string.h>
-#include <cstdlib>
-#include <limits.h> 
+#include <linux/vmalloc.h>
 #include "weights.h"
-#include <stdlib.h>
-#include <chrono>
-#include <iostream>
-#include <sstream>
-#include <thread>
-#include <cuda_runtime.h>
+
 
 static int w0_rows, w0_cols, b0_rows, b0_cols, w1_rows, w1_cols, b1_rows, b1_cols, w2_rows, w2_cols, b2_rows, b2_cols, input_rows;
 static int out0_rows, out0_cols, out1_rows, out1_cols, out2_rows, out2_cols;
 static float *out0, *out1, *out2, *w0, *w1, *w2, *b0, *b1, *b2, *stats;
-float* cpu_batch_input;
+static float* cpu_batch_input;
 static int *result_cols;
 
 float* allocate(int size) {
-    float* ptr = (float*) malloc(size * sizeof(float));
+    float* ptr = (float*) vmalloc(size * sizeof(float));
     return ptr;
 }
 
@@ -114,40 +106,39 @@ void get_average(float *avg_init, int k1, int k2, int batch_size, float *inp, fl
     }
 }
 
-void readahead_normalized_online_data(float *readahead_online_data, int readahead_online_data_cols,
+void cpu_readahead_normalized_online_data(float *readahead_online_data, int cpu_readahead_online_data_cols,
  float *readahead_norm_online_data, int batch_size) {
     float *diff, *local_average, *local_std_dev, *local_variance, *readahead_norm_online_data_last_values;
 
-    local_average = allocate(readahead_online_data_cols);
-    local_std_dev = allocate(readahead_online_data_cols);
-    local_variance = allocate(readahead_online_data_cols);
-    readahead_norm_online_data_last_values = allocate(readahead_online_data_cols * batch_size);
+    local_average = allocate(cpu_readahead_online_data_cols);
+    local_std_dev = allocate(cpu_readahead_online_data_cols);
+    local_variance = allocate(cpu_readahead_online_data_cols);
+    readahead_norm_online_data_last_values = allocate(cpu_readahead_online_data_cols * batch_size);
     int n_seconds = 10;
     int n_1_seconds = 9;
 
     get_average(stats, n_seconds, n_1_seconds, 
-        batch_size, readahead_online_data, local_average, readahead_online_data_cols);
+        batch_size, readahead_online_data, local_average, cpu_readahead_online_data_cols);
 
     get_variance(stats, n_seconds, n_1_seconds, batch_size, readahead_online_data, 
-        readahead_norm_online_data_last_values, local_variance, readahead_online_data_cols);
+        readahead_norm_online_data_last_values, local_variance, cpu_readahead_online_data_cols);
     
-    matrix_map(local_variance, local_std_dev, readahead_online_data_cols);
+    matrix_map(local_variance, local_std_dev, cpu_readahead_online_data_cols);
     normalize_data(readahead_online_data, local_average, 
-        local_std_dev, readahead_norm_online_data, batch_size, readahead_online_data_cols);
+        local_std_dev, readahead_norm_online_data, batch_size, cpu_readahead_online_data_cols);
     
-    free(local_average);
-    free(local_std_dev);
-    free(local_variance);
+    vfree(local_average);
+    vfree(local_std_dev);
+    vfree(local_variance);
 }
 
-
-int readahead_online_data_cols, readahead_std_dev_rows, readahead_std_dev_cols, readahead_avg_rows, 
+int cpu_readahead_online_data_cols, readahead_std_dev_rows, readahead_std_dev_cols, readahead_avg_rows, 
 readahead_avg_cols, readahead_variance_rows, readahead_variance_cols;
 
 void get_normalized_readahead_data(float *readahead,
                                        float *d_readahead_norm_online_data, int batch_size) {
-    int readahead_online_data_cols = 5;
-    readahead_normalized_online_data(readahead, readahead_online_data_cols, 
+    int cpu_readahead_online_data_cols = 5;
+    cpu_readahead_normalized_online_data(readahead, cpu_readahead_online_data_cols, 
     d_readahead_norm_online_data, batch_size);
 }
 
@@ -180,12 +171,12 @@ int linear_w_columns, float *bias_vector, int layer_index, float *out, int batch
         out2_cols = linear_w_rows;
     }
 
-    free(wx);
-    free(wt);
+    vfree(wx);
+    vfree(wt);
 
 }
 
-void autodiff_forward(float *input, int batch_size) { 
+void cpu_autodiff_forward(float *input, int batch_size) { 
     // layer 0
     out0 = allocate(w0_rows * batch_size);
     linear_layer_forward(input, w0, w0_rows, w0_cols, b0, 0, out0, batch_size);
@@ -199,29 +190,29 @@ void autodiff_forward(float *input, int batch_size) {
 }
 
 void readahead_class_net_inference(float *input, int batch_size) {
-    autodiff_forward(input, batch_size);
+    cpu_autodiff_forward(input, batch_size);
 }
 
-void predict_readahead_class(float *input, int batch_size) {
-    int readahead_online_data_cols = 5;
-    float *d_readahead_norm_online_data = allocate(readahead_online_data_cols * batch_size);
-    get_normalized_readahead_data(input, d_readahead_norm_online_data, batch_size);
+void cpu_predict_readahead_class(int batch_size) {
+    int cpu_readahead_online_data_cols = 5;
+    float *d_readahead_norm_online_data = allocate(cpu_readahead_online_data_cols * batch_size);
+    get_normalized_readahead_data(cpu_batch_input, d_readahead_norm_online_data, batch_size);
     readahead_class_net_inference(d_readahead_norm_online_data, batch_size);
 }
-void cleanup() {
-    free(w0);
-    free(w1);
-    free(w2);
-    free(b0);
-    free(b1);
-    free(b2);
-    free(out0);
-    free(out1);
-    free(out2);
+
+void cleanup(void) {
+    vfree(w0);
+    vfree(w1);
+    vfree(w2);
+    vfree(b0);
+    vfree(b1);
+    vfree(b2);
+    vfree(out0);
+    vfree(out1);
+    vfree(out2);
 }
 
-
-void setup_cpu() {
+void setup_cpu(void) {
     //dimensions of weights of layer 0 : 15 *5
     //dimensions of bias of layer 0 : 15 * 1
     //dimensions of weights of layer 1 : 15 * 5
@@ -266,44 +257,13 @@ void setup_cpu() {
 
 void setup_input(int batch_size) {
     float input[5] = { -0.586797, 5.456822, 5.456966, -0.297318, -1.184651};
-    batch_input = allocate(batch_size * 5);
+    cpu_batch_input = allocate(batch_size * 5);
     int i ,j;
     for(i = 0; i < batch_size; i++) {
         for(j = 0 ; j < 5; j++) {
-            batch_input[ i*5 + j] = input[j];
+            cpu_batch_input[ i*5 + j] = input[j];
         }
     }
-    result_cols = (int*) malloc(batch_size * sizeof(int));
-}
-
-int main(int argc, char** argv) {
-    setup_cpu();
-    int batch_size = 5;
-    
-
-    std::stringstream csv;
-    csv << ", inference, inference+transfer\n";
-
-
-    int cpu_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
-    int RUNS = 10;
-
-    for (int &N_INPUTS_BATCH : cpu_sizes) {
-        uint32_t cpubatch_total(0);
-        for (int i = 0 ; i < RUNS ; i++) {
-            std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
-            setup_input(N_INPUTS_BATCH);
-            predict_readahead_class(batch_input, N_INPUTS_BATCH);
-            std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
-            auto total_time = std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-            cpubatch_total += total_time;
-            std::this_thread::sleep_for(std::chrono::milliseconds(500)); 
-        }
-        
-        std::cout << "CPU time for " << N_INPUTS_BATCH << " inferences: " << cpubatch_total/RUNS << "us. " << std::endl;
-        csv << "cpu" <<N_INPUTS_BATCH<<", " << cpubatch_total/RUNS << "," << cpubatch_total/RUNS << std::endl;
-    }
-    std::cout << "CSV:\n" << csv.str();
-    return 0;
+    result_cols = (int*) vmalloc(batch_size * sizeof(int));
 }
 

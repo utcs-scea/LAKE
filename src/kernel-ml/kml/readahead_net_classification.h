@@ -11,16 +11,8 @@
 #ifndef READAHEAD_CLASS_NET_H
 #define READAHEAD_CLASS_NET_H
 
-#include <autodiff.h>
-#include <layers.h>
-#include <linear.h>
-#include <linear_algebra.h>
-#include <loss.h>
-#include <matrix.h>
-#include <model.h>
-#include <readahead_net_data.h>
-#include <sgd_optimizer.h>
-#include <sigmoid.h>
+#include "linear.h"
+#include "matrix.h"
 
 matrix *readahead_class_net_inference(matrix *input,
                                       readahead_class_net *readahead);

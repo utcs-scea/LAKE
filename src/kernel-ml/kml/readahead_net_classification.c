@@ -39,19 +39,44 @@ matrix *linear_layer_forward(matrix *x, linear_layer *linear) {
   return y_hat;
 }
 
-matrix *autodiff_forward(layers *layer_list, matrix *input) {
-    layer *current_layer = NULL;
-    matrix *output = NULL;
-    traverse_layers_forward(layer_list, current_layer) {
-    output = linear_layer_forward(input, current_layer->internal);
-    input = output; //??
-    return output;
+// matrix *autodiff_forward(layers *layer_list, matrix *input) {
+//     layer *current_layer = NULL;
+//     matrix *output = NULL;
+//     traverse_layers_forward(layer_list, current_layer) {
+//     output = linear_layer_forward(input, current_layer->internal);
+//     input = output; //??
+//     return output;
+// }
+
+void autodiff_forward(float *input, int batch_size) { 
+    // layer 0
+    out0 = allocate(w0_rows * batch_size);
+    linear_layer_forward(input, w0, w0_rows, w0_cols, b0, 0, out0, batch_size);
+    //layer 1
+    out1 = allocate(w1_rows * out0_rows);
+    linear_layer_forward(out0, w1, w1_rows, w1_cols, b1, 1, out1, batch_size);
+    //layer 2
+    out2 = allocate(w2_rows * out1_rows);
+    linear_layer_forward(out1, w2, w2_rows, w2_cols, b2, 2, out2, batch_size);
+    matrix_argmax(out2, w2_rows,out2_rows, result_cols);
 }
 
-matrix *readahead_class_net_inference(matrix *input,
-                                      readahead_class_net *readahead) {
-  return autodiff_forward(readahead->layer_list, input);
+
+
+// matrix *readahead_class_net_inference(matrix *input,
+//                                       readahead_class_net *readahead) {
+//   return autodiff_forward(readahead->layer_list, input);
+// }
+
+void readahead_class_net_inference(float *input, int batch_size) {
+    autodiff_forward(input, batch_size);
 }
+
+
+
+
+
+
 
 
 // int predict_readahead_class(readahead_class_net *readahead,
