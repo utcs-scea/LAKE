@@ -16,7 +16,7 @@ pyver := python$(python_version_major).$(python_version_minor)
 PY_LINKER_FLAGS = $(shell $(pyver)-config --embed --libs)
 #PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags --embed)
 #nvcc doesnt understand flags from this, build manually
-PY_COMPILE_FLAGS = -I/usr/include/$(pyver) -DNDEBUG -O2 -l$(pyver) -lcrypt -ldl  -lm
+PY_COMPILE_FLAGS = -I/usr/include/$(pyver) -DNDEBUG -O2 -lcrypt -ldl  -lm
 
 all: lake_uspace
 
