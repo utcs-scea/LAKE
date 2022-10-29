@@ -54,7 +54,6 @@ void main(void) {
                 kleioInference((void*)inputs, n_inputs, dev);
                 t_stop = ktime_get_ns();
 
-                //pr_warn("time %llu\n", (t_stop - t_start)/1000);
                 if (dev == 0)
                     cpu_times[k] = (t_stop - t_start);
                 else
@@ -71,8 +70,8 @@ void main(void) {
             gpu_avg += gpu_times[k];
         }
 
-        cpu_avg = cpu_avg / (1000*N_RUNS); //us to ms
-        gpu_avg = gpu_avg / (1000*N_RUNS); //us to ms
+        cpu_avg = cpu_avg / (1000000*N_RUNS); //ns to ms
+        gpu_avg = gpu_avg / (1000000*N_RUNS); //ns to ms
         pr_warn("kleio_%d,%llu,%llu\n", n_inputs, cpu_avg, gpu_avg);
     }
 

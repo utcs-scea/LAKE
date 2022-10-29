@@ -79,7 +79,7 @@ ax.set_xticks(x, rotation=90)
 #ax.set_xticklabels(batch_sizes)
 
 #ax.set_xlim(left=0, right=len(batch_sizes)-1)
-ax.set_ylabel('Time (us)')
+ax.set_ylabel('Time (ms)')
 ax.set_xlabel('Input size')
 
 ax.spines['right'].set_visible(True)
