@@ -39,7 +39,6 @@ for i in sorted(cpu.keys()):
 lakecpu = np.loadtxt('kleio.csv',dtype=int, delimiter=',',skiprows=1,usecols=(1,))
 lakegpu=  np.loadtxt('kleio.csv',dtype=int, delimiter=',',skiprows=1,usecols=(2,))
 
-
 cmap = matplotlib.cm.get_cmap("Paired")
 c0 =  cmap(0)
 c1 =  cmap(1)
