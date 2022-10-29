@@ -15,8 +15,8 @@
 MODULE_VERSION("0.01");
 MODULE_LICENSE("GPL");
 
-#define N_WARM 1
-#define N_RUNS 1
+#define N_WARM 3
+#define N_RUNS 10
 
 int def_inputs[26] = {60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140};
 
@@ -40,10 +40,9 @@ void main(void) {
 
     kleioLoadModel(0, 0);
 
-    //for (n_inputs=20 ; n_inputs <= 1200 ; n_inputs+=60) {
-    for (n_inputs=20 ; n_inputs <= 60 ; n_inputs+=60) {
+    for (n_inputs=20 ; n_inputs <= 1200 ; n_inputs+=60) {
+    //for (n_inputs=20 ; n_inputs <= 60 ; n_inputs+=60) {
         for (dev=0 ; dev < 2 ; dev++){
-        //for (n_inputs=20, j=0 ; n_inputs <= 30 ; n_inputs+=60, j++) {
             // warmup
             for (k = 0; k < N_WARM; k++) {
                 kleioInference((void*)inputs, 600, dev);
@@ -55,7 +54,7 @@ void main(void) {
                 kleioInference((void*)inputs, n_inputs, dev);
                 t_stop = ktime_get_ns();
 
-                pr_warn("time %llu\n", (t_stop - t_start)/1000);
+                //pr_warn("time %llu\n", (t_stop - t_start)/1000);
                 if (dev == 0)
                     cpu_times[k] = (t_stop - t_start);
                 else
