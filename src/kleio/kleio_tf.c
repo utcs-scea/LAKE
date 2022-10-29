@@ -15,7 +15,7 @@
 MODULE_VERSION("0.01");
 MODULE_LICENSE("GPL");
 
-#define N_WARM 0
+#define N_WARM 1
 #define N_RUNS 1
 
 int def_inputs[26] = {60, 500, 560, 60, 320, 620, 440, 180, 60, 620, 560, 240, 60, 360, 620, 380, 180, 120, 620, 620, 100, 60, 420, 620, 340, 140};
@@ -40,9 +40,10 @@ void main(void) {
 
     kleioLoadModel(0, 0);
 
-    for (dev=0 ; dev < 1 ; dev++){
-        //for (n_inputs=20, j=0 ; n_inputs <= 1200 ; n_inputs+=60, j++) {
-        for (n_inputs=20, j=0 ; n_inputs <= 30 ; n_inputs+=60, j++) {
+    //for (n_inputs=20 ; n_inputs <= 1200 ; n_inputs+=60) {
+    for (n_inputs=20 ; n_inputs <= 60 ; n_inputs+=60) {
+        for (dev=0 ; dev < 2 ; dev++){
+        //for (n_inputs=20, j=0 ; n_inputs <= 30 ; n_inputs+=60, j++) {
             // warmup
             for (k = 0; k < N_WARM; k++) {
                 kleioInference((void*)inputs, 600, dev);
@@ -54,27 +55,26 @@ void main(void) {
                 kleioInference((void*)inputs, n_inputs, dev);
                 t_stop = ktime_get_ns();
 
+                pr_warn("time %llu\n", (t_stop - t_start)/1000);
                 if (dev == 0)
-                    cpu_times[j] = (t_stop - t_start);
+                    cpu_times[k] = (t_stop - t_start);
                 else
-                    gpu_times[j] = (t_stop - t_start);
+                    gpu_times[k] = (t_stop - t_start);
 
-                usleep_range(200, 300);
+                usleep_range(500, 600);
             }
         }
         
-        // //flush results for this size
-        // if (dev == 1) {
-        //     cpu_avg = 0; gpu_avg = 0;
-        //     for (k = 0; k < N_RUNS; k++) {
-        //         cpu_avg += cpu_times[k];
-        //         gpu_avg += gpu_times[k];
-        //     }
+        //flush results for this size
+        cpu_avg = 0; gpu_avg = 0;
+        for (k = 0; k < N_RUNS; k++) {
+            cpu_avg += cpu_times[k];
+            gpu_avg += gpu_times[k];
+        }
 
-        //     cpu_avg = cpu_avg / (1000*N_RUNS); //us to ms
-        //     gpu_avg = gpu_avg / (1000*N_RUNS); //us to ms
-        //     pr_warn("kleio_%d,%llu,%llu\n", n_inputs-60, cpu_avg, gpu_avg);
-        // }
+        cpu_avg = cpu_avg / (1000*N_RUNS); //us to ms
+        gpu_avg = gpu_avg / (1000*N_RUNS); //us to ms
+        pr_warn("kleio_%d,%llu,%llu\n", n_inputs, cpu_avg, gpu_avg);
     }
 
     vfree(gpu_times);

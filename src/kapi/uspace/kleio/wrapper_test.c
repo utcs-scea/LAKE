@@ -21,8 +21,8 @@ int main() {
     for (int dev=0 ; dev < 2 ; dev++) {
         printf("wat\n");
         int ret = kleio_load_model(__MODELPATH__);
-        for (int i=20, j=0 ; i <= 1200 ; i+=60, j++) {
-        //for (int i=1200, j=0 ; i <= 1201 ; i+=60, j++) {
+        //for (int i=20, j=0 ; i <= 1200 ; i+=60, j++) {
+        for (int i=1200, j=0 ; i <= 1201 ; i+=60, j++) {
             num_syscall = i;
             syscalls = (int *)malloc(sizeof(int) * num_syscall);
             int sum = 0;

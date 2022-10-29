@@ -19,15 +19,23 @@ $(if $(shell [ $(python_version_minor) -ge 8 ] && echo "OK"), \
 	$(eval embf := ))
 
 PY_LINKER_FLAGS = $(shell $(pyver)-config --libs $(embf))
-PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags $(embf))
+#PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags $(embf))
+#nvcc doesnt understand flags from this, build manually
+PY_COMPILE_FLAGS = -I/usr/include/$(pyver) -DNDEBUG -O2 -lcrypt -ldl  -lm
+
+current_dir = $(shell pwd)
+model:=/../../kleio/lstm_page_539
+fullp:=$(current_dir)$(model)
+CFLAGS += -D__MODELPATH__=\"$(fullp)\"
+CFLAGS += -D__INCPATH__=\"$(current_dir)/kleio\"
 
 all: lake_uspace
 
-kleio/py_wrapper.o:
-	cd kleio && make
+# kleio/py_wrapper.o:
+# 	cd kleio && make
 
-lake_uspace: *.c *.cpp kleio/py_wrapper.o
-	nvcc $(CFLAGS) $(PY_COMPILE_FLAGS) $^ -o $@ $(LIBS)  $(PY_LINKER_FLAGS)
+lake_uspace: *.c *.cpp kleio/py_wrapper.c
+	nvcc $(CFLAGS) $(PY_COMPILE_FLAGS) $^ -o $@ $(CFLAGS) $(LIBS)  $(PY_LINKER_FLAGS)
 
 clean:
 	rm -f lake_uspace

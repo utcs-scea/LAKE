@@ -21,17 +21,21 @@ $(if $(shell [ $(python_version_minor) -ge 8 ] && echo "OK"), \
 	$(eval embf := ))
 
 PY_LINKER_FLAGS = $(shell $(pyver)-config --libs $(embf))
-PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags $(embf))
+#PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags $(embf))
+
+PY_COMPILE_FLAGS = -I/usr/include/$(pyver) -DNDEBUG -O2 -lcrypt -ldl  -lm
 
 current_dir = $(shell pwd)
-model:="/../../../kleio/lstm_page_539"
+model:=/../../../kleio/lstm_page_539
 fullp:=$(current_dir)$(model)
 CFLAGS += -D__MODELPATH__=\"$(fullp)\"
+CFLAGS += -D__INCPATH__=\"$(current_dir)\"
 
 all:
 	gcc -c py_wrapper.c -o py_wrapper.o $(CFLAGS) $(PY_COMPILE_FLAGS) -fPIE  $(PY_LINKER_FLAGS)
 	gcc -c wrapper_test.c -o wrapper_test.o $(CFLAGS) $(PY_COMPILE_FLAGS) -fPIE $(PY_LINKER_FLAGS)
 	gcc py_wrapper.o wrapper_test.o  -o test $(PY_LINKER_FLAGS)
+	#nvcc $(PY_COMPILE_FLAGS) wrapper_test.c py_wrapper.c -o test2 $(CFLAGS)  $(PY_LINKER_FLAGS)
 
 clean:
 	rm -rf *.o

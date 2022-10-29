@@ -289,15 +289,15 @@ EXPORT_SYMBOL(cuMemAllocPitch);
 CUresult CUDAAPI kleioLoadModel(const void *srcHost, size_t len) {
     struct lake_cmd_ret ret;
 	struct lake_cmd_kleioLoadModel cmd = {
-        .API_ID = LAKE_API_kleioLoadModel, .len = len
+        .API_ID = LAKE_API_kleioLoadModel
     };
 
-    s64 offset = kava_shm_offset(srcHost);
-    if (offset < 0) {
-        pr_err("srcHost in kleioLoadModel is NOT a kshm pointer (use kava_alloc to fix it)\n");
-        return CUDA_ERROR_INVALID_VALUE;
-    }
-    cmd.srcHost = (void*)offset;
+    // s64 offset = kava_shm_offset(srcHost);
+    // if (offset < 0) {
+    //     pr_err("srcHost in kleioLoadModel is NOT a kshm pointer (use kava_alloc to fix it)\n");
+    //     return CUDA_ERROR_INVALID_VALUE;
+    // }
+    // cmd.srcHost = (void*)offset;
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
 	return ret.res;
 }
@@ -309,13 +309,12 @@ CUresult CUDAAPI kleioInference(const void *srcHost, size_t len, int use_gpu) {
         .API_ID = LAKE_API_kleioInference, .len = len,
         .use_gpu = use_gpu
     };
-
-    s64 offset = kava_shm_offset(srcHost);
-    if (offset < 0) {
-        pr_err("srcHost in kleioInference is NOT a kshm pointer (use kava_alloc to fix it)\n");
-        return CUDA_ERROR_INVALID_VALUE;
-    }
-    cmd.srcHost = (void*)offset;
+    // s64 offset = kava_shm_offset(srcHost);
+    // if (offset < 0) {
+    //     pr_err("srcHost in kleioInference is NOT a kshm pointer (use kava_alloc to fix it)\n");
+    //     return CUDA_ERROR_INVALID_VALUE;
+    // }
+    // cmd.srcHost = (void*)offset;
     lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
 	return ret.res;
 }

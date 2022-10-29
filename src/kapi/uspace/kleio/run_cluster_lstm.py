@@ -24,14 +24,15 @@ kleio_lstm = None
 def kleio_load_model(path):
     print("Kleio: loading model from ", path)
     global kleio_lstm
-    kleio_lstm = LSTM_model(path)
+    if kleio_lstm is None:
+        kleio_lstm = LSTM_model(path)
     print("Kleio: model loaded!")
     return 0
 
 def kleio_force_gc():
     gc.collect()
 
-def kleio_inference(inputs, n, use_gpu):
+def kleio_inference(__inputs, n, use_gpu):
     #print("input: ", inputs)
     #print("type: ", type(inputs))
     #print("len ", len(inputs))
@@ -54,7 +55,8 @@ def kleio_inference(inputs, n, use_gpu):
         kinput.to_categor(num_classes)
         kleio_lstm.infer(kinput, n)
         end = timer()
-        return (end-start)*1000
+    print(f"inf took {end-start}")
+    #return (end-start)*1000
 
 if __name__ == "__main__":
     import tensorflow as tf
