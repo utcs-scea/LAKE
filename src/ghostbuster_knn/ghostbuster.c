@@ -1,3 +1,24 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * Copyright (C) 2022-2024 Ariel Szekely
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
 #ifdef __KERNEL__
 #include <linux/module.h>
 #include <linux/random.h>
@@ -412,8 +433,7 @@ module_init(ghost_buster_init);
 module_exit(ghost_buster_fini);
 
 MODULE_AUTHOR("Ariel Szekely");
-MODULE_DESCRIPTION("A module to detect Spectre attacks"
-                   "(aka a Ghost Buster... get it?)");
+MODULE_DESCRIPTION("A knn module to detect Spectre attacks");
 MODULE_LICENSE("GPL");
 MODULE_VERSION(
     __stringify(1) "." __stringify(0) "." __stringify(0) "."
