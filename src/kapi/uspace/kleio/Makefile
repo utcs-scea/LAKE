@@ -5,7 +5,7 @@ CC=gcc
 CXX=g++
 LINKER=gcc
 
-python_version_full := $(wordlist 2,4,$(subst ., ,$(shell python --version 2>&1)))
+python_version_full := $(wordlist 2,4,$(subst ., ,$(shell python3 --version 2>&1)))
 python_version_major := $(word 1,${python_version_full})
 python_version_minor := $(word 2,${python_version_full})
 
@@ -15,8 +15,13 @@ python_version_minor := $(word 2,${python_version_full})
 #pyver := "python3.8"   (replace with your version)
 pyver := "python$(python_version_major).$(python_version_minor)"
 
-PY_LINKER_FLAGS = $(shell $(pyver)-config --embed --libs)
-PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags --embed)
+#after python3.8 we need the --embed flag -.-
+$(if $(shell [ $(python_version_minor) -ge 8 ] && echo "OK"), \
+    $(eval embf := --embed), \
+	$(eval embf := ))
+
+PY_LINKER_FLAGS = $(shell $(pyver)-config --libs $(embf))
+PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags $(embf))
 
 current_dir = $(shell pwd)
 model:="/../../../kleio/lstm_page_539"

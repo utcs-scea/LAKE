@@ -3,7 +3,7 @@ ROOT_DIR:=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 LIBS=$(shell pkg-config --libs libnl-3.0) -L/usr/local/cuda/lib64 -lcuda -lnvidia-ml
 CFLAGS=$(shell pkg-config --cflags libnl-3.0) -I$(ROOT_DIR)/../include
 
-python_version_full := $(wordlist 2,4,$(subst ., ,$(shell python --version 2>&1)))
+python_version_full := $(wordlist 2,4,$(subst ., ,$(shell python3 --version 2>&1)))
 python_version_major := $(word 1,${python_version_full})
 python_version_minor := $(word 2,${python_version_full})
 
@@ -13,10 +13,13 @@ python_version_minor := $(word 2,${python_version_full})
 #pyver := "python3.8"   (replace with your version)
 pyver := python$(python_version_major).$(python_version_minor)
 
-PY_LINKER_FLAGS = $(shell $(pyver)-config --embed --libs)
-#PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags --embed)
-#nvcc doesnt understand flags from this, build manually
-PY_COMPILE_FLAGS = -I/usr/include/$(pyver) -DNDEBUG -O2 -lcrypt -ldl  -lm
+#after python3.8 we need the --embed flag -.-
+$(if $(shell [ $(python_version_minor) -ge 8 ] && echo "OK"), \
+    $(eval embf := --embed), \
+	$(eval embf := ))
+
+PY_LINKER_FLAGS = $(shell $(pyver)-config --libs $(embf))
+PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags $(embf))
 
 all: lake_uspace
 
