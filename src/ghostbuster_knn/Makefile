@@ -8,6 +8,7 @@ KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kernel/Module.symvers
 
 all: cubin
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
+	make -C cuda
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
