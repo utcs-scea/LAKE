@@ -168,6 +168,7 @@ def run_benchmark():
     sleep(3) #give it time to start
 
     #TODO: run the app that reads 2GB file
+    process = subprocess.Popen("./ReadWriteData", shell=False)
 
     sleep(3) # give it some time to settle
     os.killpg(os.getpgid(proc.pid), signal.SIGTERM)  # Send the signal to all the process groups

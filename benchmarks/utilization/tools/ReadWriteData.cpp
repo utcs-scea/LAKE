@@ -1,7 +1,6 @@
 #include <fstream>
 #include <iostream>
 #include <unistd.h>
-using namespace std;
 
 void dropCache()
 {
@@ -11,35 +10,37 @@ void dropCache()
     //system("./drop_cache");
 }
 
-int main () {
-   //char data[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJK...";
-   char *data = (char*) malloc (100);
+#include <stdio.h>
+#include <stdlib.h>
+
+int main()
+{
+   FILE *fptr;
+   fptr = fopen("temp.dat","w");
+
+   if(fptr == NULL)
+   {
+      printf("Error!");   
+      exit(1);             
+   }
+   
    long GB = 100*100*100*100*10;
    long MB = 1000*1000;
-   int data_size = 40;
-   // open a file in write mode.
-   ofstream outfile;
-   outfile.open("temp.dat");
+   char *data = (char *) malloc (100 * MB);
 
-   for(int i = 0; i < 2 * MB; i+=data_size)
-    outfile << data << endl;
+   for(int i = 0; i < 2 * GB; i+=100 * MB)
+    fprintf(fptr,"%s",data);
 
-   outfile.close();
-   dropCache();
-   //sleep
-   sleep(2);
+   fclose(fptr);
 
-   // open a file in read mode.
-   ifstream infile; 
-   infile.open("temp.dat"); 
 
-   while (!infile.eof())
-    {
-        infile >> data;
-    }
+   if ((fptr = fopen("temp.dat","r")) == NULL){
+       printf("Error! opening file");
+       exit(1);
+   }
 
-   // close the opened file.
-   infile.close();
+   while (fscanf(fptr,"%s",data) != EOF);
+   fclose(fptr); 
 
    return 0;
 }
