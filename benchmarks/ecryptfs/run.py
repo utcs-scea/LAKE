@@ -199,42 +199,42 @@ def parse_out(out):
     return rd, wt
 
 tests = {
-    # "CPU": {
-    #     "cryptomod_fn": load_cpu_crypto,
-    #     "fsmod_fn": load_ecryptfs,
-    #     "mount_fn": mount_gcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    # },
-    # "AESNI": {
-    #    "cryptomod_fn": load_aesni_crypto,
-    #    "fsmod_fn": load_ecryptfs,
-    #    "mount_fn": mount_gcm,
-    #    "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    # },
-    # "LAKE": {
-    #     "cryptomod_fn": load_lake_crypto,
-    #     "fsmod_fn": load_lake_ecryptfs,
-    #     "mount_fn": mount_lakegcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    # },
+    "CPU": {
+        "cryptomod_fn": load_cpu_crypto,
+        "fsmod_fn": load_ecryptfs,
+        "mount_fn": mount_gcm,
+        "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    },
+    "AESNI": {
+       "cryptomod_fn": load_aesni_crypto,
+       "fsmod_fn": load_ecryptfs,
+       "mount_fn": mount_gcm,
+       "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    },
+    "LAKE": {
+        "cryptomod_fn": load_lake_crypto,
+        "fsmod_fn": load_lake_ecryptfs,
+        "mount_fn": mount_lakegcm,
+        "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    },
     # "lake50aesni": {
     #     "cryptomod_fn": load_lake_crypto_50aesni,
     #     "fsmod_fn": load_lake_ecryptfs,
     #     "mount_fn": mount_lakegcm,
     #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
     # },
-    # "lake75aesni": {
-    #     "cryptomod_fn": load_lake_crypto_75aesni,
-    #     "fsmod_fn": load_lake_ecryptfs,
-    #     "mount_fn": mount_lakegcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    # },
-    "lake25aesni": {
-        "cryptomod_fn": load_lake_crypto_25aesni,
+    "lake75aesni": {
+        "cryptomod_fn": load_lake_crypto_75aesni,
         "fsmod_fn": load_lake_ecryptfs,
         "mount_fn": mount_lakegcm,
         "mount_basepath": os.path.join(ROOT_DIR, "lake")
     },
+    # "lake25aesni": {
+    #     "cryptomod_fn": load_lake_crypto_25aesni,
+    #     "fsmod_fn": load_lake_ecryptfs,
+    #     "mount_fn": mount_lakegcm,
+    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    # },
 }
 
 sizes = {
