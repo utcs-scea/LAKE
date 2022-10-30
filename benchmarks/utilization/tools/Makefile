@@ -2,5 +2,6 @@ all:
 	gcc util_killable.c -o kutil_kill
 	gcc util.c -o util
 	g++ cpu_gpu.cpp -o cpu_gpu -lnvidia-ml -I/usr/local/cuda/include
+	g++ nprocs_gpu.cpp -o nprocs_gpu -lnvidia-ml -I/usr/local/cuda/include
 	g++ -o ReadWriteData ReadWriteData.cpp
 	

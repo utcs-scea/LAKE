@@ -1,6 +1,9 @@
 #include <fstream>
 #include <iostream>
 #include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
 
 void dropCache()
 {
@@ -10,38 +13,43 @@ void dropCache()
     //system("./drop_cache");
 }
 
-#include <stdio.h>
-#include <stdlib.h>
+long GB = 1024*1024*1024;
+long MB = 1024*1024;
+long size = 2*GB;
 
 int main()
 {
-   FILE *fptr;
-   fptr = fopen("temp.dat","w");
+    int fd;
+    fd = open("temp.dat", O_RDWR, O_CREAT | O_SYNC  | O_TRUNC);
 
-   if(fptr == NULL)
-   {
-      printf("Error!");   
-      exit(1);             
-   }
-   
-   long GB = 100*100*100*100*10;
-   long MB = 1000*1000;
-   char *data = (char *) malloc (100 * MB);
+    if(fd == 0) {
+        printf("Error!");   
+        exit(1);             
+    }
+    char* buf = (char *) malloc (2 * MB);
+    char *data = (char *) malloc (128 * MB);
+    ssize_t ret;
+    for(int i = 0; i < size; i+=128*MB) {
+        ret = write(fd, data, 128*MB);
+        if (ret <= 0) {
+            printf("error on write: %d\n", errno);
+            exit(1);
+        }
+    }
 
-   for(int i = 0; i < 2 * GB; i+=100 * MB)
-    fprintf(fptr,"%s",data);
+    close(fd);
+    free(data);
+    dropCache();
 
-   fclose(fptr);
-
-   dropCache();
-
-   if ((fptr = fopen("temp.dat","r")) == NULL){
-       printf("Error! opening file");
-       exit(1);
-   }
-
-   while (fscanf(fptr,"%s",data) != EOF);
-   fclose(fptr); 
+    fd = open("temp.dat", O_RDONLY);
+    //read in 2MB chunks
+    for(int i = 0; i < size; i+=2*MB) { 
+        ret = read(fd, buf, 2*MB);
+        if (ret <= 0) {
+            printf("error on write: %d\n", errno);
+            exit(1);
+        }
+    }
 
    return 0;
 }
