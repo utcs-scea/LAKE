@@ -123,6 +123,11 @@ void pid_thread() {
                   { return std::iscntrl(static_cast<unsigned char>(ch));}), 
                   result.end());
 
+    //not found..
+    if(result == "") {
+        return;
+    }
+
     char pidstat[1024];
     sprintf(pidstat, "/proc/%s/stat", result.c_str());
 
