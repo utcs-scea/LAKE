@@ -197,10 +197,11 @@ void gpu_thread() {
 }
 
 int main() {
-    std::thread gpu_t(gpu_thread);
-    std::thread cpu_t(cpu_thread);
-    std::thread pid_t(pid_thread);
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    printf("Hello, World heh");
+    // std::thread gpu_t(gpu_thread);
+    // std::thread cpu_t(cpu_thread);
+    //std::thread pid_t(pid_thread);
+    //std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     float ts = 0;
 
     float c, g, a;      

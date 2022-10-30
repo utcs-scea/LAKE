@@ -8,8 +8,15 @@ import subprocess
 
 log = open("log1.txt", "w")
 
+proc = subprocess.Popen(["./tools/cpu_gpu"], stdout=subprocess.PIPE shell=True)
 
-proc = subprocess.Popen(["./tools/cpu_gpu"],stdout=log)
+sleep(10)
+
+for line in proc.stdout:
+    #the real code does filtering here
+    print "test:", line.rstrip()
+
+
 
 
 # proc = subprocess.Popen(["./tools/cpu_gpu"], stdout=log, preexec_fn=os.setsid) 
