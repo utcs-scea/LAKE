@@ -18,12 +18,11 @@
 
 const int interval_ms = 1000;
 
-
-static std::atomic<float> last_cpu;
-static std::atomic<float> last_gpu;
-static std::atomic<float> last_api;
-static std::atomic<uint64_t> total_cpu1;
-static std::atomic<uint64_t> total_cpu2;
+static std::atomic<float> last_cpu(0);
+static std::atomic<float> last_gpu(0);
+static std::atomic<float> last_api(0);
+static std::atomic<uint64_t> total_cpu1(0);
+static std::atomic<uint64_t> total_cpu2(0);
 
 struct cpustat {
     unsigned long t_user;
@@ -97,8 +96,7 @@ void cpu_thread() {
     get_stats(&st0_1, -1);
     while(1) {
         util = calculate_load(&st0_0, &st0_1);
-        //printf("cpu %f\n", util);
-        last_cpu.store((float)10);
+        last_cpu.store(util);
         get_stats(&st0_0, -1);
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         get_stats(&st0_1, -1);
@@ -190,7 +188,7 @@ void gpu_thread() {
         result = nvmlDeviceGetUtilizationRates(device, &device_utilization);
         if (result != NVML_SUCCESS)
             exit(1);
-        last_gpu.store(2);
+        last_gpu.store(result);
         //printf("gpu %f\n", device_utilization.gpu);
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
     }
@@ -202,7 +200,7 @@ int main() {
     std::thread gpu_t(gpu_thread);
     std::thread cpu_t(cpu_thread);
     std::thread pid_t(pid_thread);
-    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     float ts = 0;
 
     float c, g, a;        
