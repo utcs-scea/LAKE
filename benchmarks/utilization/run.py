@@ -24,6 +24,7 @@ import os.path
 import subprocess
 import signal
 import subprocess
+import numpy as np
 
 #hackvm
 #DRIVE="vda"
@@ -195,6 +196,13 @@ tests = {
     },
 }
 
+x = []
+cpu = []
+lake_cpu = []
+lake_gpu = []
+lake_api = []
+aes_ni = []
+
 reset()
 for name, args in tests.items():
 
@@ -207,11 +215,19 @@ for name, args in tests.items():
     args["mount_fn"](args["mount_basepath"])
     print("mounted")
     sleep(1)
-        
+
     run_benchmark()
 
-    #TODO: parse tmp.out for this alg name: CPU, AESNI or LAKE
-    #TODO: build a csv with this data and plot it here
+    if name == "CPU":
+        x = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(0,))
+        cpu =  np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(1,))
+    if name == "AESNI":
+        aes_ni = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(1,))
+    if name == "LAKE":
+        lake_cpu = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(1,))
+        lake_gpu = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(2,))
+        lake_api = []
+        #TODO: find a way to measure API cpu util...
 
     sleep(1)
     umount(args["mount_basepath"])
@@ -219,3 +235,5 @@ for name, args in tests.items():
     reset()
     sleep(1)
 
+
+#TODO: plot the data here, line graphs, x is time
