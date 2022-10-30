@@ -123,6 +123,7 @@ void pid_thread() {
 
     //not found..
     if(result == "") {
+        last_api.store(-1);
         return;
     }
 
@@ -198,10 +199,15 @@ void gpu_thread() {
 
 int main() {
     printf("Hello, World heh");
-    // std::thread gpu_t(gpu_thread);
-    // std::thread cpu_t(cpu_thread);
-    //std::thread pid_t(pid_thread);
-    //std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    FILE *f = fopen("tmp.out", "w");
+    if (!f) {
+        printf("error opening tmp.out\n");
+        exit(1);
+    }
+    std::thread gpu_t(gpu_thread);
+    std::thread cpu_t(cpu_thread);
+    std::thread pid_t(pid_thread);
+    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     float ts = 0;
 
     float c, g, a;      
@@ -209,7 +215,8 @@ int main() {
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         c = last_cpu.load();
         g = last_gpu.load();
-        printf("%.2f,%.2f,%.2f,%.2f\n", ts, c, g, a);
+        fprintf(f, "%.2f,%.2f,%.2f,%.2f\n", ts, c, g, a);
+        fflush(f);
         ts += interval_ms;
     }
     return 0;

@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
 # Copyright (C) 2022-2024 Henrique Fingler
 # Copyright (C) 2022-2024 Isha Tarte
@@ -161,6 +159,18 @@ def reset():
     run("sudo modprobe -r aesni_intel", shell=True)
     run(f"echo 4096 | sudo tee /sys/block/{DRIVE}/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
 
+def test():
+    proc = subprocess.Popen("./tools/cpu_gpu > tmp1.out", stdout=subprocess.PIPE, 
+                       shell=True, preexec_fn=os.setsid) 
+    sleep(10) #give it time to start
+
+    #TODO: run the app that reads 2GB file
+    for line in proc.stdout:
+        #the real code does filtering here
+        print ("test:", line.rstrip())
+
+
+
 def run_benchmark():
     bsize = "2m"
     bsize = to_bytes(bsize)
@@ -205,6 +215,11 @@ lake_cpu = []
 lake_gpu = []
 lake_api = []
 aes_ni = []
+
+run_benchmark()
+sys.exit(0)
+
+
 
 reset()
 for name, args in tests.items():
