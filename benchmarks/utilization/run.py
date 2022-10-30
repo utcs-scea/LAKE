@@ -22,6 +22,7 @@ import os.path
 import subprocess
 import signal
 import subprocess
+from tokenize import Double
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rc
@@ -166,15 +167,17 @@ def run_benchmark():
     set_readhead(READAHEAD_MULTIPLIER*bsize)
     sleep(0.5)
     
-    proc = subprocess.Popen("./tools/cpu_gpu > tmp1.out", stdout=subprocess.PIPE, 
-                       shell=True, preexec_fn=os.setsid) 
-    sleep(6) #give it time to start
+    proc = subprocess.Popen("exec ./tools/cpu_gpu", shell=True)  #, stdout=subprocess.PIPE)
+    sleep(6)
+    
 
     #TODO: run the app that reads 2GB file
     process = subprocess.Popen("./tools/ReadWriteData", shell=False)
 
     sleep(3) # give it some time to settle
-    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
+
+    proc.kill()
+    #os.killpg(os.getpgid(proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
 
 
 tests = {
@@ -222,14 +225,15 @@ for name, args in tests.items():
     run_benchmark()
 
     if name == "CPU":
-        x = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(0,))
-        cpu =  np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(1,))
+        x = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(0,))
+        x = x/1000
+        cpu =  np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
     if name == "AESNI":
-        aes_ni = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(1,))
+        aes_ni = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
     if name == "LAKE":
-        lake_cpu = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(1,))
-        lake_gpu = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(2,))
-        lake_api = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(3,))
+        lake_cpu = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
+        lake_gpu = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(2,))
+        lake_api = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(3,))
         #TODO: find a way to measure API cpu util...
 
     sleep(1)
@@ -254,7 +258,7 @@ ax.plot(x, lake_gpu, label='LAKE\nGPU util.', color='black',
     linewidth=1, marker='.')
     
 fig.tight_layout()
-plt.xlim(0, 8.5)
+plt.xlim(0, 5)
 plt.ylim(0, 120)
 
 ax.legend(loc='upper center', ncol=1, bbox_to_anchor=(1.25, 1), columnspacing=1)

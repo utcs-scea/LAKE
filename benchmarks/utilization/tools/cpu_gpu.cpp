@@ -198,7 +198,6 @@ void gpu_thread() {
 }
 
 int main() {
-    printf("Hello, World heh");
     FILE *f = fopen("tmp.out", "w");
     if (!f) {
         printf("error opening tmp.out\n");
