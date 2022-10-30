@@ -159,17 +159,6 @@ def reset():
     run("sudo modprobe -r aesni_intel", shell=True)
     run(f"echo 4096 | sudo tee /sys/block/{DRIVE}/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
 
-def test():
-    proc = subprocess.Popen("./tools/cpu_gpu > tmp1.out", stdout=subprocess.PIPE, 
-                       shell=True, preexec_fn=os.setsid) 
-    sleep(10) #give it time to start
-
-    #TODO: run the app that reads 2GB file
-    for line in proc.stdout:
-        #the real code does filtering here
-        print ("test:", line.rstrip())
-
-
 
 def run_benchmark():
     bsize = "2m"
@@ -216,10 +205,6 @@ lake_gpu = []
 lake_api = []
 aes_ni = []
 
-run_benchmark()
-sys.exit(0)
-
-
 
 reset()
 for name, args in tests.items():
@@ -244,7 +229,7 @@ for name, args in tests.items():
     if name == "LAKE":
         lake_cpu = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(1,))
         lake_gpu = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(2,))
-        lake_api = []
+        lake_api = np.loadtxt('tmp.out', dtype=int, delimiter=',',skiprows=0,usecols=(3,))
         #TODO: find a way to measure API cpu util...
 
     sleep(1)
@@ -262,7 +247,7 @@ fig, ax = plt.subplots()
 ax.plot(x, cpu, label='CPU\neCryptfs', color=cmap(0) )#, marker="x", markersize=3)
 ax.plot(x, aes_ni, label='AES-NI\neCryptfs', color=cmap(1), marker="o", markersize=3)
 ax.plot(x, lake_cpu, label='LAKE\neCryptfs', color=cmap(2), marker="v", markersize=3)
-ax.plot(x, lake_gpu, label='LAKE\nAPI server', color=cmap(3), marker="s", markersize=3)
+ax.plot(x, lake_api, label='LAKE\nAPI server', color=cmap(3), marker="s", markersize=3)
 
 ax.plot(x, lake_gpu, label='LAKE\nGPU util.', color='black',
     #linestyle='dotted', linewidth=3)
