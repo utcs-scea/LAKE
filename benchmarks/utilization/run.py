@@ -165,11 +165,11 @@ def run_benchmark():
     
     proc = subprocess.Popen("./tools/cpu_gpu > tmp.out", stdout=subprocess.PIPE, 
                        shell=True, preexec_fn=os.setsid) 
-   
     sleep(3) #give it time to start
 
     #TODO: run the app that reads 2GB file
 
+    sleep(3) # give it some time to settle
     os.killpg(os.getpgid(proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
 
 
@@ -210,6 +210,7 @@ for name, args in tests.items():
     run_benchmark()
 
     #TODO: parse tmp.out for this alg name: CPU, AESNI or LAKE
+    #TODO: build a csv with this data and plot it here
 
     sleep(1)
     umount(args["mount_basepath"])
