@@ -1,6 +1,7 @@
 #include <cuda.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <nvml.h>
 #include "commands.h"
 #include "lake_shm.h"
 #include "lake_kapi.h"
@@ -214,6 +215,16 @@ static int lake_handler_kleioForceGC(void* buf, struct lake_cmd_ret* cmd_ret) {
     return 0;
 }
 
+static int lake_handler_nvmlRunningProcs(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_nvmlRunningProcs *cmd = (struct lake_cmd_nvmlRunningProcs *) buf;
+
+    //TODO
+    cmd_ret->ptr = 0;
+
+    cmd_ret->res = 0;
+    return 0;
+}
+
 /*********************
  * 
  *  END OF HANDLERS
@@ -243,7 +254,8 @@ static int (*kapi_handlers[])(void* buf, struct lake_cmd_ret* cmd_ret) = {
     lake_handler_cuMemAllocPitch,
     lake_handler_kleioLoadModel,
     lake_handler_kleioInference,
-    lake_handler_kleioForceGC
+    lake_handler_kleioForceGC,
+    lake_handler_nvmlRunningProcs,
 };
 
 void lake_handle_cmd(void* buf, struct lake_cmd_ret* cmd_ret) {

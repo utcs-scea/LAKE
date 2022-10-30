@@ -9,6 +9,7 @@ KBUILD_EXTRA_SYMBOLS += $(src)/../kapi/kernel/Module.symvers
 all:
 	make -f Makefile_cubin
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
+	make -f Makefile_cont
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean

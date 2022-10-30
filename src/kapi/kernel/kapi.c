@@ -349,3 +349,14 @@ CUresult CUDAAPI kleioForceGC(void) {
 	return ret.res;
 }
 EXPORT_SYMBOL(kleioForceGC);
+
+CUresult CUDAAPI nvmlRunningProcs(int* nproc) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_nvmlRunningProcs cmd = {
+        .API_ID = LAKE_API_nvmlRunningProcs,
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+    *nproc = (int)ret.ptr;
+	return ret.res;
+}
+EXPORT_SYMBOL(nvmlRunningProcs);

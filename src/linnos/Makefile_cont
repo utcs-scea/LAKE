@@ -1,0 +1,15 @@
+#
+# Makefile for the Linux eCryptfs
+#
+
+all:
+	cp Kbuild_cont Kbuild
+	rm -f *.o
+	rm -f .*o.cmd
+	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
+	rm Kbuild
+	rm -f *.o
+	rm -f .*o.cmd
+
+clean:
+	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
