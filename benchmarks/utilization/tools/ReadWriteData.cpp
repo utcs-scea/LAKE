@@ -15,7 +15,7 @@ void dropCache()
 
 long GB = 1024*1024*1024;
 long MB = 1024*1024;
-long size = 2*GB;
+long size = 500 * MB;//2*GB;
 
 int main()
 {

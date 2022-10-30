@@ -197,19 +197,19 @@ void gpu_thread() {
 }
 
 int main() {
-    std::thread gpu_t(gpu_thread);
-    std::thread cpu_t(cpu_thread);
+    printf("Hello, World heh");
+    // std::thread gpu_t(gpu_thread);
+    // std::thread cpu_t(cpu_thread);
     std::thread pid_t(pid_thread);
     std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     float ts = 0;
 
-    float c, g, a;        
+    float c, g;        
     while(1) {
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         c = last_cpu.load();
         g = last_gpu.load();
-        a = last_api.load();
-        printf("%.2f,%.2f,%.2f,%.2f\n", ts, c, g, a);
+        printf("%.2f,%.2f,%.2f\n", ts, c, g);
         ts += interval_ms;
     }
     return 0;

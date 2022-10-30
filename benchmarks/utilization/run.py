@@ -25,18 +25,21 @@ import subprocess
 import signal
 import subprocess
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib import rc
+import matplotlib
 
 #hackvm
-#DRIVE="vda"
-#ROOT_DIR="/home/hfingler/crypto"
+DRIVE="vdc"
+ROOT_DIR="/mnt/vdc/crypto"
 
 #santacruz ssd
 #DRIVE="sda"
 #ROOT_DIR="/disk/hfingler/crypto"
 
 #santacruz nvme
-DRIVE="nvme0n1"
-ROOT_DIR="/disk/nvme0/crypto"
+# DRIVE="nvme0n1"
+# ROOT_DIR="/disk/nvme0/crypto"
 
 READAHEAD_MULTIPLIER = 1
 
@@ -164,12 +167,12 @@ def run_benchmark():
     set_readhead(READAHEAD_MULTIPLIER*bsize)
     sleep(0.5)
     
-    proc = subprocess.Popen("./tools/cpu_gpu > tmp.out", stdout=subprocess.PIPE, 
+    proc = subprocess.Popen("./tools/cpu_gpu > tmp1.out", stdout=subprocess.PIPE, 
                        shell=True, preexec_fn=os.setsid) 
-    sleep(3) #give it time to start
+    sleep(6) #give it time to start
 
     #TODO: run the app that reads 2GB file
-    process = subprocess.Popen("./ReadWriteData", shell=False)
+    process = subprocess.Popen("./tools/ReadWriteData", shell=False)
 
     sleep(3) # give it some time to settle
     os.killpg(os.getpgid(proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
@@ -237,3 +240,31 @@ for name, args in tests.items():
 
 
 #TODO: plot the data here, line graphs, x is time
+
+cmap = matplotlib.cm.get_cmap("tab10")
+fig, ax = plt.subplots()
+
+ax.plot(x, cpu, label='CPU\neCryptfs', color=cmap(0) )#, marker="x", markersize=3)
+ax.plot(x, aes_ni, label='AES-NI\neCryptfs', color=cmap(1), marker="o", markersize=3)
+ax.plot(x, lake_cpu, label='LAKE\neCryptfs', color=cmap(2), marker="v", markersize=3)
+ax.plot(x, lake_gpu, label='LAKE\nAPI server', color=cmap(3), marker="s", markersize=3)
+
+ax.plot(x, lake_gpu, label='LAKE\nGPU util.', color='black',
+    #linestyle='dotted', linewidth=3)
+    linewidth=1, marker='.')
+    
+fig.tight_layout()
+plt.xlim(0, 8.5)
+plt.ylim(0, 120)
+
+ax.legend(loc='upper center', ncol=1, bbox_to_anchor=(1.25, 1), columnspacing=1)
+
+ax.set_xlabel('Time (s)')
+ax.set_ylabel('Utilization (\%)')
+
+ax.grid(visible=True, which='major', axis='y', color='#0A0A0A', linestyle='--', alpha=0.2)
+
+fig.set_size_inches(3.5, 2)
+fig.set_dpi(200)
+
+plt.savefig('ecryptfs_util.pdf', bbox_inches='tight',pad_inches=0.05)
