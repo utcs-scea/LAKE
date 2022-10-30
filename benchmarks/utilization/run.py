@@ -21,7 +21,9 @@ import re, os, sys
 from subprocess import run, DEVNULL
 from time import sleep
 import os.path
-
+import subprocess
+import signal
+import subprocess
 
 #hackvm
 #DRIVE="vda"
@@ -51,15 +53,14 @@ else:
     print("Quiting..")
     sys.exit(0)
 
-final = "Final average results:"
-read_pat = "Read Sequential\s*(\S*)"
-write_pat = "Write Sequential\s*(\S*)"
 
 this_path = os.path.abspath(os.path.join(os.path.realpath(__file__), os.pardir))
 src_dir   = os.path.join(this_path, "..", "..", "src", "ecryptfs")
 ecryptfs_dir = os.path.join(src_dir, "ecryptfs")
 crypto_dir   = os.path.join(src_dir, "crypto")
-fileio_dir   = os.path.join(src_dir, "file_io")
+
+#TODO: check for reader
+
 
 #full check
 if os.geteuid() != 0:
@@ -73,8 +74,8 @@ if not os.path.isfile(os.path.join(ecryptfs_dir, "lake_ecryptfs.ko")):
     print(f"lake_ecryptfs.ko not found. run make in {ecryptfs_dir}")
     sys.exit(1)
 
-if not os.path.isfile(os.path.join(fileio_dir, "fs_bench")):
-    print(f"fs_bench not found. run make in {fileio_dir}")
+if not os.path.isfile("./tools/cpu_gpu"):
+    print(f"./tools/cpu_gpu not found. run make in ./tools")
     sys.exit(1)
 
 if not os.path.isfile(os.path.join(crypto_dir, "lake_gcm.ko")):
@@ -110,16 +111,6 @@ def load_lake_crypto(aesni_fraction=0):
     if r.returncode < 0: 
         print(f"Error {r.returncode} inserting mod {p}")
         sys.exit(1)
-
-#i didnt want to mess with partials
-def load_lake_crypto_75aesni():
-    load_lake_crypto(75)
-
-def load_lake_crypto_50aesni():
-    load_lake_crypto(50)
-
-def load_lake_crypto_25aesni():
-    load_lake_crypto(25)
 
 def mount_gcm(path, cipher="gcm"):
     os.makedirs(f"{path}_enc", exist_ok=True)
@@ -166,125 +157,63 @@ def reset():
     run("sudo modprobe -r aesni_intel", shell=True)
     run(f"echo 4096 | sudo tee /sys/block/{DRIVE}/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
 
-def run_benchmark(p, sz):
-    bsize = sz.split()[-1]
+def run_benchmark():
+    bsize = "2m"
     bsize = to_bytes(bsize)
     set_readhead(READAHEAD_MULTIPLIER*bsize)
+    sleep(0.5)
+    
+    proc = subprocess.Popen("./tools/cpu_gpu > tmp.out", stdout=subprocess.PIPE, 
+                       shell=True, preexec_fn=os.setsid) 
+   
+    sleep(3) #give it time to start
 
-    b = os.path.join(fileio_dir, "fs_bench")
-    out = run(f"sudo {b} {p} {sz}", shell=True, capture_output=True, text=True)
-    #print(f"running:  {b} {p} {sz}")
-    #print("out: ", out.stdout)
-    return out.stdout
+    #TODO: run the app that reads 2GB file
 
-def parse_out(out):
-    capture_mode = False
-    wt,val=None, None
-    #print(f"out : {out}")
-    for line in out.splitlines():
-        if final in line:
-            capture_mode = True
-            continue
+    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
 
-        if capture_mode:
-            match = re.search(read_pat, line)
-            if match:
-                val = match.group(1)
-                rd = val
-
-            match = re.search(write_pat, line)
-            if match:
-                val = match.group(1)
-                wt = val
-    return rd, wt
 
 tests = {
-    # "CPU": {
-    #     "cryptomod_fn": load_cpu_crypto,
-    #     "fsmod_fn": load_ecryptfs,
-    #     "mount_fn": mount_gcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    # },
-    # "AESNI": {
-    #    "cryptomod_fn": load_aesni_crypto,
-    #    "fsmod_fn": load_ecryptfs,
-    #    "mount_fn": mount_gcm,
-    #    "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    # },
-    # "LAKE": {
-    #     "cryptomod_fn": load_lake_crypto,
-    #     "fsmod_fn": load_lake_ecryptfs,
-    #     "mount_fn": mount_lakegcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    # },
-    # "lake50aesni": {
-    #     "cryptomod_fn": load_lake_crypto_50aesni,
-    #     "fsmod_fn": load_lake_ecryptfs,
-    #     "mount_fn": mount_lakegcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    # },
-    # "lake75aesni": {
-    #     "cryptomod_fn": load_lake_crypto_75aesni,
-    #     "fsmod_fn": load_lake_ecryptfs,
-    #     "mount_fn": mount_lakegcm,
-    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    # },
-    "lake25aesni": {
-        "cryptomod_fn": load_lake_crypto_25aesni,
+    "CPU": {
+        "cryptomod_fn": load_cpu_crypto,
+        "fsmod_fn": load_ecryptfs,
+        "mount_fn": mount_gcm,
+        "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    },
+    "AESNI": {
+       "cryptomod_fn": load_aesni_crypto,
+       "fsmod_fn": load_ecryptfs,
+       "mount_fn": mount_gcm,
+       "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    },
+    "LAKE": {
+        "cryptomod_fn": load_lake_crypto,
         "fsmod_fn": load_lake_ecryptfs,
         "mount_fn": mount_lakegcm,
         "mount_basepath": os.path.join(ROOT_DIR, "lake")
     },
 }
 
-sizes = {
-    #"16K": "1 1m 16k",
-    #"4K": "1 1m 4k",
-    #"4M": "1 16m 4m",
-    
-     "4K": "2 1m 4k",
-     "8K": "2 2m 8k",
-     "16K": "2 4m 16k",
-     "32K": "2 8m 32k",
-     "64K": "2 16m 64k",
-     "128K": "2 32m 128k",
-     "256K": "2 64m 256k",
-     "512K": "2 128m 512k",
-     "1M": "2 256m 1m",
-     "2M": "2 512m 2m",
-     "4M": "2 1024m 4m",
-}
-
-results = {}
-
 reset()
 for name, args in tests.items():
-    results[name] = {"rd": [], "wt": []}
-    
-    for sz_name, sz in sizes.items():
-        #load correct crypto
-        args["cryptomod_fn"]()
-        #load ecryptfs
-        args["fsmod_fn"]()
-        sleep(0.5)
-        #mount enc and plain dir
-        args["mount_fn"](args["mount_basepath"])
-        print("mounted")
-        sleep(1)
+
+    #load correct crypto
+    args["cryptomod_fn"]()
+    #load ecryptfs
+    args["fsmod_fn"]()
+    sleep(0.5)
+    #mount enc and plain dir
+    args["mount_fn"](args["mount_basepath"])
+    print("mounted")
+    sleep(1)
         
-        out = run_benchmark(args["mount_basepath"]+"_plain", sz)
-        rd, wt = parse_out(out)        
+    run_benchmark()
 
-        results[name]["R"].append(rd)
-        results[name]["W"].append(wt)
+    #TODO: parse tmp.out for this alg name: CPU, AESNI or LAKE
 
-        sleep(1)
-        umount(args["mount_basepath"])
-        sleep(0.5)
-        reset()
-        sleep(1)
+    sleep(1)
+    umount(args["mount_basepath"])
+    sleep(0.5)
+    reset()
+    sleep(1)
 
-print("," + ",".join(sizes.keys()))
-for name in tests.keys():
-    print(f"{name}_rd, {','.join(results[name]['rd'])}")
-    print(f"{name}_wt, {','.join(results[name]['wt'])}")
