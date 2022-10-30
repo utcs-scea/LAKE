@@ -33,6 +33,7 @@ int main()
 
    fclose(fptr);
 
+   dropCache();
 
    if ((fptr = fopen("temp.dat","r")) == NULL){
        printf("Error! opening file");
