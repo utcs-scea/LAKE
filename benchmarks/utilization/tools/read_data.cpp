@@ -7,11 +7,10 @@
 
 long GB = 1024*1024*1024;
 long MB = 1024*1024;
+
 long bsize = 2*MB;
-
-
-//long size = 2 * GB;
-long size = 512 * MB;
+long size = 2 * GB;
+//long size = 512 * MB;
 
 int main(int argc, char** argv)
 {
@@ -31,10 +30,10 @@ int main(int argc, char** argv)
 
     //lseek(fd, SEEK_SET, 0);
     //read in 2MB chunks
-    for(int i = 0; i < size; i+=bsize) { 
+    for(long i = 0; i < size; i+=bsize) { 
         ret = read(fd, buf, bsize);
         if (ret <= 0) {
-            printf("error on read: %d  read %dMB\n", errno, i/MB);
+            printf("error on read: %d  read %ldMB\n", errno, i/MB);
             break;
         }
     }

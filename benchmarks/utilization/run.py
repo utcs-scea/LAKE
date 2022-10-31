@@ -30,16 +30,12 @@ import matplotlib
 from timeit import default_timer as timer
 
 #hackvm
-DRIVE="vdc"
-ROOT_DIR="/mnt/vdc/crypto"
-
-#santacruz ssd
-#DRIVE="sda"
-#ROOT_DIR="/disk/hfingler/crypto"
+#DRIVE="vdc"
+#ROOT_DIR="/mnt/vdc/crypto"
 
 #santacruz nvme
-# DRIVE="nvme0n1"
-# ROOT_DIR="/disk/nvme0/crypto"
+DRIVE="nvme1n1"
+ROOT_DIR="/mnt/nvme1/crypto"
 
 READAHEAD_MULTIPLIER = 1
 
@@ -57,14 +53,12 @@ else:
     print("Quiting..")
     sys.exit(0)
 
-
 this_path = os.path.abspath(os.path.join(os.path.realpath(__file__), os.pardir))
 src_dir   = os.path.join(this_path, "..", "..", "src", "ecryptfs")
 ecryptfs_dir = os.path.join(src_dir, "ecryptfs")
 crypto_dir   = os.path.join(src_dir, "crypto")
 
 #TODO: check for reader
-
 
 #full check
 if os.geteuid() != 0:
@@ -129,14 +123,14 @@ def mount_gcm(path, cipher="gcm"):
     if r.returncode != 0:
         print(f"Error mounting dir with cmd {cmd}")
         sys.exit(1)
-        
+
 def mount_lakegcm(path):
     mount_gcm(path, "lake_gcm")
 
 def umount(path):
-    run(f"sudo umount {path}_enc", shell=True)
-    sleep(0.5)
     run(f"sudo umount {path}_plain", shell=True, stdout=DEVNULL)
+    sleep(0.5)
+    run(f"sudo umount {path}_enc", shell=True)
     sleep(0.5)
     run(f"sudo rm -rf {path}_enc", shell=True, stdout=DEVNULL)
     run(f"sudo rm -rf {path}_plain", shell=True, stdout=DEVNULL)
@@ -169,8 +163,8 @@ def run_benchmark(fpath):
     subprocess.check_call(f"sudo ./tools/write_data {fpath}", shell=True)
     sleep(5)
     proc = subprocess.Popen("exec ./tools/cpu_gpu", shell=True)
-    sleep(6)
-    print("reading")
+    sleep(10)
+    #("reading")
     start = timer()
     subprocess.check_call(f"sudo ./tools/read_data {fpath}", shell=True)
     end = timer()
@@ -215,6 +209,9 @@ aes_ni = []
 
 reset()
 for name, args in tests.items():
+    umount(args["mount_basepath"])
+    reset()
+    sleep(1)
     #load correct crypto
     args["cryptomod_fn"]()
     #load ecryptfs
@@ -222,7 +219,7 @@ for name, args in tests.items():
     sleep(0.5)
     #mount enc and plain dir
     args["mount_fn"](args["mount_basepath"])
-    print("mounted")
+    #print("mounted")
     sleep(1)
 
     fpath = args["mount_basepath"]+"_plain/test.dat"
@@ -230,28 +227,50 @@ for name, args in tests.items():
 
     if name == "CPU":
         x = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(0,))
+        np.save("x_data.bin", x)
         x = x/1000
-        #x = np.where(x > 4) # we wait 5 seconds, cut the first four
-        x = x[np.where(x > 2)]
+        x = x[np.where(x > 5)] # we wait 5 seconds, cut the first 2
         x = x - x[0] #offset to zero
-        print("x: ", x)
+        #print("x: ", x)
         cpu =  np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
-        print(f"cpu: ", cpu)
+        np.save("cpu_data.bin", cpu)
+        #print(f"cpu: ", cpu)
         cpu = cpu[-x.shape[0]:]
-        print(f"cpu sliced: ", cpu)
+        #print(f"cpu sliced: ", cpu)
     if name == "AESNI":
         aes_ni = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
-        print("aes: ", aes_ni)
+        np.save("aes_ni_data.bin", aes_ni)
+        #print("aes: ", aes_ni)
         aes_ni = aes_ni[-x.shape[0]:]
         pad = x.shape[0] - aes_ni.shape[0]
         if pad >0:
             aes_ni = np.pad(aes_ni, (0, pad), 'constant')
-        print("aes sliced: ", aes_ni)
+        #print("aes sliced: ", aes_ni)
     if name == "LAKE":
         lake_cpu = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
         lake_gpu = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(2,))
         lake_api = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(3,))
+        np.save("lake_cpu_data.bin", lake_cpu)
+        np.save("lake_gpu_data.bin", lake_gpu)
+        np.save("lake_api_data.bin", lake_api)
 
+        lake_cpu = lake_cpu[-x.shape[0]:]
+        pad = x.shape[0] - lake_cpu.shape[0]
+        if pad >0:
+            lake_cpu = np.pad(lake_cpu, (0, pad), 'constant')
+
+        lake_gpu = lake_gpu[-x.shape[0]:]
+        pad = x.shape[0] - lake_gpu.shape[0]
+        if pad >0:
+            lake_gpu = np.pad(lake_gpu, (0, pad), 'constant')
+
+        lake_api = lake_api[-x.shape[0]:]
+        pad = x.shape[0] - lake_api.shape[0]
+        if pad >0:
+            lake_api = np.pad(lake_api, (0, pad), 'constant')
+
+
+    #run(f"sudo rm tmp.out", shell=True, stdout=DEVNULL)
     sleep(1)
     run(f"sudo rm {fpath}", shell=True, stdout=DEVNULL)
     sleep(0.5)
@@ -263,14 +282,12 @@ for name, args in tests.items():
 cmap = matplotlib.cm.get_cmap("tab10")
 fig, ax = plt.subplots()
 
-ax.plot(x, cpu, label='CPU\neCryptfs', color=cmap(0) )#, marker="x", markersize=3)
-ax.plot(x, aes_ni, label='AES-NI\neCryptfs', color=cmap(1), marker="o", markersize=3)
-# ax.plot(x, lake_cpu, label='LAKE\neCryptfs', color=cmap(2), marker="v", markersize=3)
-# ax.plot(x, lake_api, label='LAKE\nAPI server', color=cmap(3), marker="s", markersize=3)
-
-# ax.plot(x, lake_gpu, label='LAKE\nGPU util.', color='black',
+ax.plot(x, cpu, label='CPU', color=cmap(0) )#, marker="x", markersize=3)
+ax.plot(x, aes_ni, label='AES-NI', color=cmap(1), marker="o", markersize=3)
+ax.plot(x, lake_cpu, label='LAKE CPU', color=cmap(2), marker="v", markersize=3)
+ax.plot(x, lake_api, label='LAKE API', color=cmap(3), marker="s", markersize=3)
+ax.plot(x, lake_gpu, label='LAKE GPU', color='black', linewidth=1, marker='.')
 #     linestyle='dotted', linewidth=3)
-#     #linewidth=1, marker='.')
     
 fig.tight_layout()
 plt.xlim(left=0)

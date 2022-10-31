@@ -16,7 +16,7 @@
 #include <unistd.h>
 //https://gist.githubusercontent.com/sakamoto-poteko/44d6cd19552fa7721b99/raw/4098c76ec7258c2d548cff47a0b8d6c5a6286e4e/nvml.cpp
 
-const int interval_ms = 500;
+const int interval_ms = 250;
 
 long number_of_processors = sysconf(_SC_NPROCESSORS_ONLN);
 static std::atomic<float> last_cpu(0);
@@ -114,13 +114,15 @@ void pid_thread() {
     }
     while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
         result = buffer.data();
-        std::cout << result;
+        //std::cout << result;
     }
 
     result.erase(std::remove_if(result.begin(), result.end(), 
                   [&](char ch) 
                   { return std::iscntrl(static_cast<unsigned char>(ch));}), 
                   result.end());
+
+    //printf("PID FOUND AT %s\n", result.c_str());
 
     //not found..
     if(result == "") {
@@ -148,13 +150,17 @@ void pid_thread() {
             &user, &system);
         fclose(fp);
 
-        //printf("+: %f\n", (user+system));
+        //printf("cur : %ld\n", (user+system));
         t1 = user+system;
         uint64_t c1 = total_cpu1.load();
         uint64_t c2 = total_cpu2.load();
-        double pct = ((t1+t2)*100) / (c1 - c2);
+        //printf("pid  : %ld\n", (c1-c2));
+        //printf("total: %ld\n", (c1-c2));
+        double pct = (((double)t1-t2)*100.0) / ((double)c1 - c2);
+        pct *= number_of_processors;
         t2 = t1;
-        last_api.store(pct*number_of_processors);
+        last_api.store(pct);
+        //printf("API: %f\n", pct);
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
     }
 
@@ -173,25 +179,38 @@ void gpu_thread() {
     if (result != NVML_SUCCESS)
         exit(1);
 
-    nvmlDevice_t device;
-    result = nvmlDeviceGetHandleByIndex(0, &device);
+    nvmlDevice_t dev1, dev2;
+    result = nvmlDeviceGetHandleByIndex(0, &dev1);
+    if (result != NVML_SUCCESS)
+        exit(1);
+    result = nvmlDeviceGetHandleByIndex(1, &dev2);
     if (result != NVML_SUCCESS)
         exit(1);
 
-    char device_name[NVML_DEVICE_NAME_BUFFER_SIZE];
-    result = nvmlDeviceGetName(device, device_name, NVML_DEVICE_NAME_BUFFER_SIZE);
-    if (result != NVML_SUCCESS)
-        exit(1);
+    // char device_name[NVML_DEVICE_NAME_BUFFER_SIZE];
+    // result = nvmlDeviceGetName(device, device_name, NVML_DEVICE_NAME_BUFFER_SIZE);
+    // if (result != NVML_SUCCESS)
+    //     exit(1);
     //std::printf("Device %d: %s\n", 0, device_name);
 
     nvmlUtilization_st device_utilization;
 
+    int pct;
     while(1) {
-        result = nvmlDeviceGetUtilizationRates(device, &device_utilization);
+        result = nvmlDeviceGetUtilizationRates(dev1, &device_utilization);
         if (result != NVML_SUCCESS)
             exit(1);
-        last_gpu.store(result);
-        //printf("gpu %f\n", device_utilization.gpu);
+        pct = device_utilization.gpu; 
+        result = nvmlDeviceGetUtilizationRates(dev2, &device_utilization);
+        if (result != NVML_SUCCESS)
+            exit(1);
+        pct += device_utilization.gpu; 
+
+        last_gpu.store(pct);
+
+        // printf("gpu %d\n", pct);
+        // if (pct > 0)
+        //     printf("NOT ZERO! gpu %d\n", pct);
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
     }
 
@@ -204,8 +223,8 @@ int main() {
         printf("error opening tmp.out\n");
         exit(1);
     }
-    printf("INFO: # of cores %d\n", number_of_processors);
-    printf("INFO:ts_interval:%d\n", interval_ms);
+    //printf("INFO: # of cores %ld\n", number_of_processors);
+    //printf("INFO:ts_interval:%d\n", interval_ms);
     std::thread gpu_t(gpu_thread);
     std::thread cpu_t(cpu_thread);
     std::thread pid_t(pid_thread);
@@ -217,6 +236,7 @@ int main() {
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         c = last_cpu.load();
         g = last_gpu.load();
+        a = last_api.load();
         fprintf(f, "%.2f,%.2f,%.2f,%.2f\n", ts, c, g, a);
         fflush(f);
         ts += interval_ms;

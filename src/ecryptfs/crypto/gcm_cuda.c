@@ -270,7 +270,7 @@ int lake_AES_GCM_init_fns(struct AES_GCM_engine_ctx *d_engine, char *cubin_path)
 
     res = cuDeviceGet(&d_engine->device, 0);
     if (res != CUDA_SUCCESS) {
-        PRINT("[lake] Error: acquire GPU device 0\n");
+        PRINT("[lake] Error: acquire GPU device 0 %d\n", res);
         return -ENODEV;
     }
 

@@ -22,18 +22,13 @@ from subprocess import run, DEVNULL
 from time import sleep
 import os.path
 
-
 #hackvm
 #DRIVE="vda"
 #ROOT_DIR="/home/hfingler/crypto"
 
-#santacruz ssd
-#DRIVE="sda"
-#ROOT_DIR="/disk/hfingler/crypto"
-
 #santacruz nvme
-DRIVE="nvme0n1"
-ROOT_DIR="/disk/nvme0/crypto"
+DRIVE="nvme1n1"
+ROOT_DIR="/mnt/nvme1/crypto"
 
 READAHEAD_MULTIPLIER = 1
 
@@ -139,9 +134,9 @@ def mount_lakegcm(path):
     mount_gcm(path, "lake_gcm")
 
 def umount(path):
-    run(f"sudo umount {path}_enc", shell=True)
+    run(f"sudo umount {path}_plain", shell=True)#, stdout=DEVNULL)
     sleep(0.5)
-    run(f"sudo umount {path}_plain", shell=True, stdout=DEVNULL)
+    run(f"sudo umount {path}_enc", shell=True)
     sleep(0.5)
     run(f"sudo rm -rf {path}_enc", shell=True, stdout=DEVNULL)
     run(f"sudo rm -rf {path}_plain", shell=True, stdout=DEVNULL)
@@ -205,30 +200,30 @@ tests = {
         "mount_fn": mount_gcm,
         "mount_basepath": os.path.join(ROOT_DIR, "cpu")
     },
-    "AESNI": {
-       "cryptomod_fn": load_aesni_crypto,
-       "fsmod_fn": load_ecryptfs,
-       "mount_fn": mount_gcm,
-       "mount_basepath": os.path.join(ROOT_DIR, "cpu")
-    },
+    # "AESNI": {
+    #    "cryptomod_fn": load_aesni_crypto,
+    #    "fsmod_fn": load_ecryptfs,
+    #    "mount_fn": mount_gcm,
+    #    "mount_basepath": os.path.join(ROOT_DIR, "cpu")
+    # },
     "LAKE": {
         "cryptomod_fn": load_lake_crypto,
         "fsmod_fn": load_lake_ecryptfs,
         "mount_fn": mount_lakegcm,
         "mount_basepath": os.path.join(ROOT_DIR, "lake")
     },
+    # "lake75aesni": {
+    #     "cryptomod_fn": load_lake_crypto_75aesni,
+    #     "fsmod_fn": load_lake_ecryptfs,
+    #     "mount_fn": mount_lakegcm,
+    #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
+    # },
     # "lake50aesni": {
     #     "cryptomod_fn": load_lake_crypto_50aesni,
     #     "fsmod_fn": load_lake_ecryptfs,
     #     "mount_fn": mount_lakegcm,
     #     "mount_basepath": os.path.join(ROOT_DIR, "lake")
     # },
-    "lake75aesni": {
-        "cryptomod_fn": load_lake_crypto_75aesni,
-        "fsmod_fn": load_lake_ecryptfs,
-        "mount_fn": mount_lakegcm,
-        "mount_basepath": os.path.join(ROOT_DIR, "lake")
-    },
     # "lake25aesni": {
     #     "cryptomod_fn": load_lake_crypto_25aesni,
     #     "fsmod_fn": load_lake_ecryptfs,
@@ -242,17 +237,17 @@ sizes = {
     #"4K": "1 1m 4k",
     #"4M": "1 16m 4m",
     
-     "4K": "2 1m 4k",
-     "8K": "2 2m 8k",
-     "16K": "2 4m 16k",
-     "32K": "2 8m 32k",
+    #  "4K": "2 1m 4k",
+    #  "8K": "2 2m 8k",
+    #  "16K": "2 4m 16k",
+    # "32K": "2 8m 32k",
      "64K": "2 16m 64k",
      "128K": "2 32m 128k",
      "256K": "2 64m 256k",
-     "512K": "2 128m 512k",
-     "1M": "2 256m 1m",
-     "2M": "2 512m 2m",
-     "4M": "2 1024m 4m",
+    #  "512K": "2 128m 512k",
+    #  "1M": "2 256m 1m",
+    #  "2M": "2 512m 2m",
+    #  "4M": "2 1024m 4m",
 }
 
 results = {}
@@ -260,7 +255,8 @@ results = {}
 reset()
 for name, args in tests.items():
     results[name] = {"rd": [], "wt": []}
-    
+    umount(args["mount_basepath"])
+    reset()
     for sz_name, sz in sizes.items():
         #load correct crypto
         args["cryptomod_fn"]()
@@ -269,14 +265,14 @@ for name, args in tests.items():
         sleep(0.5)
         #mount enc and plain dir
         args["mount_fn"](args["mount_basepath"])
-        print("mounted")
+        print("mounted ", args["mount_basepath"])
         sleep(1)
         
         out = run_benchmark(args["mount_basepath"]+"_plain", sz)
         rd, wt = parse_out(out)        
 
-        results[name]["R"].append(rd)
-        results[name]["W"].append(wt)
+        results[name]["rd"].append(rd)
+        results[name]["wt"].append(wt)
 
         sleep(1)
         umount(args["mount_basepath"])
