@@ -13,11 +13,12 @@
 #include <cctype>
 #include <algorithm>
 #include <string>
-
+#include <unistd.h>
 //https://gist.githubusercontent.com/sakamoto-poteko/44d6cd19552fa7721b99/raw/4098c76ec7258c2d548cff47a0b8d6c5a6286e4e/nvml.cpp
 
-const int interval_ms = 1000;
+const int interval_ms = 500;
 
+long number_of_processors = sysconf(_SC_NPROCESSORS_ONLN);
 static std::atomic<float> last_cpu(0);
 static std::atomic<float> last_gpu(0);
 static std::atomic<float> last_api(0);
@@ -63,13 +64,13 @@ double calculate_load(struct cpustat *prev, struct cpustat *cur)
 {
     //int idle_prev = (prev->t_idle) + (prev->t_iowait);
     //int idle_cur = (cur->t_idle) + (cur->t_iowait);
-    int idle_prev = (prev->t_idle) + (prev->t_user) + (prev->t_nice) + (prev->t_iowait);
-    int idle_cur = (cur->t_idle) + (cur->t_user) + (cur->t_nice) + (cur->t_iowait);
+    int idle_prev = (prev->t_idle) + (prev->t_user) + (prev->t_nice) + (prev->t_iowait) + (prev->t_irq) + (prev->t_softirq);
+    int idle_cur = (cur->t_idle) + (cur->t_user) + (cur->t_nice) + (cur->t_iowait) + (cur->t_irq) + (cur->t_softirq);
 
     //int nidle_prev = (prev->t_user) + (prev->t_nice) + (prev->t_system) + (prev->t_irq) + (prev->t_softirq);
     //int nidle_cur = (cur->t_user) + (cur->t_nice) + (cur->t_system) + (cur->t_irq) + (cur->t_softirq);
-    int nidle_prev = (prev->t_system) + (prev->t_irq) + (prev->t_softirq); //+ (prev->t_iowait);
-    int nidle_cur = (cur->t_system) + (cur->t_irq) + (cur->t_softirq); //+ (cur->t_iowait);
+    int nidle_prev = (prev->t_system) ; //+ (prev->t_iowait);
+    int nidle_cur = (cur->t_system) ; //+ (cur->t_iowait);
     
     int total_prev = idle_prev + nidle_prev;
     int total_cur = idle_cur + nidle_cur;
@@ -86,7 +87,7 @@ double calculate_load(struct cpustat *prev, struct cpustat *cur)
 
     //printf("diff %d\n", tc - tmp);
 
-    return cpu_perc;
+    return cpu_perc*number_of_processors;
 }
 
 void cpu_thread() {
@@ -153,7 +154,7 @@ void pid_thread() {
         uint64_t c2 = total_cpu2.load();
         double pct = ((t1+t2)*100) / (c1 - c2);
         t2 = t1;
-        last_api.store(pct);
+        last_api.store(pct*number_of_processors);
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
     }
 
@@ -203,13 +204,15 @@ int main() {
         printf("error opening tmp.out\n");
         exit(1);
     }
+    printf("INFO: # of cores %d\n", number_of_processors);
+    printf("INFO:ts_interval:%d\n", interval_ms);
     std::thread gpu_t(gpu_thread);
     std::thread cpu_t(cpu_thread);
     std::thread pid_t(pid_thread);
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+    //std::this_thread::sleep_for(std::chrono::milliseconds(3000));
     float ts = 0;
 
-    float c, g, a;      
+    float c, g, a;
     while(1) {
         std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         c = last_cpu.load();
@@ -218,5 +221,6 @@ int main() {
         fflush(f);
         ts += interval_ms;
     }
+    
     return 0;
 }

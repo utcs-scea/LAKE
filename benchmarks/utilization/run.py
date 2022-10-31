@@ -27,6 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import rc
 import matplotlib
+from timeit import default_timer as timer
 
 #hackvm
 DRIVE="vdc"
@@ -47,7 +48,7 @@ if os.geteuid() != 0:
 
 print(f"Script will run on drive {DRIVE}, mounting at dir {ROOT_DIR}\n")
 print(f"Please make sure that {ROOT_DIR} is at drive {DRIVE}.")
-print("You can do this by running sudo fdisk -l (dont append the partition number. e.g. for /dev/sda3 set DRIVE to sda")
+print("You can do this by running sudo lsblk and sudo fdisk -l (dont append the partition number. e.g. for /dev/sda3 set DRIVE to sda")
 print("To check if the dir is in that drive, run sudo df -h . If you use lvm, run sudo pvdisplay -m\n")
 user_ok = input("Is this correct? y/n ")
 if user_ok == "y":
@@ -160,21 +161,28 @@ def reset():
     run("sudo modprobe -r aesni_intel", shell=True)
     run(f"echo 4096 | sudo tee /sys/block/{DRIVE}/queue/read_ahead_kb", shell=True, stdout=DEVNULL)
 
-
-def run_benchmark():
+def run_benchmark(fpath):
     bsize = "2m"
     bsize = to_bytes(bsize)
     set_readhead(READAHEAD_MULTIPLIER*bsize)
     sleep(0.5)
-    
-    proc = subprocess.Popen("exec ./tools/cpu_gpu", shell=True)  #, stdout=subprocess.PIPE)
+    subprocess.check_call(f"sudo ./tools/write_data {fpath}", shell=True)
+    sleep(5)
+    proc = subprocess.Popen("exec ./tools/cpu_gpu", shell=True)
     sleep(6)
-    #TODO: run the app that reads 2GB file
-    process = subprocess.Popen("./tools/ReadWriteData", shell=False)
+    print("reading")
+    start = timer()
+    subprocess.check_call(f"sudo ./tools/read_data {fpath}", shell=True)
+    end = timer()
+    print(f"done, read took {end-start}s")
     sleep(3) # give it some time to settle
     proc.kill()
-    #os.killpg(os.getpgid(proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
-
+    sleep(0.5)
+    try:
+        subprocess.check_call(f"sudo pkill -9 -f cpu_gpu", shell=True)
+    except:
+        pass
+    sleep(1)
 
 tests = {
     "CPU": {
@@ -207,7 +215,6 @@ aes_ni = []
 
 reset()
 for name, args in tests.items():
-
     #load correct crypto
     args["cryptomod_fn"]()
     #load ecryptfs
@@ -218,44 +225,56 @@ for name, args in tests.items():
     print("mounted")
     sleep(1)
 
-    run_benchmark()
+    fpath = args["mount_basepath"]+"_plain/test.dat"
+    run_benchmark(fpath)
 
     if name == "CPU":
         x = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(0,))
         x = x/1000
+        #x = np.where(x > 4) # we wait 5 seconds, cut the first four
+        x = x[np.where(x > 2)]
+        x = x - x[0] #offset to zero
+        print("x: ", x)
         cpu =  np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
+        print(f"cpu: ", cpu)
+        cpu = cpu[-x.shape[0]:]
+        print(f"cpu sliced: ", cpu)
     if name == "AESNI":
         aes_ni = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
+        print("aes: ", aes_ni)
+        aes_ni = aes_ni[-x.shape[0]:]
+        pad = x.shape[0] - aes_ni.shape[0]
+        if pad >0:
+            aes_ni = np.pad(aes_ni, (0, pad), 'constant')
+        print("aes sliced: ", aes_ni)
     if name == "LAKE":
         lake_cpu = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(1,))
         lake_gpu = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(2,))
         lake_api = np.loadtxt('tmp.out', dtype=float, delimiter=',',skiprows=0,usecols=(3,))
-        #TODO: find a way to measure API cpu util...
 
     sleep(1)
+    run(f"sudo rm {fpath}", shell=True, stdout=DEVNULL)
+    sleep(0.5)
     umount(args["mount_basepath"])
     sleep(0.5)
     reset()
     sleep(1)
-
-
-#TODO: plot the data here, line graphs, x is time
 
 cmap = matplotlib.cm.get_cmap("tab10")
 fig, ax = plt.subplots()
 
 ax.plot(x, cpu, label='CPU\neCryptfs', color=cmap(0) )#, marker="x", markersize=3)
 ax.plot(x, aes_ni, label='AES-NI\neCryptfs', color=cmap(1), marker="o", markersize=3)
-ax.plot(x, lake_cpu, label='LAKE\neCryptfs', color=cmap(2), marker="v", markersize=3)
-ax.plot(x, lake_api, label='LAKE\nAPI server', color=cmap(3), marker="s", markersize=3)
+# ax.plot(x, lake_cpu, label='LAKE\neCryptfs', color=cmap(2), marker="v", markersize=3)
+# ax.plot(x, lake_api, label='LAKE\nAPI server', color=cmap(3), marker="s", markersize=3)
 
-ax.plot(x, lake_gpu, label='LAKE\nGPU util.', color='black',
-    #linestyle='dotted', linewidth=3)
-    linewidth=1, marker='.')
+# ax.plot(x, lake_gpu, label='LAKE\nGPU util.', color='black',
+#     linestyle='dotted', linewidth=3)
+#     #linewidth=1, marker='.')
     
 fig.tight_layout()
-plt.xlim(0, 5)
-plt.ylim(0, 120)
+plt.xlim(left=0)
+plt.ylim(bottom=0)
 
 ax.legend(loc='upper center', ncol=1, bbox_to_anchor=(1.25, 1), columnspacing=1)
 
