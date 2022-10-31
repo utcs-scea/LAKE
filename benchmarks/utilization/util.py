@@ -97,4 +97,4 @@ ax.grid(visible=True, which='major', axis='y', color='#0A0A0A', linestyle='--', 
 fig.set_size_inches(3.5, 2)
 fig.set_dpi(200)
 
-plt.savefig('ecryptfs_util.pdf', bbox_inches='tight',pad_inches=0.05)
+plt.savefig('plot.pdf', bbox_inches='tight',pad_inches=0.05)

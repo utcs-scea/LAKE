@@ -4,12 +4,12 @@ TraceTag='trace'
 
 if [ $# -ne 4 ]
   then
-    echo "Usage train.sh <trace_1> <trace_2> <trace_3> <inflection_point>"
+    echo "Usage train.sh <trace_1> <trace_2> <trace_3> <inflection_point> <name of trace>"
     # eg : ./train.sh testTraces/hacktest.trace testTraces/hacktest.trace testTraces/hacktest.trace 85
     exit
 fi
 
-echo $1, $2, $3, $4
+echo $1, $2, $3, $4, $5
 
 sudo ../io_replayer/replayer baseline mlData/TrainTraceOutput 3 /dev/nvme0n1-/dev/nvme1n1-/dev/nvme2n1 $1 $2 $3
 
@@ -44,7 +44,10 @@ cp mldrive1.csv.* drive1weights
 cp mldrive2.csv.* drive2weights
 
 cd ..
-mkdir -p "weights_header+2"
-python3 mlHeaderGen+2.py Trace nvme0n1 mlData/drive0weights "weights_header+2"
-python3 mlHeaderGen+2.py Trace nvme1n1 mlData/drive1weights "weights_header+2"
-python3 mlHeaderGen+2.py Trace nvme2n1 mlData/drive2weights "weights_header+2"
+mkdir -p weights_header+2
+python3 mlHeaderGen+2.py Trace nvme0n1 mlData/drive0weights weights_header+2
+python3 mlHeaderGen+2.py Trace nvme1n1 mlData/drive1weights weights_header+2
+python3 mlHeaderGen+2.py Trace nvme2n1 mlData/drive2weights weights_header+2
+
+mkdir -p ../kernel_hook/weights_header/$5+2
+mv weights_header+2/*  ../kernel_hook/weights_header/$5+2/
