@@ -169,13 +169,9 @@ def run_benchmark():
     
     proc = subprocess.Popen("exec ./tools/cpu_gpu", shell=True)  #, stdout=subprocess.PIPE)
     sleep(6)
-    
-
     #TODO: run the app that reads 2GB file
     process = subprocess.Popen("./tools/ReadWriteData", shell=False)
-
     sleep(3) # give it some time to settle
-
     proc.kill()
     #os.killpg(os.getpgid(proc.pid), signal.SIGTERM)  # Send the signal to all the process groups
 

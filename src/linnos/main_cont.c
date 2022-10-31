@@ -34,9 +34,9 @@
 #define LEN_LAYER_0_HALF 128
 #define LEN_LAYER_1 2
 
-#define RUNTIME_MS  5000
-#define STEP_MS 500
-#define INTERVAL_US 100
+#define RUNTIME_MS  2000
+#define STEP_MS 250
+#define INTERVAL_US 50
 
 static char *cubin_path = "linnos.cubin";
 #ifdef __KERNEL__
