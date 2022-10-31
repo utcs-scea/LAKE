@@ -11,16 +11,10 @@ fi
 
 echo $1, $2, $3, $4, $5
 
+mkdir -p mlData
 sudo ../io_replayer/replayer baseline mlData/TrainTraceOutput 3 /dev/nvme0n1-/dev/nvme1n1-/dev/nvme2n1 $1 $2 $3
 
-python3 -m venv linnOSvenv
-source linnOSvenv/bin/activate
-pip3 install numpy
-pip3 install --upgrade pip
-pip3 install tensorflow
-pip3 install keras
-pip3 install pandas
-pip3 install scikit-learn
+source ../../../lakevenv/bin/activate
 
 for i in 0 1 2 
 do

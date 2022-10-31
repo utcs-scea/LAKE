@@ -10,6 +10,7 @@ if [ $# -ne 4 ]
 fi
 
 echo $1, $2, $3, $4, $5
+mkdir -p mlData
 
 sudo ../io_replayer/replayer baseline mlData/TrainTraceOutput 3 /dev/nvme0n1-/dev/nvme1n1-/dev/nvme2n1 $1 $2 $3
 
