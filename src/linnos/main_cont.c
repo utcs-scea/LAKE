@@ -44,10 +44,13 @@ module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin");
 #endif
 
+u8 model_size = 0;
+
 long *test_weights[8] = { weight_0_T, weight_1_T, bias_0, bias_1, weight_M_1_T, bias_M_1, weight_M_2_T, bias_M_2};
 
 u64 *out_ts;
 u64 *out_tput;
+struct GPU_weights state;
 
 static void run_cpu(char *input) {
     cpu_prediction_model_plus_2(input, 1, test_weights);
@@ -69,8 +72,9 @@ static int run(void) {
     struct GPU_weights state;
     u64 t_start, t_stop, step_start, elapsed;
     u64 count, tput;
+    //i64 sleepy_time;
     bool use_gpu;
-
+    
     u64* comp_run_times;
     u64* total_run_times;
     u64 avg, avg_total;
@@ -78,8 +82,8 @@ static int run(void) {
 
     u64 cur_slot = 0;
     u64 out_slots = (RUNTIME_MS/STEP_MS) * 4; //4 to be safe  
-    out_ts = vmalloc(out_slots);
-    out_tput = vmalloc(out_slots);
+    out_ts = vmalloc(out_slots*sizeof(u64));
+    out_tput = vmalloc(out_slots*sizeof(u64));
 
     batch_size = 32;
     initialize_gpu(cubin_path, max_batch_size);
@@ -96,38 +100,41 @@ static int run(void) {
         while (1) {
             step_start = ktime_get_ns();
             while(1) {
-                if (use_gpu) 
+                if (use_gpu) {
+                    pr_warn("using gpu\n");
                     run_gpu(batch_size);
-                else {
+                } else {
+                    pr_warn("using cpu\n");
                     for (i = 0 ; i < batch_size ; i++)
-                    run_cpu(batch_size);
+                        run_cpu(input);
                 }
-
+                pr_warn("done\n");
                 count += batch_size;
                 t_stop = ktime_get_ns();
                 elapsed = t_stop - step_start;
-                elapsed = elapsed / (1e6);
-                if (elapsed >= STEP_MS) {
+                if (elapsed >= (STEP_MS*1000000)) {
                     break;
                 }
                 //wait a bit
                 usleep_range(INTERVAL_US-20, INTERVAL_US+20);
-            }
-
+                break; //XXX
+            }   
+            pr_warn("1\n");
             tput = count / elapsed;
             out_ts[cur_slot] = t_stop;
             out_tput = tput;
-            cur_slot++
-
+            cur_slot++;
+            pr_warn("2\n");
             t_stop = ktime_get_ns();
             elapsed = t_stop - t_start;
-            elapsed = elapsed / (1e6);
-            if (elapsed >= RUNTIME_MS) {
+
+            break; //XXX
+            if (elapsed >= (RUNTIME_MS*1000000)) {
                 break;
             }
         }
     }
-    
+    pr_warn("3\n");
     gpu_cuda_cleanup(&state);
     vfree(out_ts);
     vfree(out_tput);
