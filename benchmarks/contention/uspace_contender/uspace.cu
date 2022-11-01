@@ -7,15 +7,26 @@
 #include <jhash.h>
 #include <chrono>
 #include <iostream>
+#include <sys/time.h>
 
 #define PAGE_SIZE 4096 // getpagesize()
+
+uint64_t current_timestamp() {
+    //struct timeval te; 
+    //gettimeofday(&te, NULL); // get current time_cont
+    struct timespec te; 
+    clock_gettime(CLOCK_MONOTONIC, &te);
+    uint64_t milliseconds = te.tv_sec*1000000000 + te.tv_nsec; // calculate ns
+    return milliseconds;
+}
 
 int main(int argc, char **argv)
 {
     int res;
     uint64_t seed = 17;
     uint64_t max_concurrency = 1;
-    uint64_t batch_size = 4096;
+    //uint64_t batch_size = 4096;
+    uint64_t batch_size = 128;
     uint64_t n_pages = 128 * batch_size;
     uint64_t grid_x = 4;
     uint64_t grid_y = 4;
@@ -23,6 +34,9 @@ int main(int argc, char **argv)
     uint64_t block_z = 1;
     uint64_t block_y = 1;
     uint64_t block_x = batch_size / (grid_x * grid_y * grid_z * block_y * block_z);
+
+    uint64_t start_app, start_exec, end;
+    start_app = current_timestamp();
 
     // CUDA setup
     res = cuInit(0);
@@ -74,23 +88,20 @@ int main(int argc, char **argv)
         memcpy(page_start, page, PAGE_SIZE);
     }
 
+
     // alloc checksum buf
     uint32_t *h_checksum = (uint32_t *)malloc(batch_size * max_concurrency * sizeof(uint32_t));
 
-    // alloc zero-copy pinned memory
     void *h_pages;
-    // res = cudaMallocHost(&h_pages, batch_size * PAGE_SIZE * max_concurrency);
     h_pages = malloc(batch_size * PAGE_SIZE * max_concurrency);
-    // if (res) { printf("Couldn't allocate pinned pages (%d)\n", res); }
-    if (res)
+    if (!h_pages)
         printf("Couldn't allocatepages\n");
 
     // Device side mem
     CUdeviceptr d_pages;
     CUdeviceptr d_checksum;
-    res = cuMemAlloc(&d_pages, batch_size * PAGE_SIZE * max_concurrency);
-    if (res)
-    {
+    res = cuMemAlloc(&d_pages, batch_size * max_concurrency * PAGE_SIZE);
+    if (res) {
         printf("Error memalloc 1 (%d)\n", res);
     }
     res = cuMemAlloc(&d_checksum, batch_size * max_concurrency * sizeof(uint32_t));
@@ -106,14 +117,16 @@ int main(int argc, char **argv)
         printf("Error getting function (%d)\n", res);
     }
 
-
     // Measure tpt
-    uint64_t n_samples = 5000;
-    int n_iterations = 1000;
-    uint64_t batches_per_sample = n_iterations * n_pages * max_concurrency / (n_samples * batch_size);
-    uint64_t *pages_checksummed = (uint64_t *)malloc(n_samples * sizeof(uint64_t));
-    std::chrono::high_resolution_clock::time_point *times = (std::chrono::high_resolution_clock::time_point *)malloc(n_samples * sizeof(std::chrono::high_resolution_clock::time_point));
-
+    //uint64_t n_samples = 5000;
+    int n_iterations = 2000;
+    //uint64_t batches_per_sample = n_iterations * n_pages * max_concurrency / (n_samples * batch_size);
+    //uint64_t *pages_checksummed = (uint64_t *)malloc(n_samples * sizeof(uint64_t));
+    //std::chrono::high_resolution_clock::time_point *times = 
+    //    (std::chrono::high_resolution_clock::time_point *)malloc(n_samples * sizeof(std::chrono::high_resolution_clock::time_point));
+    printf("allocating %d\n", n_iterations * 2 *(n_pages/batch_size));
+    uint64_t *pages_checksummed = (uint64_t *)malloc(n_iterations * 2 *(n_pages/batch_size));
+    uint64_t *times = (uint64_t *)malloc(n_iterations * 2*(n_pages/batch_size));
     double total_memcpy_time = 0.0;
     // Time start
     std::chrono::high_resolution_clock::time_point t1 =
@@ -123,69 +136,60 @@ int main(int argc, char **argv)
     uint64_t i = 0;
     int sample_cnt = 0;
 
+    start_exec = current_timestamp();
+
     // Run all the batches on GPU
     for (int k = 0; k < n_iterations; ++k)
     {
-        for (i = 0; i < n_pages; i += batch_size * max_concurrency)
+        //for every batch size in total # of pages, 128 (n_pages) times
+        for (i = 0; i < n_pages; i += batch_size * max_concurrency) 
         {
-            for (j = 0; j < max_concurrency; ++j)
+            CUdeviceptr concur_pages = d_pages + 0 * batch_size * PAGE_SIZE;
+            CUdeviceptr concur_checksum = d_checksum + 0 * batch_size * sizeof(uint32_t);
+            for (j = 0; j < max_concurrency; ++j) //by default only one
             {
-                CUdeviceptr concur_pages = d_pages + j * batch_size * PAGE_SIZE;
-                CUdeviceptr concur_checksum = d_checksum + j * batch_size * sizeof(uint32_t);
-
-                if (j == 0 && k == 0)
-                {
-                    memcpy(((char *)h_pages) + j * batch_size * PAGE_SIZE, ((char *)pages) + (i + j * batch_size) * PAGE_SIZE, batch_size * PAGE_SIZE);
-
+                if (j == 0 && k == 0) {
+                    //memcpy(((char *)h_pages) + j * batch_size * PAGE_SIZE, ((char *)pages) + (i + j * batch_size) * PAGE_SIZE, batch_size * PAGE_SIZE);
                     // Copy to dev
                     res = cuMemcpyHtoDAsync(concur_pages, h_pages, batch_size * PAGE_SIZE, streams[j]);
                     if (res)
-                    {
                         printf("Error memcpy htod 1 (%d)\n", res);
-                    }
                     cuStreamSynchronize(streams[j]);
                     pages_checksummed[0] = 0;
-                    times[0] = std::chrono::high_resolution_clock::now();
+                    //times[0] = std::chrono::high_resolution_clock::now();
+                    times[0] = current_timestamp();
                 }
-
-                cuStreamSynchronize(streams[j]);
 
                 // Launch kernel
                 void *args[] = {&concur_pages, &concur_checksum};
                 res = cuLaunchKernel(xxh, grid_x, grid_y, grid_z, block_x, block_y, block_z,
                                      0, streams[j], args, NULL);
                 if (res)
-                {
                     printf("Error launching kernel (%d)\n", res);
-                }
+    
 
-                if (j == 0 && k == 0)
-                {
-                    // Copy to host
-                    res = cuMemcpyDtoHAsync(h_checksum + j * batch_size, concur_checksum,
-                                            batch_size * sizeof(uint32_t), streams[0]);
-                    if (res)
-                    {
-                        printf("Error memcpy dtoh (%d)\n", res);
-                    }
-                }
-
-                if ((k * n_pages + i) / batch_size % batches_per_sample == 0 && sample_cnt < n_samples - 1)
-                {
-                    pages_checksummed[sample_cnt + 1] = pages_checksummed[sample_cnt] + batches_per_sample * batch_size;
-                    times[sample_cnt + 1] = std::chrono::high_resolution_clock::now();
-                    sample_cnt++;
-                }
+                if (res)
+                    printf("Error memcpy dtoh (%d)\n", res);
             }
+            res = cuMemcpyDtoHAsync(h_checksum + 0 * batch_size, concur_checksum,
+                                            batch_size * sizeof(uint32_t), streams[0]);
         }
+
+        cuStreamSynchronize(streams[0]);
+        //pages_checksummed[sample_cnt + 1] = pages_checksummed[sample_cnt] + batches_per_sample * batch_size;
+        pages_checksummed[sample_cnt + 1] = n_pages;
+        //times[sample_cnt + 1] = std::chrono::high_resolution_clock::now();
+        times[sample_cnt + 1] = current_timestamp();
+        sample_cnt++;
     }
+
     cuCtxDestroy(cuContext);
 
     // Time end
-    std::chrono::high_resolution_clock::time_point t2 =
-        std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> gpu_time =
-        std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    // std::chrono::high_resolution_clock::time_point t2 =
+    //     std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> gpu_time =
+    //     std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
 
     // ============================ End GPU checksum ============================
 
@@ -199,37 +203,42 @@ int main(int argc, char **argv)
     //   }
 
     // ============================ CPU checksum ============================
-    uint32_t *host_checksum_vals = (uint32_t *)malloc(n_pages * PAGE_SIZE);
+    // uint32_t *host_checksum_vals = (uint32_t *)malloc(n_pages * PAGE_SIZE);
 
-    // Time start
-    std::chrono::high_resolution_clock::time_point t3 =
-        std::chrono::high_resolution_clock::now();
+    // // Time start
+    // std::chrono::high_resolution_clock::time_point t3 =
+    //     std::chrono::high_resolution_clock::now();
 
-    // hash all the pages on cpu
-    for (int i = 0; i < n_pages; ++i)
-    {
-        uint32_t *h_page = ((uint32_t *)pages) + i / sizeof(uint32_t);
-        host_checksum_vals[i] = jhash2(h_page, PAGE_SIZE, seed);
-    }
+    // // hash all the pages on cpu
+    // for (int i = 0; i < n_pages; ++i)
+    // {
+    //     uint32_t *h_page = ((uint32_t *)pages) + i / sizeof(uint32_t);
+    //     host_checksum_vals[i] = jhash2(h_page, PAGE_SIZE, seed);
+    // }
 
-    // Time end
-    std::chrono::high_resolution_clock::time_point t4 =
-        std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> cpu_time =
-        std::chrono::duration_cast<std::chrono::duration<double>>(t4 - t3);
+    // // Time end
+    // std::chrono::high_resolution_clock::time_point t4 =
+    //     std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> cpu_time =
+    //     std::chrono::duration_cast<std::chrono::duration<double>>(t4 - t3);
 
     // ============================ End CPU checksum ============================
+
+    end = current_timestamp();
 
     free(h_pages);
 
     // Print tpt
-    // printf("time,tpt\n");
     FILE *f = fopen("uspace.out", "w");
-    for (int l = 1; l < n_samples; ++l)
-    {
-        fprintf(f, "%f,%f\n", std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[0]).count(), (double)(pages_checksummed[l] - pages_checksummed[l - 1]) / (std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[l - 1]).count()));
-        fflush(f);
+
+    fprintf(f, "%lu,%lu,%lu\n", start_app, start_exec, end);
+    for (int l = 1; l < sample_cnt; ++l) {
+        fprintf(f, "%lu,%lu\n", times[l], pages_checksummed[l]);
+        //fprintf(f, "%f,%f\n", std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[0]).count(), (double)(pages_checksummed[l] - pages_checksummed[l - 1]) / (std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[l - 1]).count()));
         // printf("%f,%f\n", std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[0]).count(), (double) (pages_checksummed[l] - pages_checksummed[l - 1]) / (std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[l - 1]).count()));
     }
+
+    printf("total time %lu ms\n", (end-start_app)/1000);
+    printf("total gpu time %lu ms\n", (end-start_exec)/1000);
     fclose(f);
 }

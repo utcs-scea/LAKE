@@ -137,7 +137,8 @@ static int run(void) {
     }
 
     for (i = 1 ; i < cur_slot ; i++) {
-        pr_warn("lakecont,%llu, %llu\n", out_ts[i]-t_start, out_predicted[i]);
+        //pr_warn("lakecont,%llu, %llu\n", out_ts[i]-t_start, out_predicted[i]);
+        pr_warn("lakecont,%llu, %llu\n", out_ts[i], out_predicted[i]);
     }
 
     gpu_cuda_cleanup(&state);
