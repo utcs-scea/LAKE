@@ -1,3 +1,22 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #ifdef __KERNEL__
 #include <linux/delay.h>
 #include <linux/ktime.h>
@@ -42,19 +61,30 @@ u64 get_tsns() {
 bool check_correctness = true; 
 #define CORRECTNESS_CHECKS 1000
 
+u8 model_size = 0;
+
 static char *cubin_path = "linnos.cubin";
 #ifdef __KERNEL__
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin");
 #endif
 
-long *test_weights[4] = { weight_0_T, weight_1_T, bias_0, bias_1};
+long *test_weights[8] = { weight_0_T, weight_1_T, bias_0, bias_1, weight_M_1_T, bias_M_1, weight_M_2_T, bias_M_2};
+
+char *gpu_patterns[3] = {
+    "linnos+0_GPU_batch_", "linnos+1_GPU_batch_", "linnos+2_GPU_batch_"
+};
+
+char *cpu_patterns[3]= {
+    "linnos+0_CPU_batch_", "linnos+1_CPU_batch_", "linnos+2_CPU_batch_"
+};
+char out[1024];
 
 static int run_gpu(void) {
     int i, j;
     PRINT("Starting\n");
-    int batch_sizes[] = {512, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
-    int n_batches = 12;
+    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    int n_batches = 11;
     int max_batch_size = 1024;
     // n needs to be at least as large as the largest batch size
     const int n = 1024;
@@ -68,7 +98,7 @@ static int run_gpu(void) {
     u64* total_run_times;
     u64 avg, avg_total;
     u64 best, best_total;
-  
+    int nn;
     struct GPU_weights state;
 
     initialize_gpu(cubin_path, max_batch_size);
@@ -77,120 +107,144 @@ static int run_gpu(void) {
     comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
     total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
 
-    // flatten_input(n, input);
     expand_input_n_times(input, n);
-    // measuring GPU time
-    for (i = 0 ; i < n_batches ; i++) {
-        batch_size = batch_sizes[i];
 
-        // copy inputs to GPU each time we run
-        copy_inputs_to_gpu(batch_size);
+    for (nn = 0 ; nn < 3 ; nn++) {
+        // measuring GPU time
+        for (i = 0 ; i < n_batches ; i++) {
+            batch_size = batch_sizes[i];
 
-        //warmup
-        gpu_predict_batch(0, batch_size, state.weights);
-        copy_results_from_gpu(batch_size);
-        
-        cuCtxSynchronize();
-        usleep_range(250, 1000);
-    
-        for (j = 0 ; j < RUNS ; j++) {
-            PREDICT_GPU_SYNC = 0;
-            t_start = ktime_get_ns();
+            // copy inputs to GPU each time we run
             copy_inputs_to_gpu(batch_size);
-            gpu_predict_batch(0, batch_size, state.weights);
+
+            //warmup
+            if (nn==0) gpu_predict_batch(0, batch_size, state.weights);
+            else if(nn==1) gpu_predict_batch_plus_1(0, batch_size, state.weights);
+            else  gpu_predict_batch_plus_2(0, batch_size, state.weights);
             copy_results_from_gpu(batch_size);
-            t_stop = ktime_get_ns();
             
-            usleep_range(500, 2000);
-
-            PREDICT_GPU_SYNC = 1;
-            c_start = ktime_get_ns();
-            gpu_predict_batch(0, batch_size, state.weights);
-            c_stop = ktime_get_ns();
-            
-            usleep_range(500, 2000);
-            comp_run_times[j] = (c_stop - c_start);
-            total_run_times[j] = (t_stop - t_start);
-	    }
-
-	    avg = 0; avg_total = 0;
-        best = 0; best_total = 0;
-        for (j = 0 ; j < RUNS ; j++) {
-            avg += comp_run_times[j];
-            avg_total += total_run_times[j];
-            if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
-            if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
-        }
-        avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
-        best = best / 1000; best_total = best_total / 1000;
-
-        PRINT("GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-	}
-
-    // measuring cpu time
-    for (i = 0 ; i < n_batches ; i++) {
-        batch_size = batch_sizes[i];
-
-        //warmup
-        cpu_prediction_model(input, 1, test_weights);
+            cuCtxSynchronize();
+            usleep_range(250, 1000);
         
-        usleep_range(250, 1000);
-    
-        for (j = 0 ; j < RUNS ; j++) {
-            t_start = ktime_get_ns();
-            for(int k = 0; k < batch_size; k++) {
-                char input_copy[31];
-                memcpy (input_copy, input, sizeof(input));
-                cpu_prediction_model(input, 1, test_weights);
+            for (j = 0 ; j < RUNS ; j++) {
+                PREDICT_GPU_SYNC = 0;
+                t_start = ktime_get_ns();
+                copy_inputs_to_gpu(batch_size);
+                if (nn==0) gpu_predict_batch(0, batch_size, state.weights);
+                else if(nn==1) gpu_predict_batch_plus_1(0, batch_size, state.weights);
+                else  gpu_predict_batch_plus_2(0, batch_size, state.weights);
+                copy_results_from_gpu(batch_size);
+                t_stop = ktime_get_ns();
+                
+                usleep_range(500, 2000);
+
+                PREDICT_GPU_SYNC = 1;
+                c_start = ktime_get_ns();
+                if (nn==0) gpu_predict_batch(0, batch_size, state.weights);
+                else if(nn==1) gpu_predict_batch_plus_1(0, batch_size, state.weights);
+                else  gpu_predict_batch_plus_2(0, batch_size, state.weights);
+                c_stop = ktime_get_ns();
+                
+                usleep_range(500, 2000);
+                comp_run_times[j] = (c_stop - c_start);
+                total_run_times[j] = (t_stop - t_start);
             }
-            t_stop = ktime_get_ns();
-            
-            usleep_range(500, 2000);
 
-            c_start = t_start;
-            c_stop = t_stop;
-            
-            usleep_range(500, 2000);
-            comp_run_times[j] = (c_stop - c_start);
-            total_run_times[j] = comp_run_times[j];//(t_stop - t_start);
-	    }
+            avg = 0; avg_total = 0;
+            best = 0; best_total = 0;
+            for (j = 0 ; j < RUNS ; j++) {
+                avg += comp_run_times[j];
+                avg_total += total_run_times[j];
+                if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
+                if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
+            }
+            avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
+            best = best / 1000; best_total = best_total / 1000;
 
-	    avg = 0; avg_total = 0;
-        best = 0; best_total = 0;
-        for (j = 0 ; j < RUNS ; j++) {
-            avg += comp_run_times[j];
-            avg_total += total_run_times[j];
-            if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
-            if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
+            //PRINT("GPU_batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+            sprintf(out, "%s%d,%lld,%lld\n", gpu_patterns[nn], batch_size, avg, avg_total);
+            PRINT("%s", out);
+            //PRINT("linnos_GPU_batch_%d,%lld,%lld\n", batch_size, avg, avg_total);
         }
-        avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
-        best = best / 1000; best_total = best_total / 1000;
+    }
 
-        PRINT("CPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
-	}
+
+    for (nn = 0 ; nn < 3 ; nn++){
+        // measuring cpu time
+        for (i = 0 ; i < n_batches ; i++) {
+            batch_size = batch_sizes[i];
+
+            //warmup
+            cpu_prediction_model_plus_2(input, 1, test_weights);
+            if (nn==0) cpu_prediction_model(input, 1, test_weights);
+            else if(nn==1) cpu_prediction_model_plus_1(input, 1, test_weights);
+            else  cpu_prediction_model_plus_2(input, 1, test_weights);
+
+            usleep_range(250, 1000);
+        
+            for (j = 0 ; j < RUNS ; j++) {
+                t_start = ktime_get_ns();
+                for(int k = 0; k < batch_size; k++) {
+                    char input_copy[31];
+                    memcpy (input_copy, input, sizeof(input));
+                    if (nn==0) cpu_prediction_model(input, 1, test_weights);
+                    else if(nn==1) cpu_prediction_model_plus_1(input, 1, test_weights);
+                    else  cpu_prediction_model_plus_2(input, 1, test_weights);
+                }
+                t_stop = ktime_get_ns();
+                
+                usleep_range(500, 2000);
+
+                c_start = t_start;
+                c_stop = t_stop;
+                
+                usleep_range(500, 2000);
+                comp_run_times[j] = (c_stop - c_start);
+                total_run_times[j] = comp_run_times[j];//(t_stop - t_start);
+            }
+
+            avg = 0; avg_total = 0;
+            best = 0; best_total = 0;
+            for (j = 0 ; j < RUNS ; j++) {
+                avg += comp_run_times[j];
+                avg_total += total_run_times[j];
+                if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
+                if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
+            }
+            avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
+            best = best / 1000; best_total = best_total / 1000;
+
+            //PRINT("CPU_batch_%d,%lld,%lld,%lld,%lld\n", batch_size, avg, avg_total, best, best_total);
+            sprintf(out, "%s%d,%lld,%lld\n", cpu_patterns[nn], batch_size, avg, avg_total);
+            PRINT("%s", out);
+            //PRINT("linnos_CPU_batch_%d,%lld\n", batch_size, avg);
+        }
+    }
 
     if(check_correctness) {
+        char *input_64 = kava_alloc(64 * LEN_INPUT * sizeof(char));
         for(int k = 0; k < CORRECTNESS_CHECKS; k++) {
             //generate random input
             #ifdef __KERNEL__ 
-                get_random_bytes(input, LEN_INPUT);
+                get_random_bytes(input_64, 64 * LEN_INPUT);
             #else
-                getrandom(input, LEN_INPUT, 0);
+                getrandom(input_64, 64 * LEN_INPUT, 0);
             #endif
 
-            int cpu_result = cpu_prediction_model(input, 1, test_weights);
-
             //the 1's here mean we only do 1 input, easy to adapt to n
-            expand_input_n_times(input, 1);
-            copy_inputs_to_gpu(1);
-            gpu_predict_batch(0, 1, state.weights);
-            copy_results_from_gpu(1);
+            copy_input_to_shm(input_64, 64);
+            copy_inputs_to_gpu(64);
+            gpu_predict_batch(0, 64, state.weights);
+            copy_results_from_gpu(64);
             
-            res = gpu_outputs[0]>=(gpu_outputs[32])? false: true;
-            //PRINT("Test [%d]: (%d) %s\n", k, res, res==cpu_result ? "Ok" : "WRONG");
-            if (res!=cpu_result) result_mismatches++;
-            if (cpu_result) true_count++;
-            else false_count++;
+            for(int bnum = 0; bnum < 64; bnum++) {
+                int cpu_result = cpu_prediction_model(input_64 + LEN_INPUT * bnum * sizeof(char), 1, test_weights);
+                res = gpu_outputs[bnum*64]>=(gpu_outputs[bnum * 64 + 32])? false: true;
+                //PRINT("Test [%d]: (%d) %s\n", bnum, res, res==cpu_result ? "Ok" : "WRONG");
+                if (res!=cpu_result) result_mismatches++;
+                if (cpu_result) true_count++;
+                else false_count++;
+            }            
         }
         PRINT("CPU prediction summary: %llu trues, %llu falses %llu result_mismatches\n", true_count, false_count, result_mismatches);
     }

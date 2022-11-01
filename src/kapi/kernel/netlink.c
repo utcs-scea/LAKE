@@ -1,3 +1,24 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
+
 #include <linux/netlink.h>
 #include <linux/module.h>
 #include <linux/ctype.h>
@@ -29,9 +50,9 @@ static CUresult last_cu_err = 0;
 
 struct cmd_data {
     struct completion cmd_done;
-    char sync;
     struct lake_cmd_ret ret;
-} __attribute__ ((aligned (8)));
+    char sync;
+}; //__attribute__ ((aligned (8)));
 
 
 // ret is only filled in case sync is CMD_SYNC
@@ -86,7 +107,12 @@ void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
 
     // sync if requested
     if (sync == CMD_SYNC) {
-        wait_for_completion(&cmd->cmd_done);
+        //XXX
+        //wait_for_completion(&cmd->cmd_done);
+        while (1) {
+            err = wait_for_completion_interruptible(&cmd->cmd_done);
+            if (err == 0) break;
+        }
         memcpy(ret, (void*)&cmd->ret, sizeof(struct lake_cmd_ret));
         // if we sync, its like the cmd never existed, so clear every trace
         kmem_cache_free(cmd_cache, cmd);
@@ -102,7 +128,8 @@ void lake_send_cmd(void *buf, size_t size, char sync, struct lake_cmd_ret* ret)
 static void netlink_recv_msg(struct sk_buff *skb)
 {
     struct nlmsghdr *nlh = (struct nlmsghdr*) skb->data;
-    struct lake_cmd_ret *ret = (struct lake_cmd_ret*) nlmsg_data(nlh);
+    //struct lake_cmd_ret *ret = (struct lake_cmd_ret*) nlmsg_data(nlh);
+    void *ret = NLMSG_DATA(nlh);
     struct cmd_data *cmd;
     u32 xa_idx = nlh->nlmsg_seq;
 
@@ -121,7 +148,7 @@ static void netlink_recv_msg(struct sk_buff *skb)
         xa_erase(&cmds_xa, xa_idx);
         return;
     }
-    memcpy((void*)&cmd->ret, (void*)ret, sizeof(struct lake_cmd_ret));
+    memcpy(&(cmd->ret), ret, sizeof(struct lake_cmd_ret));
 
     //if the cmd is async, no one will read this cmd, so clear
     if (cmd->sync == CMD_ASYNC) {

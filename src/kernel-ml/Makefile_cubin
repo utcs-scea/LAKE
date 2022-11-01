@@ -1,0 +1,17 @@
+NVCCFLAGS     := -O3
+CUDA_PATH     := /usr/local/cuda
+CUDA_INC_PATH := $(CUDA_PATH)/include
+CUDA_LIB_PATH := $(CUDA_PATH)/lib64
+INCLUDES      := -I$(CUDA_INC_PATH) -I.
+LDFLAGS       := -L$(CUDA_LIB_PATH) -lcuda
+
+
+ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+SM_SCRIPT = $(ROOT_DIR)../../scripts/get_gpu_sm.sh
+
+all: kml
+
+kml.cubin: kernels.cu
+	nvcc $(NVCCFLAGS) --cubin $(shell $(SM_SCRIPT)) $(INCLUDES) -o $@ $+ $(LDFLAGS)
+
+.PHONY: kml

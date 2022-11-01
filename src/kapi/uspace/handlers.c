@@ -1,10 +1,13 @@
 #include <cuda.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <nvml.h>
 #include "commands.h"
 #include "lake_shm.h"
 #include "lake_kapi.h"
 #include "kargs.h"
+#include "kleio/py_wrapper.h"
+#include "handler_helpers.h"
 
 #define DRY_RUN 0
 
@@ -157,7 +160,7 @@ static int lake_handler_cuStreamSynchronize(void* buf, struct lake_cmd_ret* cmd_
  *********************/
 static int lake_handler_cuStreamDestroy(void* buf, struct lake_cmd_ret* cmd_ret) {
         struct lake_cmd_cuStreamDestroy *cmd = (struct lake_cmd_cuStreamDestroy *) buf;
-    cmd_ret->res = cuStreamDestroy(cmd->hStream);
+    cmd_ret->res = cuStreamDestroy_v2(cmd->hStream);
     return 0;
 }
 
@@ -190,6 +193,44 @@ static int lake_handler_cuMemAllocPitch(void* buf, struct lake_cmd_ret* cmd_ret)
 }
 
 /*********************
+ *  kleioLoadModel   
+ *********************/
+//int kleio_load_model(const char *filepath)
+static int lake_handler_kleioLoadModel(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_kleioLoadModel *cmd = (struct lake_cmd_kleioLoadModel *) buf;
+    kleio_load_model(0);
+    cmd_ret->res = 0;
+    return 0;
+}
+
+static int lake_handler_kleioInference(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_kleioInference *cmd = (struct lake_cmd_kleioInference *) buf;
+    kleio_inference(0, cmd->len, cmd->use_gpu);
+    cmd_ret->res = 0;
+    return 0;
+}
+
+static int lake_handler_kleioForceGC(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_kleioForceGC *cmd = (struct lake_cmd_kleioForceGC *) buf;
+    cmd_ret->res = 0;
+    return 0;
+}
+
+static int lake_handler_nvmlRunningProcs(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_nvmlRunningProcs *cmd = (struct lake_cmd_nvmlRunningProcs *) buf;
+    cmd_ret->ptr = (int) nvml_get_procs_running();
+    cmd_ret->res = 0;
+    return 0;
+}
+
+static int lake_handler_nvmlUtilRate(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_nvmlUtilRate *cmd = (struct lake_cmd_nvmlUtilRate *) buf;
+    cmd_ret->ptr = (int) nvml_get_util_rate();
+    cmd_ret->res = 0;
+    return 0;
+}
+
+/*********************
  * 
  *  END OF HANDLERS
  *    
@@ -216,6 +257,11 @@ static int (*kapi_handlers[])(void* buf, struct lake_cmd_ret* cmd_ret) = {
     lake_handler_cuMemcpyHtoDAsync,
     lake_handler_cuMemcpyDtoHAsync,
     lake_handler_cuMemAllocPitch,
+    lake_handler_kleioLoadModel,
+    lake_handler_kleioInference,
+    lake_handler_kleioForceGC,
+    lake_handler_nvmlRunningProcs,
+    lake_handler_nvmlUtilRate,
 };
 
 void lake_handle_cmd(void* buf, struct lake_cmd_ret* cmd_ret) {

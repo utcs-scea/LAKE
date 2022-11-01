@@ -1,3 +1,22 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <chrono>
@@ -55,6 +74,54 @@ __global__ void prediction_mid_layer_batch(long *weight_0_T_ent, long *bias_0_en
         // relu
         if (mid_res_i[update_index] < 0) {
             mid_res_i[update_index] = 0;
+        }		
+    }
+}
+
+__global__ void prediction_mid_layer_1_batch(long *weight_M_1, long *bias_M_1, long *mid_res_i, long *mid_res_1_i) { 
+	int j, offset, k;
+
+	int threadId = threadIdx.x;
+    int stride = blockDim.x;
+	int input_ind = blockIdx.x*256;
+	int blockId = blockIdx.x;
+	for (j = threadId, offset=threadId*256; j < LEN_LAYER_0; j+=stride, offset+=256*stride) {
+		int update_index = blockId*stride + j;
+        mid_res_1_i[update_index] = 0;
+		//loop unroll
+		for(k = 0; k < 256; k++) {
+			mid_res_1_i[update_index] += weight_M_1[offset + k] * mid_res_i[input_ind + k];
+		}
+
+        // // apply bias
+        mid_res_1_i[update_index] += bias_M_1[threadId];
+        // relu
+        if (mid_res_1_i[update_index] < 0) {
+            mid_res_1_i[update_index] = 0;
+        }		
+    }
+}
+
+__global__ void prediction_mid_layer_2_batch(long *weight_M_2, long *bias_M_2, long *mid_res_1_i, long *mid_res_2_i) { 
+	int j, offset, k;
+
+	int threadId = threadIdx.x;
+    int stride = blockDim.x;
+	int input_ind = blockIdx.x*256;
+	int blockId = blockIdx.x;
+	for (j = threadId, offset=threadId*256; j < LEN_LAYER_0; j+=stride, offset+=256*stride) {
+		int update_index = blockId*stride + j;
+        mid_res_2_i[update_index] = 0;
+		//loop unroll
+		for(k = 0; k < 256; k++) {
+			mid_res_2_i[update_index] += weight_M_2[offset + k] * mid_res_1_i[input_ind + k];
+		}
+
+        // apply bias
+        mid_res_2_i[update_index] += bias_M_2[threadId];
+        // relu
+        if (mid_res_2_i[update_index] < 0) {
+            mid_res_2_i[update_index] = 0;
         }		
     }
 }

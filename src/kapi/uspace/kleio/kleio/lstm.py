@@ -99,7 +99,8 @@ class LSTM_model:
 
   def infer(self, kinput, batch_size):
     inputs = kinput.trainX_categor
-    print(f"Infering: {inputs.shape}")
+    #Infering: (20, 6, 621)
+    #print(f"Infering: {inputs.shape}")
 
     if batch_size != 0:
       if batch_size < 20:

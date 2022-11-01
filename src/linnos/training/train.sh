@@ -1,65 +1,32 @@
+#!/bin/bash
+
 TraceTag='trace'
 
-if [ $# -eq 0 ] || [ $# -eq 1 ]
+if [ $# -ne 5 ]
   then
-    echo "Usage .\\\train.sh --traintrace <name of training trace> --latencythreshold <inflection point>"
+    echo "Usage train.sh <trace_1> <trace_2> <trace_3> <inflection_point> <name of trace>"
+    # eg : ./train.sh testTraces/hacktest.trace testTraces/hacktest.trace testTraces/hacktest.trace 85
     exit
 fi
 
-SHORT=t:,l:,
-LONG=traintrace:,latencythreshold:,
-OPTS=$(getopt --options $SHORT --longoptions $LONG -- "$@") 
+echo $1, $2, $3, $4, $5
+mkdir -p mlData
 
-eval set -- "$OPTS"
+sudo ../io_replayer/replayer baseline mlData/TrainTraceOutput 3 /dev/nvme0n1-/dev/nvme1n1-/dev/nvme2n1 $1 $2 $3
 
-while :
-do
-  case "$1" in
-    -t | --traintrace )
-      traintrace="$2"
-      shift 2
-      ;;
-    -l | --latencythreshold )
-      latencythreshold="$2"
-      shift 2
-      ;;
-    --)
-      shift;
-      break
-      ;;
-    *)
-      echo "Unexpected option: $1"
-      ;;
-  esac
-done
-
-echo $traintrace, $latencythreshold
-
-sudo ./replayer_fail /dev/nvme0n1-/dev/nvme0n1-/dev/nvme2n1 \
- "testTraces/${traintrace}0."$TraceTag \
- "testTraces/${traintrace}1."$TraceTag \
- "testTraces/${traintrace}2."$TraceTag mlData/TrainTraceOutput
-
-python3 -m venv linnOSvenv
-source linnOSvenv/bin/activate
-pip3 install numpy
-pip3 install --upgrade pip
-pip3 install tensorflow
-pip3 install keras
-pip3 install pandas
-pip3 install scikit-learn
+source ../../../lakevenv/bin/activate
 
 for i in 0 1 2 
 do
    python3 traceParser.py direct 3 4 \
-   mlData/TrainTraceOutput mlData/temp1 \
+   mlData/TrainTraceOutput_baseline.data mlData/temp1 \
    mlData/"mldrive${i}.csv" "$i"
 done
 
 for i in 0 1 2 
 do
    python3 pred1.py \
-   mlData/"mldrive${i}.csv" $latencythreshold > mlData/"mldrive${i}results".txt
+   mlData/"mldrive${i}.csv" $4 > mlData/"mldrive${i}results".txt
 done
 
 cd mlData
@@ -71,6 +38,10 @@ cp mldrive1.csv.* drive1weights
 cp mldrive2.csv.* drive2weights
 
 cd ..
-python3 mlHeaderGen.py Trace nvme0n1 mlData/drive0weights weights_header
-python3 mlHeaderGen.py Trace nvme1n1 mlData/drive1weights weights_header
-python3 mlHeaderGen.py Trace nvme2n1 mlData/drive2weights weights_header
+mkdir -p weights_header_og
+python3 mlHeaderGen.py Trace nvme0n1 mlData/drive0weights weights_header_og
+python3 mlHeaderGen.py Trace nvme1n1 mlData/drive1weights weights_header_og
+python3 mlHeaderGen.py Trace nvme2n1 mlData/drive2weights weights_header_og
+
+mkdir -p ../kernel_hook/weights_header/$5
+mv weights_header_og/*  ../kernel_hook/weights_header/$5/

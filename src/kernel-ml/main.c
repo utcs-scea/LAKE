@@ -1,10 +1,32 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
 #ifdef __KERNEL__
 #include <linux/delay.h>
 #include <linux/ktime.h>
 #include <linux/vmalloc.h>
 #include <asm/fpu/api.h>
+#include <linux/string.h>
 #include "cuda.h"
 #include "lake_shm.h"
+#include "cpu.h"
 #else
 #define kava_free(X) free(X)
 #define kava_alloc(X) malloc(X)
@@ -37,7 +59,8 @@ MODULE_PARM_DESC(cubin_path, "The path to kml.cubin, default ./kml.cubin");
 #endif
 
 
-#define RUNS 1
+#define RUNS 10
+#define USE_CUDA_SYNC 0
 
 
 static int run_cpu(void) {
@@ -54,8 +77,8 @@ static int *result;
 int readahead_online_data_cols = 5;
 int readahead_online_data_rows = 1;
 CUdeviceptr d_readahead_norm_online_data;
-CUfunction get_average, get_variance, matrix_map, normalize_data, matrix_transpose,
-    matrix_mult, add_bias, matrix_argmax;
+//CUfunction cu_get_average, cu_get_variance, cu_matrix_map, cu_normalize_data, cu_matrix_transpose,
+//    cu_matrix_mult, cu_add_bias, cu_matrix_argmax;
 
 CUfunction normalize_fused, forward_fused;
 
@@ -65,6 +88,7 @@ CUdeviceptr bias;
 CUdeviceptr wt0, wt1, wt2;
 
 static void setup_gpu(int batch_size) {
+    float *w0, *w1, *w2, *b0, *b1, *b2;
     w0_rows = 15;
     w0_cols = 5;
     b0_rows = 15;
@@ -78,7 +102,7 @@ static void setup_gpu(int batch_size) {
     b2_rows = 4;
     b2_cols = 1;
 
-    float *w0, *w1, *w2, *b0, *b1, *b2;
+    
 
     w0 = &w0_arr[0][0];
     float *kbfuf_w0 = (float*) kava_alloc(w0_rows * w0_cols * sizeof(float));
@@ -191,11 +215,11 @@ static void setup_gpu(int batch_size) {
 static void copy_batch_inputs(int batch_size) {
     float *kbfuf_input = (float*) kava_alloc(sizeof(float) * input_cols * batch_size);
     memcpy(kbfuf_input, batch_input, sizeof(float) * input_cols * batch_size);
-    check_error(cuMemcpyHtoDAsync(d_input, kbfuf_input, sizeof(float) * input_cols * batch_size, 0), "cuMemcpyHtoD", __LINE__);
+    check_error(cuMemcpyHtoD(d_input, kbfuf_input, sizeof(float) * input_cols * batch_size), "cuMemcpyHtoD", __LINE__);
 }
 
 static void get_result_batch(int batch_size) {
-    check_error(cuMemcpyDtoHAsync(result, d_result_cols, sizeof(int) * batch_size, 0), "cuMemcpyDtoH", __LINE__);
+    check_error(cuMemcpyDtoH(result, d_result_cols, sizeof(int) * batch_size), "cuMemcpyDtoH", __LINE__);
 }
 
 void clean_batch(void) {
@@ -307,6 +331,9 @@ void autodiff_forward(int batch_size, int sync) {
 				0,   //shared mem
                 NULL, args, NULL),
 			"cuLaunchKernel", __LINE__);
+    if (USE_CUDA_SYNC == 1) {
+        check_error(cuCtxSynchronize(), "cudaDeviceSynchronize", __LINE__);
+    }
 }
 
 void readahead_normalized_online_data(int batch_size) {
@@ -411,6 +438,7 @@ void readahead_normalized_online_data(int batch_size) {
 				0,   //shared mem
                 NULL, fargs, NULL),
 			"cuLaunchKernel", __LINE__);
+    
 }   
 
 void predict_readahead_class(int batch_size, int sync) {
@@ -419,11 +447,11 @@ void predict_readahead_class(int batch_size, int sync) {
 }
 
 static int run_gpu(void) {
-    int i, j;
+    int i, j, x;
     const int n = 1024;
-    int batch_sizes[] = {512,1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    int batch_sizes[] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     //int batch_sizes[] = {512};
-    int n_batches = 12;
+    int n_batches = 11;
 
     int batch_size;
     u64 t_start, t_stop, c_start, c_stop;
@@ -447,7 +475,6 @@ static int run_gpu(void) {
     gpu_get_cufunc(cubin_path, "_Z15normalize_fusediPfS_S_S_S_S_", &normalize_fused);
     gpu_get_cufunc(cubin_path, "_Z13fused_forwardPfPiiS_S_S_S_S_S_S_S_S_S_S_S_", &forward_fused);
     
-
     comp_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
     total_run_times = (u64*) vmalloc(RUNS*sizeof(u64));
 
@@ -464,9 +491,7 @@ static int run_gpu(void) {
         predict_readahead_class(batch_size, 0);
         cuCtxSynchronize();
 
-
         for (j = 0 ; j < RUNS ; j++) {
-            //PRINT(V_INFO, "Runing for batch size %d\n", batch_size);
             t_start = ktime_get_ns();
             copy_batch_inputs(batch_size);
             predict_readahead_class(batch_size, 0);
@@ -476,7 +501,8 @@ static int run_gpu(void) {
             usleep_range(1000, 2000);
 
             c_start = ktime_get_ns();
-            predict_readahead_class(batch_size, 1);
+            predict_readahead_class(batch_size, 0);
+            cuCtxSynchronize();
             c_stop = ktime_get_ns();
             
             usleep_range(1000, 2000);
@@ -486,23 +512,43 @@ static int run_gpu(void) {
 	    }
 
 	    avg = 0; avg_total = 0;
-        best = 0; best_total = 0;
         for (j = 0 ; j < RUNS ; j++) {
             avg += comp_run_times[j];
             avg_total += total_run_times[j];
-            if (best == 0 || comp_run_times[j] < best) best = comp_run_times[j];
-            if (best_total == 0 || total_run_times[j] < best_total) best_total = total_run_times[j];
         }
         avg = avg / (1000*RUNS); avg_total = avg_total / (1000*RUNS);
-        best = best / 1000; best_total = best_total / 1000;
 
 #ifdef __KERNEL__
-        PRINT(V_INFO, "GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        PRINT("KML_GPU_batch_%d,%lld,%lld\n", batch_size, avg, avg_total);
 #else
-        printf("GPU batch_%d, %lld, %lld, %lld, %lld\n", batch_size, avg, avg_total, best, best_total);
+        printf("GPU batch_%d, %ld, %ld\n", batch_size, avg, avg_total);
 #endif
         clean_batch();
 	}
+
+    //measure CPU
+    setup_cpu();
+    for (i = 0 ; i < n_batches ; i++) {
+        batch_size = batch_sizes[i];
+        setup_input(batch_size);
+        for (j = 0 ; j < RUNS ; j++) {
+            t_start = ktime_get_ns();
+            x = cpu_predict_readahead_class(batch_size);
+            (void)x;
+            t_stop = ktime_get_ns();
+            usleep_range(1000, 2000);
+            total_run_times[j] = (t_stop - t_start);
+	    }
+
+	    avg_total = 0;
+        for (j = 0 ; j < RUNS ; j++) {
+            avg_total += total_run_times[j];
+        }
+        avg_total = avg_total / (1000*RUNS);
+
+        PRINT("KML_CPU_batch_%d,%lld\n", batch_size, avg_total);
+	}
+
 
     vfree(comp_run_times);
     vfree(total_run_times);

@@ -1,13 +1,14 @@
 import numpy as np
 
 KB = 1024
-AVG_SIZE_BYTES = 1024*KB
-STDDEV_BYTES =  256*KB
+AVG_SIZE_BYTES = 25*KB
+STDDEV_BYTES =  5*KB
 mu, sigma = AVG_SIZE_BYTES, STDDEV_BYTES
 
 s = np.random.normal(AVG_SIZE_BYTES, STDDEV_BYTES, 100)
 
 print(f"min IO size: {min(s)/1024} KB")
+print(f"min IO size: {max(s)/1024} KB")
 
 import matplotlib.pyplot as plt
 count, bins, ignored = plt.hist(s, 30, density=True)

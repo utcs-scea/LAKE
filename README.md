@@ -61,4 +61,5 @@ sudo ./NVIDIA-Linux-x86_64-515.76.run -s
 
 # Basic Test
 
-The `basic_test.sh` script runs the hello module and echo success if all the steps were successful. It also gives prints the steps to be taken in case running LAKE system fails. To run it, just do `./basic_test.sh` from the home directory of LAKE.
+The `basic_test.sh` script runs the hello module and echo success if all the steps were successful. It also prints the steps to be taken in case running LAKE system fails. To run it, just do `./basic_test.sh` from the home directory of LAKE.
+

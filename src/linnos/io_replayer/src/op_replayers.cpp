@@ -1,3 +1,23 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
 #include <errno.h>
 #include "op_replayers.hpp"
 
@@ -7,7 +27,7 @@
 //     return A;
 // }
 
-#define MAX_FAIL 3
+#define MAX_FAIL 2
 
 static int sleep_until(uint64_t next) {
     uint64_t now = get_ns_ts();
@@ -15,8 +35,8 @@ static int sleep_until(uint64_t next) {
 
     //if 0 or negative, we need to issue
     if(diff <= 0) {
-        //we're super late
-        if (diff < 1000) return 1;
+        //we're late by at least 2 us
+        if (diff <= -2000) return 1;
         return 0; //late but not that much
     }
     else 
@@ -29,8 +49,10 @@ void baseline_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     int *fds = trace->get_fds();
     //read
     if(trace_op.op == 0) {
+        trace->add_io_count(device);
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
     } else if(trace_op.op == 1) {
+        trace->add_io_count(device);
         ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
     } else {
         printf("Wrong OP code! %d\n", trace_op.op);
@@ -39,7 +61,7 @@ void baseline_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     if (ret < 0){
         printf("err %d\n", errno);
         printf("offset in B : %lu\n", trace_op.offset );
-        printf("size in kb : %f\n", trace_op.size/(1e3));
+        printf("size in B : %lu\n", trace_op.size);
     }
 }
 
@@ -48,19 +70,77 @@ void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     int *fds = trace->get_fds();
     //read
     if(trace_op.op == 0) {
+        trace->add_io_count(device);
         ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
-        //rejected, go to next device (it should have linnos enabled)
+        //rejected, go to next device (it should not have linnos enabled)
         if (ret < 0) {
-            trace->add_fail();
-            trace->add_unique_fail();
-            ret = pread(fds[device+1], buf, trace_op.size, trace_op.offset);
-            if (ret < 0) { 
-                printf("Second IO failed, this shouldn't happen!\n");
-                trace->add_never_finished();
+            trace->add_fail(device);
+            trace->add_unique_fail(device);
+            trace->add_io_count(device+1);
+            ret = pread(fds[1], buf, trace_op.size, trace_op.offset);
+            if (ret < 0) {
+                printf("Second IO failed, this shouldn't happen! err %d\n", errno);
+                trace->add_never_finished(device);
             }
         }
     } else if(trace_op.op == 1) {
-    ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+        trace->add_io_count(device);
+        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+    } else {
+        printf("Wrong OP code! %d\n", trace_op.op);
+    }
+}
+
+void strawman_2ssds_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
+    int ret;
+    int *fds = trace->get_fds();
+    //read
+    if(trace_op.op == 0) {
+        trace->add_io_count(device);
+        ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
+        //rejected, go to next device (it should not have linnos enabled)
+        if (ret < 0) {
+            trace->add_fail(device);
+            trace->add_unique_fail(device);
+            trace->add_io_count(2);
+            ret = pread(fds[2], buf, trace_op.size, trace_op.offset);
+            if (ret < 0) { 
+                printf("Second IO failed, this shouldn't happen! err %d\n", ret);
+                trace->add_never_finished(device);
+            }
+        }
+    } else if(trace_op.op == 1) {
+        trace->add_io_count(device);
+        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+    } else {
+        printf("Wrong OP code! %d\n", trace_op.op);
+    }
+}
+
+void failover_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
+    int ret, i;
+    int *fds = trace->get_fds();
+    bool success = false;
+    //read
+    if(trace_op.op == 0) {
+        for (i = 0 ; i < MAX_FAIL ; i++) {
+            trace->add_io_count((device+i)%2);
+            ret = pread(fds[(device+i)%2], buf, trace_op.size, trace_op.offset);
+            if (ret > 0) {
+                success = true;
+                break;
+            }
+            trace->add_fail(device);
+        }
+        //max fail.. it looped around, linnos never handled this case
+        if (!success) {
+            //printf("IO never finished..\n");
+            trace->add_unique_fail(device);
+            pread(fds[device], buf, trace_op.size, 0); //this is what linnos does
+        }
+    } else if(trace_op.op == 1) {
+        trace->add_io_count(device);
+        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
     } else {
         printf("Wrong OP code! %d\n", trace_op.op);
     }
@@ -86,11 +166,10 @@ void* replayer_fn(void* arg) {
         if (trace_op.timestamp == -1) {
             break;
         }
-
         //timestamp in op is in microsecond float, so convert to nano
         uint64_t next = targ->start_ts + (uint64_t)(trace_op.timestamp*1000);
         if(sleep_until(next) == 1)
-            trace->add_late_op();
+            trace->add_late_op(device);
 
         uint64_t submission = get_ns_ts();
         auto begin = std::chrono::steady_clock::now();
@@ -105,7 +184,6 @@ void* replayer_fn(void* arg) {
                 trace_op.size, trace_op.offset, submission/1000,
                 device);
     }
-
     free(buf);
     return 0;
 }

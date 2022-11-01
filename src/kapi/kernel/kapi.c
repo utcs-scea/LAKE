@@ -1,3 +1,23 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
 #include <linux/types.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
@@ -210,6 +230,16 @@ CUresult CUDAAPI cuStreamCreate(CUstream *phStream, unsigned int Flags) {
 }
 EXPORT_SYMBOL(cuStreamCreate);
 
+CUresult CUDAAPI cuStreamDestroy (CUstream hStream) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_cuStreamDestroy cmd = {
+        .API_ID = LAKE_API_cuStreamDestroy, .hStream = hStream
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+	return ret.res;
+}
+EXPORT_SYMBOL(cuStreamDestroy);
+
 CUresult CUDAAPI cuStreamSynchronize(CUstream hStream) {
     struct lake_cmd_ret ret;
 	struct lake_cmd_cuStreamSynchronize cmd = {
@@ -270,3 +300,74 @@ CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr* dptr, size_t* pPitch,
 	return ret.res;
 }
 EXPORT_SYMBOL(cuMemAllocPitch);
+
+
+/*
+ *  Kleio
+ */
+
+CUresult CUDAAPI kleioLoadModel(const void *srcHost, size_t len) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_kleioLoadModel cmd = {
+        .API_ID = LAKE_API_kleioLoadModel
+    };
+
+    // s64 offset = kava_shm_offset(srcHost);
+    // if (offset < 0) {
+    //     pr_err("srcHost in kleioLoadModel is NOT a kshm pointer (use kava_alloc to fix it)\n");
+    //     return CUDA_ERROR_INVALID_VALUE;
+    // }
+    // cmd.srcHost = (void*)offset;
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+	return ret.res;
+}
+EXPORT_SYMBOL(kleioLoadModel);
+
+CUresult CUDAAPI kleioInference(const void *srcHost, size_t len, int use_gpu) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_kleioInference cmd = {
+        .API_ID = LAKE_API_kleioInference, .len = len,
+        .use_gpu = use_gpu
+    };
+    // s64 offset = kava_shm_offset(srcHost);
+    // if (offset < 0) {
+    //     pr_err("srcHost in kleioInference is NOT a kshm pointer (use kava_alloc to fix it)\n");
+    //     return CUDA_ERROR_INVALID_VALUE;
+    // }
+    // cmd.srcHost = (void*)offset;
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+	return ret.res;
+}
+EXPORT_SYMBOL(kleioInference);
+
+CUresult CUDAAPI kleioForceGC(void) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_kleioForceGC cmd = {
+        .API_ID = LAKE_API_kleioForceGC,
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+	return ret.res;
+}
+EXPORT_SYMBOL(kleioForceGC);
+
+CUresult CUDAAPI nvmlRunningProcs(int* nproc) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_nvmlRunningProcs cmd = {
+        .API_ID = LAKE_API_nvmlRunningProcs,
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+    *nproc = (int)ret.ptr;
+	return ret.res;
+}
+EXPORT_SYMBOL(nvmlRunningProcs);
+
+CUresult CUDAAPI nvmlUtilRate(int* nproc) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_nvmlUtilRate cmd = {
+        .API_ID = LAKE_API_nvmlUtilRate,
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+    *nproc = (int)ret.ptr;
+	return ret.res;
+}
+EXPORT_SYMBOL(nvmlUtilRate);

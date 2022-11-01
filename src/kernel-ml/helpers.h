@@ -1,3 +1,23 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
 #ifndef __MLLB_HELPERS_H
 #define __MLLB_HELPERS_H
 
@@ -17,13 +37,7 @@
 #include "cuda.h"
 #include "lake_shm.h"
 
-#define V_ERROR 0
-#define V_INFO 1
-#define V_DEBUG_TIMING 2
-#define V_DEBUG 3
-#define VERBOSITY V_INFO
-#define PRINT(verbosity, ...) do { if (verbosity <= VERBOSITY) printk(KERN_INFO __VA_ARGS__); } while (0)
-
+#define PRINT(...) do { if (1) printk(KERN_INFO __VA_ARGS__); } while (0)
 #else
 #include <cuda.h>
 #include <stdio.h>

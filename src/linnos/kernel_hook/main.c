@@ -1,3 +1,22 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/time.h>
@@ -25,51 +44,170 @@ static char *cubin_path = "linnos.cubin";
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin in case you're using gpu predictor");
 
+int model_size = 0;
+module_param(model_size, int, 0444);
+MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
+
 //adding a model to a device requires:
 // 1. include the header with the weights
 // 2. put device name in devices
 // 3. set the pointers into a new array in weights (dont mess with the ending 0)
 
 #include "sde.h"
-#include "weights_header/w_nvme0n1.h"
+
+#include "weights_header/mix/w_Trace_nvme0n1.h"
+#include "weights_header/mix/w_Trace_nvme1n1.h"
+#include "weights_header/mix/w_Trace_nvme2n1.h"
+
+//#include "weights_header/mix1/nn+1/w_Trace_nvme0n1.h"
+//#include "weights_header/mix1/nn+1/w_Trace_nvme1n1.h"
+//#include "weights_header/mix1/nn+1/w_Trace_nvme2n1.h"
+
+//#include "weights_header/mix1/nn+2/w_Trace_nvme0n1.h"
+//#include "weights_header/mix1/nn+2/w_Trace_nvme1n1.h"
+//#include "weights_header/mix1/nn+2/w_Trace_nvme2n1.h"
+
+//#include "weights_header/w_nvme0n1.h"
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
 
+//#include "weights_header/azure/nn/w_Trace_nvme0n1.h"
+//#include "weights_header/azure/nn/w_Trace_nvme1n1.h"
+//#include "weights_header/azure/nn/w_Trace_nvme2n1.h"
+//#include "weights_header/azure/nn+1/w_Trace_nvme0n1.h"
+//#include "weights_header/azure/nn+1/w_Trace_nvme1n1.h"
+//#include "weights_header/azure/nn+1/w_Trace_nvme2n1.h"
+//#include "weights_header/azure/nn+2/w_Trace_nvme0n1.h"
+//#include "weights_header/azure/nn+2/w_Trace_nvme1n1.h"
+//#include "weights_header/azure/nn+2/w_Trace_nvme2n1.h"
+
+//#include "weights_header/cosmos/nn/w_Trace_nvme0n1.h"
+//#include "weights_header/cosmos/nn/w_Trace_nvme1n1.h"
+//#include "weights_header/cosmos/nn/w_Trace_nvme2n1.h"
+//#include "weights_header/cosmos/nn+1/w_Trace_nvme0n1.h"
+//#include "weights_header/cosmos/nn+1/w_Trace_nvme1n1.h"
+//#include "weights_header/cosmos/nn+1/w_Trace_nvme2n1.h"
+//#include "weights_header/cosmos/nn+2/w_Trace_nvme0n1.h"
+//#include "weights_header/cosmos/nn+2/w_Trace_nvme1n1.h"
+//#include "weights_header/cosmos/nn+2/w_Trace_nvme2n1.h"
+
+//#include "weights_header/bingi/nn/w_Trace_nvme0n1.h"
+//#include "weights_header/bingi/nn/w_Trace_nvme1n1.h"
+//#include "weights_header/bingi/nn/w_Trace_nvme2n1.h"
+//#include "weights_header/bingi/nn+1/w_Trace_nvme0n1.h"
+//#include "weights_header/bingi/nn+1/w_Trace_nvme1n1.h"
+//#include "weights_header/bingi/nn+1/w_Trace_nvme2n1.h"
+//#include "weights_header/bingi/nn+2/w_Trace_nvme0n1.h"
+//#include "weights_header/bingi/nn+2/w_Trace_nvme1n1.h"
+//#include "weights_header/bingi/nn+2/w_Trace_nvme2n1.h"
+
+//#include "weights_header/mix4/nn/w_Trace_nvme1n1.h"
+//#include "weights_header/mix4/nn/w_Trace_nvme2n1.h"
+//#include "weights_header/mix4/nn/w_Trace_nvme0n1.h"
+//#include "weights_header/mix4/nn+1/w_Trace_nvme0n1.h"
+//#include "weights_header/mix4/nn+1/w_Trace_nvme1n1.h"
+//#include "weights_header/mix4/nn+1/w_Trace_nvme2n1.h"
+//#include "weights_header/mix4/nn+2/w_Trace_nvme0n1.h"
+//#include "weights_header/mix4/nn+2/w_Trace_nvme1n1.h"
+//#include "weights_header/mix4/nn+2/w_Trace_nvme2n1.h"
+
+
 static const char *devices[] = {
-    "/dev/vdb",
-	//"/dev/nvme0n1",
-	//"/dev/nvme1n1",
-	//"/dev/nvme2n1",
+    //"/dev/vdb",
+	//"/dev/vdc",
+	"/dev/nvme0n1",
+	"/dev/nvme1n1",
+	"/dev/nvme2n1",
 	0
 };
 
-static long *weights[][4] = {
+long *weights[][8] = {
+	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde},
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
-	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1},
-	///{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1},
-	///{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1},
+	
+	//NN
+	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
+	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
+	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
+
+	// NN+1
+	//{weight_0_T_nvme0n1, weight_2_T_nvme0n1, bias_0_nvme0n1, bias_2_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,0,0},
+	//{weight_0_T_nvme1n1, weight_2_T_nvme1n1, bias_0_nvme1n1, bias_2_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,0,0},
+	//{weight_0_T_nvme2n1, weight_2_T_nvme2n1, bias_0_nvme2n1, bias_2_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,0,0},
+
+	//NN+2
+	//{weight_0_T_nvme0n1, weight_3_T_nvme0n1, bias_0_nvme0n1, bias_3_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,weight_2_T_nvme0n1, bias_2_nvme0n1},
+	//{weight_0_T_nvme1n1, weight_3_T_nvme1n1, bias_0_nvme1n1, bias_3_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,weight_2_T_nvme1n1, bias_2_nvme1n1},
+	//{weight_0_T_nvme2n1, weight_3_T_nvme2n1, bias_0_nvme2n1, bias_3_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,weight_2_T_nvme2n1, bias_2_nvme2n1},
 };
 
 //the predictor function to use
 bool (*fptr)(char*,int,long**);
 
-/*
- *  Helpers for Batch test
- */
 bool is_qdepth = false;
 bool is_batch_test = false;
 bool is_gpu_inf = false;
+
+/*
+ *  Helpers for Batch test
+ */
 static void batch_test_attach(void) {
 	int i;
-	window_size_hist = vmalloc(128);
-	for (i=0;i<128;i++) window_size_hist[i] = 0;
+	fptr = batch_test;
+	window_size_hist = vmalloc(512);
+	for (i=0;i<512;i++) window_size_hist[i] = 0;
 }
 static void batch_test_detach(void) {
 	int i;
-	for (i=0;i<128;i++)
+	for (i=0;i<512;i++)
 		if (window_size_hist[i] != 0)
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
 	vfree(window_size_hist);
+}
+
+/*
+ *  Helpers for GPU inference
+ */
+static int gpu_attach(void) {
+	int i, ndev=0;
+	const char *devs;
+	
+	fptr = gpu_batch_entry;
+	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) 
+		ndev++;
+	pr_warn("initing for %d devices\n", ndev);
+	multi_initialize_gpu(cubin_path, 512, ndev);
+	window_size_hist = vmalloc(256);
+	for (i=0;i<256;i++) window_size_hist[i] = 0;
+
+	predictors_mgpu_init();
+
+	return 0;
+}
+
+static void gpu_detach(void) {
+	const char *devs;
+	int i;
+	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
+		multi_gpu_cuda_cleanup_dev(&gpu_weights[i], i);
+	}
+	
+	for (i=0;i<128;i++)
+		if (window_size_hist[i] != 0)
+			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
+
+	pr_warn("GPU was used %u times\n", n_used_gpu);
+	// for (i=0;i<NUMBER_DEVICES;i++) {
+	// 	pr_warn("IOs on device %d: %u\n", i, ios_on_device[i]);
+	// }
+	cuCtxDestroy(cuctx);
+}
+static void gpu_copy_weight(int idx) {
+	long **wts = weights[idx];
+	pr_warn("Copying weights for idx %d\n", idx);
+	copy_weights(wts, &gpu_weights[idx]);
+
+	first_weight_ptr_to_dev[idx] = wts[0];
 }
 
 /*
@@ -88,54 +226,24 @@ static void qdepth_detach(void) {
 }
 
 /*
- *  Helpers for GPU inference
- */
-static int gpu_attach(void) {
-	int i;
-	//XXX
-	fptr = gpu_batch_entry;
-	
-	window_size_hist = vmalloc(128);
-	for (i=0;i<128;i++) window_size_hist[i] = 0;
-	initialize_gpu(cubin_path, 256); //whatever, just allocate a lot
-
-	pr_warn("testing GPU");
-	copy_inputs_to_gpu(n_vecs);
-
-	return 0;
-}
-static void gpu_detach(void) {
-	const char *devs;
-	int i;
-
-	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
-		gpu_cuda_cleanup(&gpu_weights[i]);
-	}
-
-	for (i=0;i<128;i++)
-		if (window_size_hist[i] != 0)
-			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
-}
-static void gpu_copy_weight(int idx) {
-	long **wts = weights[idx];
-	copy_weights(wts, &gpu_weights[idx]);
-}
-
-/*
  *  Actual hook code
  */
 static int parse_arg(void) {
 	if (!strcmp("fake", predictor_str)) {
 		fptr = fake_prediction_model;
 	} else if (!strcmp("cpu", predictor_str)) {
-		fptr = cpu_prediction_model;
-		pr_warn("Inserting CPU prediction\n");
+		if (model_size == 0)
+			fptr = cpu_prediction_model;
+		else if (model_size == 1)
+			fptr = cpu_prediction_model_plus_1;
+		else
+			fptr = cpu_prediction_model_plus_2;
+		pr_warn("Inserting CPU prediction with %d extra layers\n", model_size);
 	}else if (!strcmp("gpu", predictor_str)) {
 		is_gpu_inf = true;
 	} else if (!strcmp("batchtest", predictor_str)) {
 		pr_warn("Inserting batch test prediction\n");
 		is_batch_test = true;
-		fptr = batch_test;
 	} else if (!strcmp("queue_depth", predictor_str)) {
 		pr_warn("Inserting queue_depth\n");
 		//set fake so we go through everything
@@ -160,7 +268,6 @@ static int attach_to_queue(int idx) {
 		return -2;
 	}
 	q = bdev_get_queue(dev);
-	//pr_warn("wt test  %ld %ld %ld %ld \n", wts[0][0], wts[1][0], wts[2][0], wts[3][0]);
 
 	//more spaggheti, nice
 	if (is_gpu_inf) 
@@ -168,8 +275,14 @@ static int attach_to_queue(int idx) {
 
 	q->weight_0_T = wts[0];
 	q->weight_1_T = wts[1];
-	q->bias_0 = wts[1];
-	q->bias_1 = wts[2];
+	q->bias_0 = wts[2];
+	q->bias_1 = wts[3];
+
+	q->weight_2_T = wts[4];
+	q->bias_2 = wts[5];
+	q->weight_3_T = wts[6];
+	q->bias_3 = wts[7];
+
 	q->predictor = fptr;
 	q->ml_enabled = true;
 	sysctl_lake_enable_linnos = true;
@@ -197,6 +310,12 @@ static int gpu_detach_queue(int idx) {
 	q->weight_1_T = 0;
 	q->bias_0 = 0;
 	q->bias_1 = 0;
+
+	q->weight_2_T = 0;
+	q->bias_2 = 0;
+	q->weight_3_T = 0;
+	q->bias_3 = 0;
+
 	pr_warn("Dettached!\n");
 	return 0;
 }

@@ -93,7 +93,7 @@
     //#define cuCtxDestroy                        cuCtxDestroy_v2
     #define cuCtxPopCurrent                     cuCtxPopCurrent_v2
     #define cuCtxPushCurrent                    cuCtxPushCurrent_v2
-    #define cuStreamDestroy                     cuStreamDestroy_v2
+    //#define cuStreamDestroy                     cuStreamDestroy_v2
     #define cuEventDestroy                      cuEventDestroy_v2
 #endif /* __CUDA_API_VERSION_INTERNAL || __CUDA_API_VERSION >= 4000 */
 #if defined(__CUDA_API_VERSION_INTERNAL) || __CUDA_API_VERSION >= 4010
@@ -1066,6 +1066,13 @@ extern CUresult CUDAAPI cuMemAllocPitch(CUdeviceptr *dptr, size_t *pPitch, size_
 //extern CUresult CUDAAPI cuEventElapsedTime(float *pMilliseconds, CUevent hStart, CUevent hEnd);
 //extern CUresult CUDAAPI cuEventRecord(CUevent hEvent, CUstream hStream);
 //extern CUresult CUDAAPI cuEventSynchronize(CUevent hEvent);
+
+extern CUresult CUDAAPI kleioLoadModel(const void *srcHost, size_t len);
+extern CUresult CUDAAPI kleioInference(const void *srcHost, size_t len, int use_gpu);
+extern CUresult CUDAAPI kleioForceGC(void);
+
+extern CUresult CUDAAPI nvmlRunningProcs(int* nproc);
+extern CUresult CUDAAPI nvmlUtilRate(int* pct);
 
 #endif // __cuda_cuda_h__
 

@@ -1,3 +1,23 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -17,7 +37,7 @@
 #include "replayer.hpp"
 #include "op_replayers.hpp"
 
-uint8_t N_THREADS = 128;
+uint8_t N_THREADS = 64;
 
 int main (int argc, char **argv)
 {
@@ -38,9 +58,8 @@ int main (int argc, char **argv)
         trace.parse_file(i, argv[5+i]);
     }
     
-
     pthread_barrier_t sync_barrier;
-    int err = pthread_barrier_init(&sync_barrier, NULL, N_THREADS+1);
+    int err = pthread_barrier_init(&sync_barrier, NULL, n_devices_to_trace*N_THREADS+1);
     if (err != 0) {
         printf("Error creating barrier\n");
         exit(1);
@@ -56,9 +75,12 @@ int main (int argc, char **argv)
 
             if(type == "baseline")
                 targs[dev][j].executor = baseline_execute_op;
-            else if (type == "strawman")
-            {
+            else if (type == "strawman") {
                 targs[dev][j].executor = strawman_execute_op;
+            } else if (type == "failover") {
+                targs[dev][j].executor = failover_execute_op;
+            } else if (type == "strawman2") {
+                targs[dev][j].executor = strawman_2ssds_execute_op;
             } else {
                 printf("I dont recognize type %s (second parameter)\n", type.c_str());
             }
@@ -66,7 +88,7 @@ int main (int argc, char **argv)
         }
     }
 
-    trace.set_output_file(metrics_file+type);
+    trace.set_output_file(metrics_file+"_"+type+".data");
 
     usleep(20); //wait until everyone hits barrier
     uint64_t now = get_ns_ts();
@@ -87,9 +109,6 @@ int main (int argc, char **argv)
     uint64_t elaps =  std::chrono::duration_cast<std::chrono::seconds>(end - begin).count();
 
     printf("Trace took %lu seconds to finish.\n", elaps);
-    if (trace.get_late_op() > 0)
-    printf("There were %lu late IOs, consider upping the # of threads if too many\n", 
-        trace.get_late_op());
 
     trace.print_stats();
 

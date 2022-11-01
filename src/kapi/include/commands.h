@@ -1,3 +1,22 @@
+/*
+ * Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+ * Copyright (C) 2022-2024 Henrique Fingler
+ * Copyright (C) 2022-2024 Isha Tarte
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #ifndef __KAPI_COMMANDS_H__
 #define __KAPI_COMMANDS_H__
 
@@ -28,6 +47,11 @@ enum lake_api_ids {
     LAKE_API_cuMemcpyHtoDAsync,
     LAKE_API_cuMemcpyDtoHAsync,
     LAKE_API_cuMemAllocPitch,
+    LAKE_API_kleioLoadModel,
+    LAKE_API_kleioInference,
+    LAKE_API_kleioForceGC,
+    LAKE_API_nvmlRunningProcs,
+    LAKE_API_nvmlUtilRate
 };
 
 struct lake_cmd_ret {
@@ -170,6 +194,31 @@ struct lake_cmd_cuMemAllocPitch {
     size_t WidthInBytes; 
     size_t Height;
     unsigned int ElementSizeBytes;
+};
+
+struct lake_cmd_kleioLoadModel {
+    u32 API_ID;
+    const void *srcHost;
+    size_t len;
+};
+
+struct lake_cmd_kleioInference {
+    u32 API_ID;
+    const void *srcHost;
+    size_t len;
+    int use_gpu;
+};
+
+struct lake_cmd_kleioForceGC {
+    u32 API_ID;
+};
+
+struct lake_cmd_nvmlRunningProcs {
+    u32 API_ID;
+};
+
+struct lake_cmd_nvmlUtilRate {
+    u32 API_ID;
 };
 
 

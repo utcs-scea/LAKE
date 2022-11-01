@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
 
+
+# Part of LAKE: Towards a Machine Learning-Assisted Kernel with LAKE
+# Copyright (C) 2022-2024 Henrique Fingler
+# Copyright (C) 2022-2024 Isha Tarte
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 import sys
 import numpy as np
 import statistics
@@ -12,6 +31,7 @@ if __name__ == '__main__':
     inter_arrivals = []
 
     read_sizes = []
+    write_sizes = []
     reads = 0
     writes = 0
     last_io_time = -1
@@ -33,7 +53,8 @@ if __name__ == '__main__':
                 reads += 1
             else:
                 writes += 1
-
+                write_sizes.append(size)
+                
             if last_io_time != -1:
                 inter = timestamp - last_io_time
                 inter_arrivals.append(inter)
@@ -47,7 +68,12 @@ if __name__ == '__main__':
     print(f"IO inter arrival stddev {statistics.pstdev(inter_arrivals):.2f}us")
     print(f"Min/Max inter arrival time  {min(inter_arrivals):.2f}, {max(inter_arrivals):.2f}")
     print(f"Read size avg: {statistics.mean(read_sizes)/1024:.2f} KB")
-    print(f"Read size stddev: {statistics.pstdev(read_sizes)/1024:.2f} KB")
+    print(f"Read min max: {min(read_sizes)/1024}/{max(read_sizes)/1024} KB")
+    #print(f"Read size stddev: {statistics.pstdev(read_sizes)/1024:.2f} KB")
+    print(f"Write size avg: {statistics.mean(write_sizes)/1024:.2f} KB")
+    print(f"Write min max: {min(write_sizes)/1024}/{max(write_sizes)/1024} KB")
+    last_io_time_s = last_io_time/(1000*1000) #us to s
+    print(f"Avg IOPS  {(reads+writes)/ last_io_time_s} ")
     print(f"==============================")
 
     # count, x = np.histogram(inters, bins=500)
