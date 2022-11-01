@@ -99,7 +99,7 @@ static int run(void) {
     while (1) { //run for RUNTIME_MS
         nvmlRunningProcs(&proc);
         nvmlUtilRate(&pct);
-        if (proc > 1 && pct > 40)
+        if (proc > 1 && pct > 70)
             use_gpu = false;
         else
             use_gpu = true;
