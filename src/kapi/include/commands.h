@@ -51,6 +51,7 @@ enum lake_api_ids {
     LAKE_API_kleioInference,
     LAKE_API_kleioForceGC,
     LAKE_API_nvmlRunningProcs,
+    LAKE_API_nvmlUtilRate
 };
 
 struct lake_cmd_ret {
@@ -215,5 +216,10 @@ struct lake_cmd_kleioForceGC {
 struct lake_cmd_nvmlRunningProcs {
     u32 API_ID;
 };
+
+struct lake_cmd_nvmlUtilRate {
+    u32 API_ID;
+};
+
 
 #endif

@@ -65,7 +65,7 @@ static void run_gpu(int batch_size) {
 }
 
 static int run(void) {
-    int proc;
+    int proc, pct;
     int i, j;
     int max_batch_size = 256;
     // n needs to be at least as large as the largest batch size
@@ -98,8 +98,11 @@ static int run(void) {
     cur_slot++;
     while (1) { //run for RUNTIME_MS
         nvmlRunningProcs(&proc);
-        //pr_warn("%d: %s\n", proc, proc > 1 ? "cpu" : "GPU");
-        use_gpu = proc <= 1;
+        nvmlUtilRate(&pct);
+        if (proc > 1 && pct > 40)
+            use_gpu = false;
+        else
+            use_gpu = true;
         count = 0;
         
         step_start = ktime_get_ns();

@@ -360,3 +360,14 @@ CUresult CUDAAPI nvmlRunningProcs(int* nproc) {
 	return ret.res;
 }
 EXPORT_SYMBOL(nvmlRunningProcs);
+
+CUresult CUDAAPI nvmlUtilRate(int* nproc) {
+    struct lake_cmd_ret ret;
+	struct lake_cmd_nvmlUtilRate cmd = {
+        .API_ID = LAKE_API_nvmlUtilRate,
+    };
+    lake_send_cmd((void*)&cmd, sizeof(cmd), CMD_SYNC, &ret);
+    *nproc = (int)ret.ptr;
+	return ret.res;
+}
+EXPORT_SYMBOL(nvmlUtilRate);

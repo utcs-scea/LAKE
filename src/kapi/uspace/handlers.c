@@ -223,6 +223,13 @@ static int lake_handler_nvmlRunningProcs(void* buf, struct lake_cmd_ret* cmd_ret
     return 0;
 }
 
+static int lake_handler_nvmlUtilRate(void* buf, struct lake_cmd_ret* cmd_ret) {
+    struct lake_cmd_nvmlUtilRate *cmd = (struct lake_cmd_nvmlUtilRate *) buf;
+    cmd_ret->ptr = (int) nvml_get_util_rate();
+    cmd_ret->res = 0;
+    return 0;
+}
+
 /*********************
  * 
  *  END OF HANDLERS
@@ -254,6 +261,7 @@ static int (*kapi_handlers[])(void* buf, struct lake_cmd_ret* cmd_ret) = {
     lake_handler_kleioInference,
     lake_handler_kleioForceGC,
     lake_handler_nvmlRunningProcs,
+    lake_handler_nvmlUtilRate,
 };
 
 void lake_handle_cmd(void* buf, struct lake_cmd_ret* cmd_ret) {

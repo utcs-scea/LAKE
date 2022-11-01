@@ -1072,6 +1072,7 @@ extern CUresult CUDAAPI kleioInference(const void *srcHost, size_t len, int use_
 extern CUresult CUDAAPI kleioForceGC(void);
 
 extern CUresult CUDAAPI nvmlRunningProcs(int* nproc);
+extern CUresult CUDAAPI nvmlUtilRate(int* pct);
 
 #endif // __cuda_cuda_h__
 
