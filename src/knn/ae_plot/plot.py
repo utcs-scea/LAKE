@@ -67,7 +67,6 @@ with open('tmp.csv', 'w') as f:
         f.write(l)
 
 
-
 # Plot graphs
 batch_sizes = []
 cpu = []
@@ -98,6 +97,7 @@ c3 =  cmap(3)
 c4 =  cmap(4)
 c5 =  cmap(5)
 
+plt.yscale('log')
 fig, ax = plt.subplots()
 
 #cpu
@@ -130,7 +130,8 @@ ax.plot(x, ae_gpu_data, label="AE_LAKE (sync.)", linewidth=2, linestyle="-", col
         marker="^")
 
 #plt.xticks(np.asarray(batch_sizes), rotation=30, ha='right', rotation_mode="anchor")
-plt.ticklabel_format(axis='y', style='sci', scilimits=(2,2))
+
+#plt.ticklabel_format(axis='y', style='sci', scilimits=(2,2))
 ax.set_xticks(x)
 ax.set_xticklabels(batch_sizes)
 
@@ -138,7 +139,6 @@ ax.set_xticklabels(batch_sizes)
 ax.set_ylabel('Time (us)')
 
 ax.set_xlabel('Size of Prediction set')
-
 
 ax.spines['right'].set_visible(True)
 ax.spines['top'].set_visible(True)
