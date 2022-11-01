@@ -1,6 +1,7 @@
 #include "handler_helpers.h"
 #include <nvml.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 static bool nvml_is_setup = false;
 static nvmlDevice_t dev;
@@ -23,7 +24,7 @@ static void nvml_setup(int devidx) {
         exit(1);
 }
 
-int nvml_get_procs_running() {
+int nvml_get_procs_running(void) {
     nvml_setup(0);
     nvmlReturn_t result;
     unsigned int np=10;
