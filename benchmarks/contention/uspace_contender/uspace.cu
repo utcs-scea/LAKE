@@ -217,8 +217,13 @@ int main(int argc, char** argv) {
 //  times[0] = std::chrono::high_resolution_clock::now();
 
   // Print tpt
-  printf("time,tpt\n");
+  //printf("time,tpt\n");
+  FILE *f = fopen("uspace.out", "w");
   for (int l = 1; l < n_samples; ++l) {
-    printf("%f,%f\n", std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[0]).count(), (double) (pages_checksummed[l] - pages_checksummed[l - 1]) / (std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[l - 1]).count()));
+    fprintf(f, "%f,%f\n", std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[0]).count(), (double) (pages_checksummed[l] - pages_checksummed[l - 1]) / (std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[l - 1]).count()));
+    fflush(f);
+    //printf("%f,%f\n", std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[0]).count(), (double) (pages_checksummed[l] - pages_checksummed[l - 1]) / (std::chrono::duration_cast<std::chrono::duration<double>>(times[l] - times[l - 1]).count()));
   }
+  fclose(f);
+
 }

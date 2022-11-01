@@ -34,22 +34,24 @@
 #define LEN_LAYER_0_HALF 128
 #define LEN_LAYER_1 2
 
-#define RUNTIME_MS  1000
-#define STEP_MS 250
-#define INTERVAL_US 50
+//#define RUNTIME_MS  30000
+#define STEP_MS 20
+#define INTERVAL_US 200
 
 static char *cubin_path = "linnos.cubin";
-#ifdef __KERNEL__
 module_param(cubin_path, charp, 0444);
 MODULE_PARM_DESC(cubin_path, "The path to linnos.cubin, default ./linnos.cubin");
-#endif
+
+static int runtime_s = 10;
+module_param(runtime_s, int, 0444);
+u64 RUNTIME_MS;
 
 u8 model_size = 0;
 
 long *test_weights[8] = { weight_0_T, weight_1_T, bias_0, bias_1, weight_M_1_T, bias_M_1, weight_M_2_T, bias_M_2};
 
 u64 *out_ts;
-u64 *out_tput;
+u64 *out_predicted;
 struct GPU_weights state;
 
 static void run_cpu(char *input) {
@@ -78,32 +80,34 @@ static int run(void) {
     u64 avg, avg_total;
     u64 best, best_total;
 
+    RUNTIME_MS = runtime_s * 1000;
     u64 cur_slot = 0;
-    u64 out_slots = (RUNTIME_MS/STEP_MS) * 4; //4 to be safe  
+    u64 out_slots = (RUNTIME_MS/STEP_MS) * 10; //to be safe  
     out_ts = vmalloc(out_slots*sizeof(u64));
-    out_tput = vmalloc(out_slots*sizeof(u64));
+    out_predicted = vmalloc(out_slots*sizeof(u64));
 
     batch_size = 32;
     initialize_gpu(cubin_path, max_batch_size*4);
     copy_weights(test_weights, &state);
     expand_input_n_times(input, batch_size);
 
+    pr_warn("-----start-----\n");
     t_start = ktime_get_ns();
+    out_ts[cur_slot]   = t_start;
+    out_predicted[cur_slot] = 0;
+    cur_slot++;
     while (1) { //run for RUNTIME_MS
         nvmlRunningProcs(&proc);
-        print("%d: %s\n", proc, proc > 1 ? "cpu" : "GPU");
+        //pr_warn("%d: %s\n", proc, proc > 1 ? "cpu" : "GPU");
         use_gpu = proc <= 1;
-        //use_gpu = false;
         count = 0;
         
         step_start = ktime_get_ns();
         while(1) {  // run for STEP_MS
             if (use_gpu) {
-                //pr_warn("using gpu\n");
                 run_gpu(batch_size);
             } else {
-                //pr_warn("using cpu\n");
-                //for (i = 0 ; i < batch_size ; i++)
+                for (i = 0 ; i < batch_size ; i++)
                     run_cpu(input);
             }
             count += batch_size;
@@ -119,7 +123,8 @@ static int run(void) {
         //tput = (count*1000) / elapsed;
         //pr_warn("count %llu\n",count);
         out_ts[cur_slot]   = t_stop;
-        out_tput[cur_slot] = count;
+        out_predicted[cur_slot] = count;
+
         cur_slot++;
         t_stop = ktime_get_ns();
         elapsed = t_stop - t_start;
@@ -128,13 +133,13 @@ static int run(void) {
             break;
     }
 
-    for (i = 0 ; i < cur_slot ; i++) {
-        pr_warn("%llu, %llu\n", out_ts[i], out_tput[i]);
+    for (i = 1 ; i < cur_slot ; i++) {
+        pr_warn("lakecont,%llu, %llu\n", out_ts[i]-t_start, out_predicted[i]);
     }
 
     gpu_cuda_cleanup(&state);
     vfree(out_ts);
-    vfree(out_tput);
+    vfree(out_predicted);
     cuCtxDestroy(cuctx);
     return 0;
 }
