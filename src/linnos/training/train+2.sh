@@ -2,7 +2,7 @@
 
 TraceTag='trace'
 
-if [ $# -ne 4 ]
+if [ $# -ne 5 ]
   then
     echo "Usage train.sh <trace_1> <trace_2> <trace_3> <inflection_point> <name of trace>"
     # eg : ./train.sh testTraces/hacktest.trace testTraces/hacktest.trace testTraces/hacktest.trace 85

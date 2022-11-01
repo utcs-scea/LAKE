@@ -17,8 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-
 #include <linux/sched/signal.h>
 #include <linux/slab.h>
 #include <linux/time.h>
@@ -56,6 +54,19 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 // 3. set the pointers into a new array in weights (dont mess with the ending 0)
 
 #include "sde.h"
+
+#include "weights_header/mix/w_Trace_nvme0n1.h"
+#include "weights_header/mix/w_Trace_nvme1n1.h"
+#include "weights_header/mix/w_Trace_nvme2n1.h"
+
+//#include "weights_header/mix1/nn+1/w_Trace_nvme0n1.h"
+//#include "weights_header/mix1/nn+1/w_Trace_nvme1n1.h"
+//#include "weights_header/mix1/nn+1/w_Trace_nvme2n1.h"
+
+//#include "weights_header/mix1/nn+2/w_Trace_nvme0n1.h"
+//#include "weights_header/mix1/nn+2/w_Trace_nvme1n1.h"
+//#include "weights_header/mix1/nn+2/w_Trace_nvme2n1.h"
+
 //#include "weights_header/w_nvme0n1.h"
 //#include "weights_header/w_nvme1n1.h"
 //#include "weights_header/w_nvme2n1.h"
@@ -70,9 +81,9 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 //#include "weights_header/azure/nn+2/w_Trace_nvme1n1.h"
 //#include "weights_header/azure/nn+2/w_Trace_nvme2n1.h"
 
-#include "weights_header/cosmos/nn/w_Trace_nvme0n1.h"
-#include "weights_header/cosmos/nn/w_Trace_nvme1n1.h"
-#include "weights_header/cosmos/nn/w_Trace_nvme2n1.h"
+//#include "weights_header/cosmos/nn/w_Trace_nvme0n1.h"
+//#include "weights_header/cosmos/nn/w_Trace_nvme1n1.h"
+//#include "weights_header/cosmos/nn/w_Trace_nvme2n1.h"
 //#include "weights_header/cosmos/nn+1/w_Trace_nvme0n1.h"
 //#include "weights_header/cosmos/nn+1/w_Trace_nvme1n1.h"
 //#include "weights_header/cosmos/nn+1/w_Trace_nvme2n1.h"
@@ -89,16 +100,6 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 //#include "weights_header/bingi/nn+2/w_Trace_nvme0n1.h"
 //#include "weights_header/bingi/nn+2/w_Trace_nvme1n1.h"
 //#include "weights_header/bingi/nn+2/w_Trace_nvme2n1.h"
-
-//#include "weights_header/mix2/nn/w_Trace_nvme0n1.h"
-//#include "weights_header/mix2/nn/w_Trace_nvme1n1.h"
-//#include "weights_header/mix2/nn/w_Trace_nvme2n1.h"
-//#include "weights_header/mix1/nn+1/w_Trace_nvme0n1.h"
-//#include "weights_header/mix1/nn+1/w_Trace_nvme1n1.h"
-//#include "weights_header/mix1/nn+1/w_Trace_nvme2n1.h"
-//#include "weights_header/mix1/nn+2/w_Trace_nvme0n1.h"
-//#include "weights_header/mix1/nn+2/w_Trace_nvme1n1.h"
-//#include "weights_header/mix1/nn+2/w_Trace_nvme2n1.h"
 
 //#include "weights_header/mix4/nn/w_Trace_nvme1n1.h"
 //#include "weights_header/mix4/nn/w_Trace_nvme2n1.h"
