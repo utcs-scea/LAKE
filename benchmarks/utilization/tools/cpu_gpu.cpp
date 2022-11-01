@@ -127,6 +127,7 @@ void pid_thread() {
     //not found..
     if(result == "") {
         last_api.store(-1);
+        printf("cant find kapi pid\n");
         return;
     }
 
@@ -172,20 +173,29 @@ void gpu_thread() {
     unsigned int device_count;
 
     result = nvmlInit();
-    if (result != NVML_SUCCESS)
+    if (result != NVML_SUCCESS) {
+        printf("error nvmInit %d\n", result);
         exit(1);
+    }
     
     result = nvmlDeviceGetCount(&device_count);
-    if (result != NVML_SUCCESS)
+    if (result != NVML_SUCCESS) {
+        printf("error nvmlDeviceGetCount %d\n", result);
         exit(1);
+    }
 
     nvmlDevice_t dev1, dev2;
     result = nvmlDeviceGetHandleByIndex(0, &dev1);
-    if (result != NVML_SUCCESS)
+    if (result != NVML_SUCCESS) {
+        printf("error nvmlDeviceGetHandleByIndex1 %d\n", result);
         exit(1);
+    }
+
     result = nvmlDeviceGetHandleByIndex(1, &dev2);
-    if (result != NVML_SUCCESS)
+    if (result != NVML_SUCCESS) {
+        printf("error nvmlDeviceGetHandleByIndex %d\n", result);
         exit(1);
+    }
 
     // char device_name[NVML_DEVICE_NAME_BUFFER_SIZE];
     // result = nvmlDeviceGetName(device, device_name, NVML_DEVICE_NAME_BUFFER_SIZE);
@@ -198,8 +208,10 @@ void gpu_thread() {
     int pct;
     while(1) {
         result = nvmlDeviceGetUtilizationRates(dev1, &device_utilization);
-        if (result != NVML_SUCCESS)
+        if (result != NVML_SUCCESS) {
+            printf("error nvmlDeviceGetUtilizationRates %d\n", result);
             exit(1);
+        }
         pct = device_utilization.gpu; 
         result = nvmlDeviceGetUtilizationRates(dev2, &device_utilization);
         if (result != NVML_SUCCESS)
