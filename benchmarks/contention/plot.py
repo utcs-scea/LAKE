@@ -101,7 +101,7 @@ for i in range(kernel_x.shape[0]):
 us_start_y = 0.3
 print(f"anotating {us_start_x} {us_start_y}")
 ax.plot(us_start_x,us_start_y, "xb")
-plt.annotate('T0', (us_start_x, us_start_y), textcoords="offset points", 
+plt.annotate('T1', (us_start_x, us_start_y), textcoords="offset points", 
     xytext=(-15,-5), ha='center')
 
 #annotate
@@ -113,7 +113,7 @@ for i in range(kernel_x.shape[0]):
 us_cstart_y = uspace_tput[i]
 print(f"anotating {us_cstart_x} {us_cstart_y}")
 ax.plot(us_cstart_x,us_cstart_y, "xb")
-plt.annotate('T1', (us_cstart_x, us_cstart_y), textcoords="offset points", 
+plt.annotate('T2', (us_cstart_x, us_cstart_y), textcoords="offset points", 
     xytext=(-15,-5), ha='center')
 
 #annotate
@@ -125,7 +125,7 @@ for i in range(kernel_x.shape[0]):
 us_end_y = uspace_tput[i]
 print(f"anotating {us_end_x} {us_end_y}")
 ax.plot(us_end_x,us_end_y, "xb")
-plt.annotate('T2', (us_end_x, us_end_y), textcoords="offset points", 
+plt.annotate('T3', (us_end_x, us_end_y), textcoords="offset points", 
     xytext=(-15,-15), ha='center')
 
 
