@@ -60,9 +60,10 @@ int main(int argc, char** argv) {
 
   // alloc zero-copy pinned memory
   void *h_pages;
-  res = cudaMallocHost(&h_pages, batch_size * PAGE_SIZE * max_concurrency);
-//  h_pages = malloc(batch_size * PAGE_SIZE * max_concurrency);
-  if (res) { printf("Couldn't allocate pinned pages (%d)\n", res); }
+  //res = cudaMallocHost(&h_pages, batch_size * PAGE_SIZE * max_concurrency);
+  h_pages = malloc(batch_size * PAGE_SIZE * max_concurrency);
+  //if (res) { printf("Couldn't allocate pinned pages (%d)\n", res); }
+  if (res) printf("Couldn't allocatepages\n"); 
 
   // Device side mem
   CUdeviceptr d_pages;
