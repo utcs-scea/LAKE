@@ -7,6 +7,7 @@
 #include "lake_kapi.h"
 #include "kargs.h"
 #include "kleio/py_wrapper.h"
+#include "handler_helpers.h"
 
 #define DRY_RUN 0
 
@@ -217,10 +218,7 @@ static int lake_handler_kleioForceGC(void* buf, struct lake_cmd_ret* cmd_ret) {
 
 static int lake_handler_nvmlRunningProcs(void* buf, struct lake_cmd_ret* cmd_ret) {
     struct lake_cmd_nvmlRunningProcs *cmd = (struct lake_cmd_nvmlRunningProcs *) buf;
-
-    //TODO
-    cmd_ret->ptr = 0;
-
+    cmd_ret->ptr = (int) nvml_get_procs_running();
     cmd_ret->res = 0;
     return 0;
 }

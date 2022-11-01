@@ -1,0 +1,1 @@
+int nvml_get_procs_running();

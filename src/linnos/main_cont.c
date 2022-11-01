@@ -34,7 +34,7 @@
 #define LEN_LAYER_0_HALF 128
 #define LEN_LAYER_1 2
 
-#define RUNTIME_MS  2000
+#define RUNTIME_MS  1000
 #define STEP_MS 250
 #define INTERVAL_US 50
 
@@ -69,10 +69,8 @@ static int run(void) {
     // n needs to be at least as large as the largest batch size
     int batch_size;
     char input[31] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,9,0,0,0,9,0,0,0,9};
-    struct GPU_weights state;
     u64 t_start, t_stop, step_start, elapsed;
     u64 count, tput;
-    //i64 sleepy_time;
     bool use_gpu;
     
     u64* comp_run_times;
@@ -86,55 +84,54 @@ static int run(void) {
     out_tput = vmalloc(out_slots*sizeof(u64));
 
     batch_size = 32;
-    initialize_gpu(cubin_path, max_batch_size);
+    initialize_gpu(cubin_path, max_batch_size*4);
     copy_weights(test_weights, &state);
     expand_input_n_times(input, batch_size);
 
-    while (1) {
+    t_start = ktime_get_ns();
+    while (1) { //run for RUNTIME_MS
         nvmlRunningProcs(&proc);
-        use_gpu = proc == 1;
-
+        print("%d: %s\n", proc, proc > 1 ? "cpu" : "GPU");
+        use_gpu = proc <= 1;
+        //use_gpu = false;
         count = 0;
-        t_start = ktime_get_ns();
         
-        while (1) {
-            step_start = ktime_get_ns();
-            while(1) {
-                if (use_gpu) {
-                    pr_warn("using gpu\n");
-                    run_gpu(batch_size);
-                } else {
-                    pr_warn("using cpu\n");
-                    for (i = 0 ; i < batch_size ; i++)
-                        run_cpu(input);
-                }
-                pr_warn("done\n");
-                count += batch_size;
-                t_stop = ktime_get_ns();
-                elapsed = t_stop - step_start;
-                if (elapsed >= (STEP_MS*1000000)) {
-                    break;
-                }
-                //wait a bit
-                usleep_range(INTERVAL_US-20, INTERVAL_US+20);
-                break; //XXX
-            }   
-            pr_warn("1\n");
-            tput = count / elapsed;
-            out_ts[cur_slot] = t_stop;
-            out_tput = tput;
-            cur_slot++;
-            pr_warn("2\n");
+        step_start = ktime_get_ns();
+        while(1) {  // run for STEP_MS
+            if (use_gpu) {
+                //pr_warn("using gpu\n");
+                run_gpu(batch_size);
+            } else {
+                //pr_warn("using cpu\n");
+                //for (i = 0 ; i < batch_size ; i++)
+                    run_cpu(input);
+            }
+            count += batch_size;
             t_stop = ktime_get_ns();
-            elapsed = t_stop - t_start;
-
-            break; //XXX
-            if (elapsed >= (RUNTIME_MS*1000000)) {
+            elapsed = t_stop - step_start;
+            if (elapsed >= (STEP_MS*1000000)) {
                 break;
             }
+            //wait a bit
+            usleep_range(INTERVAL_US-20, INTERVAL_US+20);
         }
+        //a batch of STEP_MS was completed
+        //tput = (count*1000) / elapsed;
+        //pr_warn("count %llu\n",count);
+        out_ts[cur_slot]   = t_stop;
+        out_tput[cur_slot] = count;
+        cur_slot++;
+        t_stop = ktime_get_ns();
+        elapsed = t_stop - t_start;
+
+        if (elapsed >= (RUNTIME_MS*1000000))
+            break;
     }
-    pr_warn("3\n");
+
+    for (i = 0 ; i < cur_slot ; i++) {
+        pr_warn("%llu, %llu\n", out_ts[i], out_tput[i]);
+    }
+
     gpu_cuda_cleanup(&state);
     vfree(out_ts);
     vfree(out_tput);
