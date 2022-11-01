@@ -87,73 +87,74 @@ np.save("uspace_tput", uspace_tput)
 np.save("kernel_x", kernel_x)
 np.save("kernel_tput", kernel_tput)
 
-# cmap = matplotlib.cm.get_cmap("tab10")
-# fig, ax = plt.subplots()
+uspace_x = uspace_x[10:]
+uspace_tput = uspace_tput[10:]
 
-# #Padding with 0
-# pad = x.shape[0] - cpu.shape[0]
-# if pad >0:
-#     cpu = np.pad(cpu, (0, pad), 'constant')
+min = np.min(uspace_x)
+if min < 0:
+    uspace_x = uspace_x + abs(min)
 
-# pad = x.shape[0] - lake_cpu.shape[0]
-# if pad >0:
-#     lake_cpu = np.pad(lake_cpu, (0, pad), 'constant')
+uspace_x += 10
 
-# pad = x.shape[0] - aes_ni.shape[0]
-# if pad >0:
-#     aes_ni = np.pad(aes_ni, (0, pad), 'constant')
 
-# pad = x.shape[0] - lake_gpu.shape[0]
-# if pad >0:
-#     lake_gpu = np.pad(lake_gpu, (0, pad), 'constant')
+kernel_x = kernel_x[10:]
+kernel_tput = kernel_tput[10:]
 
-# pad = x.shape[0] - lake_api.shape[0]
-# if pad >0:
-#     lake_api = np.pad(lake_api, (0, pad), 'constant')
+min = np.min(kernel_x)
+if min < 0:
+    kernel_x = kernel_x + abs(min)
 
-# #cutiing the array
-# index = 0
-# for ele in x:
-#     if ele > 8:
-#         break
-#     index += 1
+kernel_x = kernel_x/pow(10, 9)
 
-# x = x[index:]
-# x = x - x[0] # normalizing
-# cpu = cpu[index:]
-# aes_ni = aes_ni[index:]
-# lake_cpu = lake_cpu[index:]
-# lake_gpu = lake_gpu[index:]
-# lake_api = lake_api[index:]
+#uspace
+size = uspace_x.shape[0]
 
-# #smoothening the grpah
-# kernel_size = 3
-# kernel = np.ones(kernel_size) / kernel_size
-# cpu = np.convolve(cpu, kernel, mode='same')
-# aes_ni = np.convolve(aes_ni, kernel, mode='same')
-# lake_cpu = np.convolve(lake_cpu, kernel, mode='same')
-# lake_api = np.convolve(lake_api, kernel, mode='same')
-# lake_gpu = np.convolve(lake_gpu, kernel, mode='same')
+uspace_cur = uspace_tput[1:]
 
-# ax.plot(x, cpu, label='CPU', color=cmap(0) )#, marker="x", markersize=3)
-# ax.plot(x, aes_ni, label='AES-NI', color=cmap(1), marker="o", markersize=3)
-# ax.plot(x, lake_cpu, label='LAKE CPU', color=cmap(2), marker="v", markersize=3)
-# ax.plot(x, lake_api, label='LAKE API', color=cmap(3), marker="s", markersize=3)
-# ax.plot(x, lake_gpu, label='LAKE GPU', color='black', linewidth=1, marker='.')
-# #     linestyle='dotted', linewidth=3)
-    
-# fig.tight_layout()
-# plt.xlim(left=0, right=x[-5])
-# plt.ylim(bottom=0)
+time_cur = uspace_x[1:]
+time_prev = uspace_x[0:size - 1]
+time_diff = time_cur - time_prev
 
-# ax.legend(loc='upper center', ncol=1, bbox_to_anchor=(1.25, 1), columnspacing=1)
+uspace_x_val = time_cur
+uspace_y_val = uspace_cur/time_diff
+uspace_y_val = uspace_y_val/np.max(uspace_y_val)
 
-# ax.set_xlabel('Time (s)')
-# ax.set_ylabel('Utilization (%)')
+kernel_size = 3
+kernel = np.ones(kernel_size) / kernel_size
+uspace_y_val = np.convolve(uspace_y_val, kernel, mode='same')
 
-# ax.grid(visible=True, which='major', axis='y', color='#0A0A0A', linestyle='--', alpha=0.2)
 
-# fig.set_size_inches(3.5, 2)
-# fig.set_dpi(200)
+#kernel
+size = kernel_x.shape[0]
 
-# plt.savefig('ecryptfs_util.pdf', bbox_inches='tight',pad_inches=0.05)
+kernel_cur = kernel_tput[1:]
+
+time_cur_kern = kernel_x[1:]
+time_prev_kern = kernel_x[0:size - 1]
+time_diff_kern = time_cur_kern - time_prev_kern
+
+kernel_x_val = time_cur_kern
+kernel_y_val = kernel_cur/time_diff_kern
+kernel_y_val = kernel_y_val/np.max(kernel_y_val)
+
+kernel_size = 3
+kernel = np.ones(kernel_size) / kernel_size
+kernel_y_val = np.convolve(kernel_y_val, kernel, mode='same')
+
+
+rc('text', usetex=True)
+plt.rc('font', family='serif', size=12)
+fig, ax = plt.subplots()
+
+ax.plot(uspace_x_val, uspace_y_val, label='uspace', color='red', linestyle='solid')
+ax.plot(kernel_x_val, kernel_y_val, label='kernel', color='grey', linestyle='solid')
+
+fig.tight_layout()
+plt.gcf().set_size_inches(5, 2.5)
+# plt.xlim(0, 40)
+# plt.ylim(0, 1.1)
+ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.2))
+ax.set_xlabel('Time (s)')
+ax.set_ylabel('Normalized Throughput')
+
+plt.savefig('contention.pdf', dpi = 800, bbox_inches='tight', pad_inches=0)
