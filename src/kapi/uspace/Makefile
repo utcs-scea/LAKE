@@ -22,14 +22,15 @@ PY_LINKER_FLAGS = $(shell $(pyver)-config --libs $(embf))
 #PY_COMPILE_FLAGS = $(shell $(pyver)-config --cflags $(embf))
 #nvcc doesnt understand flags from this, build manually
 PY_COMPILE_FLAGS = -I/usr/include/$(pyver) -DNDEBUG -O2 -lcrypt -ldl  -lm
-PY_COMPILE_FLAGS += -I../../../lakevenv/lib/python3.10/site-packages/numpy/core/include
+PY_COMPILE_FLAGS += -I../../../lakevenv/lib/$(pyver)/site-packages/numpy/core/include
+PY_COMPILE_FLAGS += -I../../../lakevenv/lib/$(pyver)/site-packages/numpy/core/include/numpy
 
 current_dir = $(shell pwd)
 model:=/../../kleio/lstm_page_539
 fullp:=$(current_dir)$(model)
 CFLAGS += -D__MODELPATH__=\"$(fullp)\"
 CFLAGS += -D__INCPATH__=\"$(current_dir)/kleio\"
-pypackages:=$(current_dir)/../../../lakevenv/lib/python3.10/site-packages/
+pypackages:=$(current_dir)/../../../lakevenv/lib/$(pyver)/site-packages/
 CFLAGS += -D__INCPATH2__=\"$(pypackages)\"
 
 all: lake_uspace
