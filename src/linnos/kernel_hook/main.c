@@ -55,31 +55,28 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 
 #include "sde.h"
 
-#include "weights_header/mix/w_Trace_nvme0n1.h"
-#include "weights_header/mix/w_Trace_nvme1n1.h"
-#include "weights_header/mix/w_Trace_nvme2n1.h"
+//#include "weights_header/mix/w_Trace_nvme0n1.h"
+//#include "weights_header/mix/w_Trace_nvme1n1.h"
+//#include "weights_header/mix/w_Trace_nvme2n1.h"
 
-//#include "weights_header/mix1/nn+1/w_Trace_nvme0n1.h"
-//#include "weights_header/mix1/nn+1/w_Trace_nvme1n1.h"
-//#include "weights_header/mix1/nn+1/w_Trace_nvme2n1.h"
+#include "weights_header/mix+1/w_Trace_nvme0n1.h"
+#include "weights_header/mix+1/w_Trace_nvme1n1.h"
+#include "weights_header/mix+1/w_Trace_nvme2n1.h"
 
-//#include "weights_header/mix1/nn+2/w_Trace_nvme0n1.h"
-//#include "weights_header/mix1/nn+2/w_Trace_nvme1n1.h"
-//#include "weights_header/mix1/nn+2/w_Trace_nvme2n1.h"
+//#include "weights_header/mix+2/w_Trace_nvme0n1.h"
+//#include "weights_header/mix+2/w_Trace_nvme1n1.h"
+//#include "weights_header/mix+2/w_Trace_nvme2n1.h"
 
-//#include "weights_header/w_nvme0n1.h"
-//#include "weights_header/w_nvme1n1.h"
-//#include "weights_header/w_nvme2n1.h"
 
-//#include "weights_header/azure/nn/w_Trace_nvme0n1.h"
-//#include "weights_header/azure/nn/w_Trace_nvme1n1.h"
-//#include "weights_header/azure/nn/w_Trace_nvme2n1.h"
-//#include "weights_header/azure/nn+1/w_Trace_nvme0n1.h"
-//#include "weights_header/azure/nn+1/w_Trace_nvme1n1.h"
-//#include "weights_header/azure/nn+1/w_Trace_nvme2n1.h"
-//#include "weights_header/azure/nn+2/w_Trace_nvme0n1.h"
-//#include "weights_header/azure/nn+2/w_Trace_nvme1n1.h"
-//#include "weights_header/azure/nn+2/w_Trace_nvme2n1.h"
+//#include "weights_header/azure/w_Trace_nvme0n1.h"
+//#include "weights_header/azure/w_Trace_nvme1n1.h"
+//#include "weights_header/azure/w_Trace_nvme2n1.h"
+//#include "weights_header/azure1/w_Trace_nvme0n1.h"
+//#include "weights_header/azure1/w_Trace_nvme1n1.h"
+//#include "weights_header/azure1/w_Trace_nvme2n1.h"
+//#include "weights_header/azure2/w_Trace_nvme0n1.h"
+//#include "weights_header/azure2/w_Trace_nvme1n1.h"
+//#include "weights_header/azure2/w_Trace_nvme2n1.h"
 
 //#include "weights_header/cosmos/nn/w_Trace_nvme0n1.h"
 //#include "weights_header/cosmos/nn/w_Trace_nvme1n1.h"
@@ -101,15 +98,6 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 //#include "weights_header/bingi/nn+2/w_Trace_nvme1n1.h"
 //#include "weights_header/bingi/nn+2/w_Trace_nvme2n1.h"
 
-//#include "weights_header/mix4/nn/w_Trace_nvme1n1.h"
-//#include "weights_header/mix4/nn/w_Trace_nvme2n1.h"
-//#include "weights_header/mix4/nn/w_Trace_nvme0n1.h"
-//#include "weights_header/mix4/nn+1/w_Trace_nvme0n1.h"
-//#include "weights_header/mix4/nn+1/w_Trace_nvme1n1.h"
-//#include "weights_header/mix4/nn+1/w_Trace_nvme2n1.h"
-//#include "weights_header/mix4/nn+2/w_Trace_nvme0n1.h"
-//#include "weights_header/mix4/nn+2/w_Trace_nvme1n1.h"
-//#include "weights_header/mix4/nn+2/w_Trace_nvme2n1.h"
 
 
 static const char *devices[] = {
@@ -122,23 +110,24 @@ static const char *devices[] = {
 };
 
 long *weights[][8] = {
-	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde},
-	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
-	
 	//NN
-	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
-	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
-	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
+	//{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
+	//{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
+	//{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
 
 	// NN+1
-	//{weight_0_T_nvme0n1, weight_2_T_nvme0n1, bias_0_nvme0n1, bias_2_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,0,0},
-	//{weight_0_T_nvme1n1, weight_2_T_nvme1n1, bias_0_nvme1n1, bias_2_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,0,0},
-	//{weight_0_T_nvme2n1, weight_2_T_nvme2n1, bias_0_nvme2n1, bias_2_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,0,0},
+	{weight_0_T_nvme0n1, weight_2_T_nvme0n1, bias_0_nvme0n1, bias_2_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,0,0},
+	{weight_0_T_nvme1n1, weight_2_T_nvme1n1, bias_0_nvme1n1, bias_2_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,0,0},
+	{weight_0_T_nvme2n1, weight_2_T_nvme2n1, bias_0_nvme2n1, bias_2_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,0,0},
 
 	//NN+2
 	//{weight_0_T_nvme0n1, weight_3_T_nvme0n1, bias_0_nvme0n1, bias_3_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,weight_2_T_nvme0n1, bias_2_nvme0n1},
 	//{weight_0_T_nvme1n1, weight_3_T_nvme1n1, bias_0_nvme1n1, bias_3_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,weight_2_T_nvme1n1, bias_2_nvme1n1},
 	//{weight_0_T_nvme2n1, weight_3_T_nvme2n1, bias_0_nvme2n1, bias_3_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,weight_2_T_nvme2n1, bias_2_nvme2n1},
+
+	// for testing..
+	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde},
+	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde}
 };
 
 //the predictor function to use
@@ -179,6 +168,17 @@ static int gpu_attach(void) {
 	multi_initialize_gpu(cubin_path, 512, ndev);
 	window_size_hist = vmalloc(256);
 	for (i=0;i<256;i++) window_size_hist[i] = 0;
+
+	if(model_size==0) {
+		cpu_gpu_threshold = 8;
+		window_size_ns = 1;
+	} else if (model_size == 1) {
+		//cpu_gpu_threshold = 4;
+	} else if (model_size == 2) {
+		//window_size_ns = 50;
+		//cpu_gpu_threshold = 3;
+		//max_batch_size = 5;
+	}
 
 	predictors_mgpu_init();
 
@@ -232,12 +232,15 @@ static int parse_arg(void) {
 	if (!strcmp("fake", predictor_str)) {
 		fptr = fake_prediction_model;
 	} else if (!strcmp("cpu", predictor_str)) {
-		if (model_size == 0)
+		if (model_size == 0) {
 			fptr = cpu_prediction_model;
-		else if (model_size == 1)
+		}
+		else if (model_size == 1) {
 			fptr = cpu_prediction_model_plus_1;
-		else
+		}
+		else {
 			fptr = cpu_prediction_model_plus_2;
+		}
 		pr_warn("Inserting CPU prediction with %d extra layers\n", model_size);
 	}else if (!strcmp("gpu", predictor_str)) {
 		is_gpu_inf = true;

@@ -30,16 +30,16 @@
 #include "lake_shm.h"
 
 int PREDICT_GPU_SYNC = 0;
-
-bool NEVER_REJECT = true;
+//debug
+bool NEVER_REJECT = false;
 
 #define _us 1000
 //batch variables
-const u64 window_size_ns = 30*_us;  //1;  //1*_us;
+u64 window_size_ns = 100*_us;
 //const u64 window_size_ns = 1;
-const u32 max_batch_size = 6; //this cannot be more than 256 (allocated in main.c)
-const u32 cpu_gpu_threshold = 2; //less than this we use cpu
-const u64 inter_arrival_threshold = 800*_us;
+u32 max_batch_size = 16; //this cannot be more than 256 (allocated in main.c)
+u32 cpu_gpu_threshold = 4; //less than this we use cpu
+u64 inter_arrival_threshold = 800*_us;
 
 //use normal (0), +1 or +2
 extern u8 model_size;
@@ -85,8 +85,9 @@ void predictors_mgpu_init(void) {
 	}
 }
 
-static int gpu_get_prediction(int dev, int batch, int id) {
-	return multi_gpu_outputs[dev][batch][id*64]>=(multi_gpu_outputs[dev][batch][id*64+32]) ?  false: true;
+int gpu_get_prediction(int dev, int batch, int id) {
+	return multi_gpu_outputs[dev][batch][id*64] >=
+			(multi_gpu_outputs[dev][batch][id*64+32]) ?  false: true;
 }
 
 //hack: weights are actually device pointers here
@@ -161,22 +162,21 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
 		&weights[1], &weights[3], &multi_d_mid_res_2_i[dev][batch], &multi_d_final_res_i[dev][batch]
 	};
 
-	// void *args2[] = {
-	// 	&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
-	// };
-
-	// void *args3[] = {
-	// 	&weights[6], &weights[7], &multi_d_mid_res_1_i[dev][batch], &multi_d_mid_res_2_i[dev][batch]
-	// };
-
 	void *args2[] = {
 		&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
 	};
 
 	void *args3[] = {
-		&weights[6], &weights[7],  &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
+		&weights[6], &weights[7], &multi_d_mid_res_1_i[dev][batch], &multi_d_mid_res_2_i[dev][batch]
 	};
 
+	// void *args2[] = {
+	// 	&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
+	// };
+
+	// void *args3[] = {
+	// 	&weights[6], &weights[7],  &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
+	// };
 
     check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
 				n_vecs, 1, 1,          //blocks
@@ -193,6 +193,7 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
                 cu_streams[dev][batch], args2, NULL),
 			"cuLaunchKernel", __LINE__);
 
+	// doesnt both batch_linnos_mid_layer_2_kernel and the one below have the same code?
 	check_error(cuLaunchKernel(batch_linnos_mid_layer_1_kernel, 
 				n_vecs, 1, 1,          //blocks
 				256, 1, 1,   //threads per block
@@ -200,7 +201,6 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
                 cu_streams[dev][batch], args3, NULL),
 			"cuLaunchKernel", __LINE__);
 
-	//Isha, there's a bug here somewhere, it crashes santacruz
 	// check_error(cuLaunchKernel(batch_linnos_mid_layer_2_kernel, 
 	// 			n_vecs, 1, 1,          //blocks
 	// 			256, 1, 1,   //threads per block
@@ -285,12 +285,12 @@ enter_again:
 		last_arrival[this_dev][my_batch] = window_start_ns[this_dev][my_batch];
 	}
 
-	//XXX hack
-	if(window_size_ns < 100) {
-		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
-		waiting[this_dev][my_batch] = 0;
-		goto lonely;
-	}
+	// //XXX hack
+	// if(window_size_ns < 100) {
+	// 	spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+	// 	waiting[this_dev][my_batch] = 0;
+	// 	goto lonely;
+	// }
 
 	//copy inputs to intermediary buffer, but we need to convert into longs for gpu
 	for (i = 0 ; i < LEN_INPUT ; i++)
@@ -309,6 +309,7 @@ enter_again:
 		//this avoids ppl entering even if we release the lock
 		batch_running[this_dev][my_batch] = true;
 		window_size_hist[waiting[this_dev][my_batch]] += 1;
+		//pr_warn("batch done with %d\n", waiting[this_dev][my_batch]);
 		//we have to exclude ppl from waking us multiple times, they check based on waiting == 0
 		this_batch_size[this_dev][my_batch] = waiting[this_dev][my_batch];
 		waiting[this_dev][my_batch] = 0;

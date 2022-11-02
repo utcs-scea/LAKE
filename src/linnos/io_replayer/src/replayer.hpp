@@ -160,6 +160,11 @@ public:
         return dev_fds;
     }
 
+    void closefds() {
+        for (int i = 0 ; i < ndevices ; i++)
+            close(dev_fds[i]);
+    }
+
     void set_output_file(std::string filename) {
         outfile = std::ofstream(filename);
     }

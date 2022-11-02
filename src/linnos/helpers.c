@@ -273,6 +273,9 @@ void multi_copy_inputs_to_gpu(u64 n_inputs, int dev, int batch_id) {
 }
 
 void multi_copy_results_from_gpu(u64 n_inputs, int dev, int batch_id) {
-    cuMemcpyDtoHAsync(multi_gpu_outputs[dev][batch_id], multi_d_final_res_i[dev][batch_id], sizeof(long) * 64 * n_inputs, cu_streams[dev][batch_id]);
+    cuMemcpyDtoHAsync(multi_gpu_outputs[dev][batch_id], 
+            multi_d_final_res_i[dev][batch_id], 
+            sizeof(long) * 64 * n_inputs, 
+            cu_streams[dev][batch_id]);
     cuStreamSynchronize(cu_streams[dev][batch_id]);
 }
