@@ -15,7 +15,7 @@ gpucomp = {} # map of nn+ to map of dict {batch size , [gpu, gpudata ]}
 
 for line in reversed(klog.splitlines()):
     #print (line)
-    if "kleio_" in line:
+    if "linnos" in line:
         #linnos+2_GPU_batch_128,447,489
         m = re.search("linnos\+(\d)_GPU\_batch\_(\d+),(\d+),(\d+)", line) 
         if not m:
