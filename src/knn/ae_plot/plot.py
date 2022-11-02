@@ -109,7 +109,7 @@ ax.plot(x, cpu, label="CPU", color=c0,
     marker="o",
     )
 
-ax.plot(x, ae_gpu, label="AE_CPU", color=c1,
+ax.plot(x, ae_cpu, label="AE_CPU", color=c1,
     linewidth=2, 
     #linestyle=densely_dashdotdotted,
     marker="*",
