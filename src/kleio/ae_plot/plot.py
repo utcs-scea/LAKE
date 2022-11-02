@@ -38,8 +38,8 @@ for i in sorted(cpu.keys()):
     gpucol.append(gpu[i])
 
 
-lakecpu = np.loadtxt('kleio.csv',dtype=int, delimiter=',',skiprows=1,usecols=(1,))
-lakegpu=  np.loadtxt('kleio.csv',dtype=int, delimiter=',',skiprows=1,usecols=(2,))
+lakecpu = np.loadtxt('kleio.csv',dtype=float, delimiter=',',skiprows=1,usecols=(1,))
+lakegpu=  np.loadtxt('kleio.csv',dtype=float, delimiter=',',skiprows=1,usecols=(2,))
 
 cmap = matplotlib.cm.get_cmap("Paired")
 c0 =  cmap(0)
@@ -75,7 +75,7 @@ ax.plot(x, gpucol, label="AE_LAKE",
 
 #plt.xticks(np.asarray(batch_sizes), rotation=30, ha='right', rotation_mode="anchor")
 plt.ticklabel_format(axis='y', style='sci', scilimits=(2,2))
-ax.set_xticks(x, rotation=90)
+plt.xticks(x, rotation=90, rotation_mode="anchor")
 #ax.set_xticklabels(batch_sizes)
 
 #ax.set_xlim(left=0, right=len(batch_sizes)-1)
