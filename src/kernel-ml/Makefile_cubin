@@ -9,7 +9,7 @@ LDFLAGS       := -L$(CUDA_LIB_PATH) -lcuda
 ROOT_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 SM_SCRIPT = $(ROOT_DIR)../../scripts/get_gpu_sm.sh
 
-all: kml
+all: kml.cubin
 
 kml.cubin: kernels.cu
 	nvcc $(NVCCFLAGS) --cubin $(shell $(SM_SCRIPT)) $(INCLUDES) -o $@ $+ $(LDFLAGS)

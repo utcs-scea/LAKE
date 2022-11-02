@@ -125,7 +125,7 @@ ax.set_xticklabels(batch_sizes)
 #ax.set_xlim(left=0, right=len(batch_sizes)-1)
 ax.set_ylabel('Time (us)')
 
-ax.set_xlabel('# I/Os having their latency predicted')
+ax.set_xlabel('Number of Readahead Predictions')
 
 
 ax.spines['right'].set_visible(True)
