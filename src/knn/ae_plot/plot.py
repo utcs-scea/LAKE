@@ -99,6 +99,8 @@ c5 =  cmap(5)
 
 plt.yscale('log')
 fig, ax = plt.subplots()
+ax.set_yscale('log')
+
 
 #cpu
 ax.plot(x, cpu, label="CPU", color=c0,
