@@ -309,6 +309,10 @@ enter_again:
 		goto lonely;
 	}
 
+	//cpu_times[model_size] {7, 101,196}
+	//cpu_gpu_threshold      8, 4,   2
+	//avg arrival
+
 	// for (i = 0 ; i < ia_avg_sz ; i++)
 	// 	ia_avg += ia_avgs[this_dev][i];
 	// ia_avg = ia_avg >> ia_avg_shift;
