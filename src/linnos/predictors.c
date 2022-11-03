@@ -175,15 +175,6 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
 		&weights[6], &weights[7], &multi_d_mid_res_1_i[dev][batch], &multi_d_mid_res_2_i[dev][batch]
 	};
 
-	//these two are debug
-	// void *args2[] = {
-	// 	&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
-	// };
-
-	// void *args3[] = {
-	// 	&weights[6], &weights[7],  &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
-	// };
-
 
     check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
 				n_vecs, 1, 1,          //blocks
@@ -302,12 +293,12 @@ enter_again:
 		last_arrival[this_dev][my_batch] = window_start_ns[this_dev][my_batch];
 	}
 
-	//XXX hack
-	if(window_size_ns < 100) {
-		waiting[this_dev][my_batch] = 0;
-		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
-		goto lonely;
-	}
+	// //XXX hack
+	// if(window_size_ns < 100) {
+	// 	waiting[this_dev][my_batch] = 0;
+	// 	spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+	// 	goto lonely;
+	// }
 
 	// for (i = 0 ; i < ia_avg_sz ; i++)
 	// 	ia_avg += ia_avgs[this_dev][i];
@@ -560,8 +551,8 @@ bool fake_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	return false;
 }
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
+//#pragma GCC push_options
+//#pragma GCC optimize ("O0")
 bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent; 
@@ -651,10 +642,10 @@ bool cpu_prediction_model(char *feat_vec, int n_vecs, long **weights) {
     end = (final_res_i[0]>=final_res_i[1])? false: true;
 	return no_reject ? false : end; 
 }
-#pragma GCC pop_options
+//#pragma GCC pop_options
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
+//#pragma GCC push_options
+//#pragma GCC optimize ("O0")
 bool cpu_prediction_model_plus_1(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], mid_res_m_1[LEN_LAYER_M_1], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent, *weight_M_1, *bias_M_1; 
@@ -763,11 +754,11 @@ bool cpu_prediction_model_plus_1(char *feat_vec, int n_vecs, long **weights) {
 	end = (final_res_i[0]>=final_res_i[1])? false: true;
 	return no_reject ? false : end; 
 }
-#pragma GCC pop_options
+//#pragma GCC pop_options
 
 
-#pragma GCC push_options
-#pragma GCC optimize ("O0")
+//#pragma GCC push_options
+//#pragma GCC optimize ("O0")
 bool cpu_prediction_model_plus_2(char *feat_vec, int n_vecs, long **weights) {
 	long input_vec_i[LEN_INPUT], mid_res_i[LEN_LAYER_0], mid_res_m_1[LEN_LAYER_M_1], mid_res_m_2[LEN_LAYER_M_2], final_res_i[LEN_LAYER_1];
 	long *weight_0_T_ent, * bias_0_ent, *weight_1_T_ent, * bias_1_ent, *weight_M_1, *bias_M_1, *weight_M_2, *bias_M_2; 
@@ -892,7 +883,7 @@ bool cpu_prediction_model_plus_2(char *feat_vec, int n_vecs, long **weights) {
 	end = (final_res_i[0]>=final_res_i[1])? false: true;
 	return no_reject ? false : end; 
 }
-#pragma GCC pop_options
+//#pragma GCC pop_options
 
 bool batch_test(char *feat_vec, int n_vecs, long **weights) {
 	return false;
