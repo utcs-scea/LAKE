@@ -251,7 +251,7 @@ void multi_initialize_gpu(const char* cubin_path, int max_batch_size, int ndev) 
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_mid_res_2_i[dev][batch], sizeof(long) * LEN_LAYER_M_2 * max_batch_size), "cuMemAlloc ", __LINE__);
             check_error(cuMemAlloc((CUdeviceptr*) &multi_d_final_res_i[dev][batch], sizeof(long) * LEN_LAYER_1 * max_batch_size *32), "cuMemAlloc ", __LINE__);
 
-            cuStreamCreate(&cu_streams[dev][batch], 0);
+            check_error(cuStreamCreate(&cu_streams[dev][batch], 0), "cuMemAlloc ", __LINE__);
 
             multi_inputs_to_gpu[dev][batch] = kava_alloc(LEN_INPUT * max_batch_size * sizeof(long));
             if (!multi_inputs_to_gpu[dev][batch]) 
