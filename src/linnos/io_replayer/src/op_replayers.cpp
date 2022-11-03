@@ -65,6 +65,67 @@ void baseline_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char*
     }
 }
 
+void failover_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
+    int ret, i;
+    int *fds = trace->get_fds();
+    bool success = false;
+    //read
+    if(trace_op.op == 0) {
+        trace->add_io_count(device);
+        ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
+        if (ret < 0) {
+            trace->add_fail(device);
+            for (i = 0 ; i < MAX_FAIL ; i++) {
+                device = ++device % 3;
+                trace->add_io_count(device);
+                ret = pread(fds[device], buf, trace_op.size, trace_op.offset);
+                if (ret > 0) {
+                    success = true;
+                    break;
+                }
+                trace->add_fail(device);
+            }
+            if (!success) {
+                //printf("IO never finished..\n");
+                trace->add_unique_fail(device);
+                pread(fds[device], buf, trace_op.size, 0); //this is what linnos does
+            }
+        }
+    } else if(trace_op.op == 1) {
+        trace->add_io_count(device);
+        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+    } else {
+        printf("Wrong OP code! %d\n", trace_op.op);
+    }
+
+    // int ret, i;
+    // int *fds = trace->get_fds();
+    // bool success = false;
+    // //read
+    // if(trace_op.op == 0) {
+    //     for (i = 0 ; i < MAX_FAIL ; i++) {
+    //         trace->add_io_count((device+i)%2);
+    //         ret = pread(fds[(device+i)%2], buf, trace_op.size, trace_op.offset);
+    //         if (ret > 0) {
+    //             success = true;
+    //             break;
+    //         }
+    //         trace->add_fail(device);
+    //     }
+    //     //max fail.. it looped around, linnos never handled this case
+    //     if (!success) {
+    //         //printf("IO never finished..\n");
+    //         trace->add_unique_fail(device);
+    //         pread(fds[device], buf, trace_op.size, 0); //this is what linnos does
+    //     }
+    // } else if(trace_op.op == 1) {
+    //     trace->add_io_count(device);
+    //     ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
+    // } else {
+    //     printf("Wrong OP code! %d\n", trace_op.op);
+    // }
+}
+
 void strawman_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
     int ret;
     int *fds = trace->get_fds();
@@ -117,34 +178,6 @@ void strawman_2ssds_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device,
     }
 }
 
-void failover_execute_op(TraceOp &trace_op, Trace *trace, uint32_t device, char* buf) {
-    int ret, i;
-    int *fds = trace->get_fds();
-    bool success = false;
-    //read
-    if(trace_op.op == 0) {
-        for (i = 0 ; i < MAX_FAIL ; i++) {
-            trace->add_io_count((device+i)%2);
-            ret = pread(fds[(device+i)%2], buf, trace_op.size, trace_op.offset);
-            if (ret > 0) {
-                success = true;
-                break;
-            }
-            trace->add_fail(device);
-        }
-        //max fail.. it looped around, linnos never handled this case
-        if (!success) {
-            //printf("IO never finished..\n");
-            trace->add_unique_fail(device);
-            pread(fds[device], buf, trace_op.size, 0); //this is what linnos does
-        }
-    } else if(trace_op.op == 1) {
-        trace->add_io_count(device);
-        ret = pwrite(fds[device], buf, trace_op.size, trace_op.offset);
-    } else {
-        printf("Wrong OP code! %d\n", trace_op.op);
-    }
-}
 
 void* replayer_fn(void* arg) {
     Thread_arg *targ = (Thread_arg*) arg;

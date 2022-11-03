@@ -55,9 +55,9 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 
 #include "sde.h"
 
-#include "weights_header/mix/w_Trace_nvme0n1.h"
-#include "weights_header/mix/w_Trace_nvme1n1.h"
-#include "weights_header/mix/w_Trace_nvme2n1.h"
+//#include "weights_header/mix/w_Trace_nvme0n1.h"
+//#include "weights_header/mix/w_Trace_nvme1n1.h"
+//#include "weights_header/mix/w_Trace_nvme2n1.h"
 
 //#include "weights_header/mix+1/w_Trace_nvme0n1.h"
 //#include "weights_header/mix+1/w_Trace_nvme1n1.h"
@@ -67,40 +67,30 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 //#include "weights_header/mix+2/w_Trace_nvme1n1.h"
 //#include "weights_header/mix+2/w_Trace_nvme2n1.h"
 
-//#include "weights_header/azure/w_Trace_nvme0n1.h"
-//#include "weights_header/azure/w_Trace_nvme1n1.h"
-//#include "weights_header/azure/w_Trace_nvme2n1.h"
-//#include "weights_header/azure1/w_Trace_nvme0n1.h"
-//#include "weights_header/azure1/w_Trace_nvme1n1.h"
-//#include "weights_header/azure1/w_Trace_nvme2n1.h"
-//#include "weights_header/azure2/w_Trace_nvme0n1.h"
-//#include "weights_header/azure2/w_Trace_nvme1n1.h"
-//#include "weights_header/azure2/w_Trace_nvme2n1.h"
+//#include "weights_header/bing/w_Trace_nvme0n1.h"
+//#include "weights_header/bing/w_Trace_nvme1n1.h"
+//#include "weights_header/bing/w_Trace_nvme2n1.h"
+//#include "weights_header/bing+1/w_Trace_nvme0n1.h"
+//#include "weights_header/bing+1/w_Trace_nvme1n1.h"
+//#include "weights_header/bing+1/w_Trace_nvme2n1.h"
+//#include "weights_header/bing+2/w_Trace_nvme0n1.h"
+//#include "weights_header/bing+2/w_Trace_nvme1n1.h"
+//#include "weights_header/bing+2/w_Trace_nvme2n1.h"
 
-//#include "weights_header/cosmos/nn/w_Trace_nvme0n1.h"
-//#include "weights_header/cosmos/nn/w_Trace_nvme1n1.h"
-//#include "weights_header/cosmos/nn/w_Trace_nvme2n1.h"
-//#include "weights_header/cosmos/nn+1/w_Trace_nvme0n1.h"
-//#include "weights_header/cosmos/nn+1/w_Trace_nvme1n1.h"
-//#include "weights_header/cosmos/nn+1/w_Trace_nvme2n1.h"
-//#include "weights_header/cosmos/nn+2/w_Trace_nvme0n1.h"
-//#include "weights_header/cosmos/nn+2/w_Trace_nvme1n1.h"
-//#include "weights_header/cosmos/nn+2/w_Trace_nvme2n1.h"
-
-//#include "weights_header/bingi/nn/w_Trace_nvme0n1.h"
-//#include "weights_header/bingi/nn/w_Trace_nvme1n1.h"
-//#include "weights_header/bingi/nn/w_Trace_nvme2n1.h"
-//#include "weights_header/bingi/nn+1/w_Trace_nvme0n1.h"
-//#include "weights_header/bingi/nn+1/w_Trace_nvme1n1.h"
-//#include "weights_header/bingi/nn+1/w_Trace_nvme2n1.h"
-//#include "weights_header/bingi/nn+2/w_Trace_nvme0n1.h"
-//#include "weights_header/bingi/nn+2/w_Trace_nvme1n1.h"
-//#include "weights_header/bingi/nn+2/w_Trace_nvme2n1.h"
+#include "weights_header/mixx/w_Trace_nvme0n1.h"
+#include "weights_header/mixx/w_Trace_nvme1n1.h"
+#include "weights_header/mixx/w_Trace_nvme2n1.h"
+//#include "weights_header/mixx+1/w_Trace_nvme0n1.h"
+//#include "weights_header/mixx+1/w_Trace_nvme1n1.h"
+//#include "weights_header/mixx+1/w_Trace_nvme2n1.h"
+//#include "weights_header/mixx+2/w_Trace_nvme0n1.h"
+//#include "weights_header/mixx+2/w_Trace_nvme1n1.h"
+//#include "weights_header/mixx+2/w_Trace_nvme2n1.h"
 
 static const char *devices[] = {
 	"/dev/nvme0n1",
-	//"/dev/nvme1n1",
-	//"/dev/nvme2n1",
+	"/dev/nvme1n1",
+	"/dev/nvme2n1",
     //"/dev/vdb",
 	//"/dev/vdc",
 	0
@@ -166,16 +156,22 @@ static int gpu_attach(void) {
 	window_size_hist = vmalloc(256);
 	for (i=0;i<256;i++) window_size_hist[i] = 0;
 
-	// if(model_size==0) {
-	// 	//cpu_gpu_threshold = 8;
-	// 	//window_size_ns = 1;
-	// } else if (model_size == 1) {
-	// 	//cpu_gpu_threshold = 4;
-	// } else if (model_size == 2) {
-	// 	//window_size_ns = 50;
-	// 	//cpu_gpu_threshold = 3;
-	// 	//max_batch_size = 5;
-	// }
+	if(model_size==0) {
+	 	cpu_gpu_threshold = 8;
+		max_batch_size = 10;
+	 	window_size_ns = 1;
+		no_reject = false;
+	} else if (model_size == 1) {
+		window_size_ns = 5*_us;
+	 	cpu_gpu_threshold = 6;
+		max_batch_size = 8;
+		no_reject = true;
+	} else if (model_size == 2) {
+	 	window_size_ns = 30*_us;
+	 	cpu_gpu_threshold = 4;
+	 	max_batch_size = 1;
+		no_reject = true;
+	}
 
 	predictors_mgpu_init();
 
@@ -231,12 +227,15 @@ static int parse_arg(void) {
 	} else if (!strcmp("cpu", predictor_str)) {
 		if (model_size == 0) {
 			fptr = cpu_prediction_model;
+			no_reject = false;
 		}
 		else if (model_size == 1) {
 			fptr = cpu_prediction_model_plus_1;
+			no_reject = true;
 		}
 		else {
 			fptr = cpu_prediction_model_plus_2;
+			no_reject = true;
 		}
 		pr_warn("Inserting CPU prediction with %d extra layers\n", model_size);
 	}else if (!strcmp("gpu", predictor_str)) {

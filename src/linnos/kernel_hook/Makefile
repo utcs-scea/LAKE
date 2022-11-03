@@ -1,7 +1,7 @@
 obj-m += linnos_hook.o
 linnos_hook-objs := main.o predictors.o helpers.o variables.o queue_depth.o
 
-ccflags-y += -I$(src)/.. -I$(src)/../../kapi/include -O3
+ccflags-y += -I$(src)/.. -I$(src)/../../kapi/include
 
 KBUILD_EXTRA_SYMBOLS += $(src)/../../kapi/kshm/Module.symvers
 KBUILD_EXTRA_SYMBOLS += $(src)/../../kapi/kernel/Module.symvers
