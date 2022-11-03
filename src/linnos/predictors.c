@@ -45,6 +45,7 @@ extern u8 model_size;
 //batch test variables
 u32* window_size_hist; //allocated in main.c of kernel_hook, 128 elements
 u32 n_used_gpu = 0;
+u32 n_skipped = 0;
 u32 ios_on_device[NUMBER_DEVICES];
 u16 current_batch[NUMBER_DEVICES];
 spinlock_t batch_entry[NUMBER_DEVICES];
@@ -260,7 +261,7 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	u64 my_arrival, tdiff;
 	u32 i, this_dev=99;
 	unsigned long irqflags;
-	bool use_cpu;
+	bool use_cpu, skip;
 	u64 ia_avg = 0;
 
 	for(i = 0; i < NUMBER_DEVICES ; i++) {
@@ -302,21 +303,37 @@ enter_again:
 		last_arrival[this_dev][my_batch] = window_start_ns[this_dev][my_batch];
 	}
 
-	//XXX hack
-	if(window_size_ns < 100) {
+	my_arrival = ktime_get_ns();
+	tdiff = my_arrival - last_arrival[this_dev][my_batch];
+	ia_cur[this_dev] = (ia_cur[this_dev]+1)% ia_avg_sz ;
+	ia_avgs[this_dev][ia_cur[this_dev]] = tdiff;
+	last_arrival[this_dev][my_batch] = my_arrival;
+
+	// //XXX hack
+	// if(window_size_ns < 100) {
+	// 	waiting[this_dev][my_batch] = 0;
+	// 	spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+	// 	goto lonely;
+	// }
+
+	//cpu_times[model_size] {7, 101,196}
+	//cpu_gpu_threshold      8, 4,   2
+	//avg arrival
+	ia_avg = 0;
+	for (i = 0 ; i < ia_avg_sz ; i++)
+	 	ia_avg += ia_avgs[this_dev][i];
+	ia_avg = ia_avg >> ia_avg_shift;
+	//pr_warn("avg now: %d us\n", ia_avg/1000);
+
+	i = model_size == 0 ? 1 : model_size;
+	skip = cpu_times[model_size] < ia_avg * i;
+	if(skip) {
+		n_skipped++;
 		waiting[this_dev][my_batch] = 0;
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 		goto lonely;
 	}
 
-	//cpu_times[model_size] {7, 101,196}
-	//cpu_gpu_threshold      8, 4,   2
-	//avg arrival
-
-	// for (i = 0 ; i < ia_avg_sz ; i++)
-	// 	ia_avg += ia_avgs[this_dev][i];
-	// ia_avg = ia_avg >> ia_avg_shift;
-	
 	// //if (cpu_gpu_threshold * ia_avg  > cpu_times[model_size] * ia_avg) { //use cpu
 	// if (ia_avg >= window_size_ns) {
 	// 	my_arrival = ktime_get_ns();
@@ -407,13 +424,10 @@ lonely:
 		//spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 		my_arrival = ktime_get_ns();
 		tdiff = my_arrival - last_arrival[this_dev][my_batch];
-		ia_cur[this_dev] += 1;
-		ia_avgs[this_dev][ ia_cur[this_dev] % ia_avg_sz ] = tdiff;
-		last_arrival[this_dev][my_batch] = my_arrival;
 		//check if this batch should be finalized
 		if( waiting[this_dev][my_batch] != 0  &&  //first cannot be awake
 				(my_arrival - window_start_ns[this_dev][my_batch] >= window_size_ns //window time
-				|| waiting[this_dev][my_batch] == max_batch_size  //batch is full
+				|| waiting[this_dev][my_batch] >= max_batch_size  //batch is full
 				|| tdiff >= inter_arrival_threshold) ) {   //too long since someone arrived
 			complete(&finalize_batch[this_dev][my_batch]);
 		}

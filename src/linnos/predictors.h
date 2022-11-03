@@ -37,12 +37,12 @@
 
 #include "variables.h"
 
-
 #ifdef __KERNEL__
 //these externs are for batching
 extern bool* gpu_results;
 extern u32* window_size_hist;
 extern u32 n_used_gpu;
+extern u32 n_skipped;
 extern u32 ios_on_device[NUMBER_DEVICES];
 bool batch_test(char *feat_vec, int n_vecs, long **weights);
 
