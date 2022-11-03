@@ -325,6 +325,17 @@ enter_again:
 		goto lonely;
 	}
 
+	// Isha - decision tree:
+	// if(cpu_times[model_size] <= 54) {
+	// 	use cpu;
+	// } else {
+	// 	if(ia_avg <= 100) {
+	// 		use gpu;
+	// 	} else {
+	// 		use cpu;
+	// 	}
+	// }
+
 	// //if (cpu_gpu_threshold * ia_avg  > cpu_times[model_size] * ia_avg) { //use cpu
 	// if (ia_avg >= window_size_ns) {
 	// 	my_arrival = ktime_get_ns();
