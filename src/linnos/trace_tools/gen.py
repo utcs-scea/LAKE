@@ -34,7 +34,7 @@ GB = 1024*1024*1024 #i like dumb and readable
 S_TO_US = 1000*1000
 
 #configs
-MAX_BYTE_OFFSET = 800*GB
+MAX_BYTE_OFFSET = 2*GB
 READ_PCT = float(sys.argv[2])
 TIME_US = int(sys.argv[3]) *S_TO_US  #seconds times us
 

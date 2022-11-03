@@ -31,15 +31,15 @@
 
 int PREDICT_GPU_SYNC = 0;
 //debug
-bool NEVER_REJECT = false;
+bool NEVER_REJECT = true;
 
 #define _us 1000
 //batch variables
-u64 window_size_ns = 100*_us;
+s64 window_size_ns = 1000*_us;
 //const u64 window_size_ns = 1;
-u32 max_batch_size = 16; //this cannot be more than 256 (allocated in main.c)
-u32 cpu_gpu_threshold = 4; //less than this we use cpu
-u64 inter_arrival_threshold = 800*_us;
+u32 max_batch_size = 4; //this cannot be more than 256 (allocated in main.c)
+u32 cpu_gpu_threshold = 8; //less than this we use cpu
+u64 inter_arrival_threshold = 3000*_us;
 
 //use normal (0), +1 or +2
 extern u8 model_size;
@@ -247,12 +247,11 @@ void do_gpu_inference_plus_two(int n_vecs, long **weights, int dev, int batch_id
 bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	u16 my_id;
 	u16 my_batch;
-	bool my_prediction;
+	bool my_prediction, use_cpu, is_last;
 	u64 my_arrival;
 	u32 i, this_dev=99;
 	unsigned long irqflags, err;
-	bool use_cpu;
-	bool is_last;
+	s64 dif;
 
 	for(i = 0; i < NUMBER_DEVICES ; i++) {
 		if(first_weight_ptr_to_dev[i] == weights[0]) {
@@ -265,26 +264,31 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 		return false;
 	}
 
-	spin_lock_irqsave(&batch_entry[this_dev], irqflags);
 enter_again:
+	spin_lock_irqsave(&batch_entry[this_dev], irqflags);
 	my_batch = current_batch[this_dev];
 
 	//check this batch out
 	spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 	my_id = waiting[this_dev][my_batch];
-	my_arrival = ktime_get_ns();
-
+	
 	//should we NOT get in this batch bc its running?
 	if (batch_closed[this_dev][my_batch] == true) {
 		//lets loop and try another
 		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
+		pr_warn("batch is closed, increasing by one to %d\n", current_batch[this_dev]);
 		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
-		udelay(1);
+		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
+		udelay(2); //we can afford 2 for a reschedule
 		goto enter_again;
 	}
 	//we can. would we close this batch?
-	is_last = my_arrival - first_arrival[this_dev][my_batch] >= window_size_ns;
+	my_arrival = ktime_get_ns();
+	dif = (s64)my_arrival - (s64)first_arrival[this_dev][my_batch];
+	pr_warn("diff %lld\n", dif/1000);
+	is_last = dif >= window_size_ns;
 	if (my_id >= max_batch_size || is_last) {
+		pr_warn("i am last of batch %d!\n", my_batch);
 		//if so, increase current batch
 		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
 		//we are last, mark batch as full
@@ -292,8 +296,10 @@ enter_again:
 		batch_closed[this_dev][my_batch] = true;
 	}
 	//we can but not we are not last
-	else
+	else {
+		pr_warn("  not last\n");
 		is_last = false;
+	}
 
 	//add one to batch size
 	waiting[this_dev][my_batch] += 1;
@@ -302,8 +308,10 @@ enter_again:
 
 	//still holding this batch's lock, reset everything
 	if (my_id == 0) {
+		pr_warn("id 0 reiniting\n");
 		reinit_completion(&finalize_batch[this_dev][my_batch]); 
 		reinit_completion(&batch_completed[this_dev][my_batch]);
+		use_cpu = true;
 		n_exited[this_dev][my_batch] = 0;
 		first_arrival[this_dev][my_batch] = ktime_get_ns();
 	}
@@ -319,9 +327,21 @@ enter_again:
 last_req_close:
 		//record in histogram
 		window_size_hist[waiting[this_dev][my_batch]] += 1;
+		pr_warn(">> closing batch size %d\n", waiting[this_dev][my_batch]);
+
+
+		// //race condition: there is a chance id 0 woke up just after someone got in
+		// //either the id 0 or the whoever got here will acquire this lock
+		// spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
+		// //id 0, 
+		// if (waiting[this_dev][my_batch])
+
+
+		// spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+
 
 		//lonely request :(
-		if(waiting[this_dev][my_batch] == 1) {
+		if(waiting[this_dev][my_batch] <= 1) {
 			use_cpu = true;
 			goto reset_this_batch;
 		}
@@ -335,13 +355,15 @@ last_req_close:
 			use_cpu_instead[this_dev][my_batch] = false;
 			use_cpu = false;
 
-			if (model_size == 0)
-				do_gpu_inference(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
-			else if (model_size == 1)
-				do_gpu_inference_plus_one(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
-			else
-				do_gpu_inference_plus_two(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
-			my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
+			my_prediction = false; //XXX
+
+			// if (model_size == 0)
+			// 	do_gpu_inference(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
+			// else if (model_size == 1)
+			// 	do_gpu_inference_plus_one(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
+			// else
+			// 	do_gpu_inference_plus_two(this_batch_size[this_dev][my_batch], gpu_weights[this_dev].weights, this_dev, my_batch); 
+			// my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
 		}
 
 		//let everyone go now
@@ -366,9 +388,22 @@ reset_this_batch:
 			err = wait_for_completion_timeout(&batch_completed[this_dev][my_batch], usecs_to_jiffies((window_size_ns*2)/1000));
 			//if this was a timeout, do what the last would to
 			if(err == 0) {
+				pr_warn(" !!!!!: id 0 timed out, I am the last now\n");
+				//race condition: there is a chance id 0 woke up just after someone got in
+				// and who got in could be last or not
+				// if last, we have to wait
+				// if not, we are the last
 				spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
+				
+				if (waiting[this_dev][my_batch] == 1) { //it's only us
+					pr_warn("id0 : it was only me \n")
+					goto last_req_close;
+				}
+
 				batch_closed[this_dev][my_batch] = true;
-				goto last_req_close;
+
+
+				spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 			}
 		}
 		else {

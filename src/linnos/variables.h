@@ -54,7 +54,7 @@ extern CUcontext cuctx;
 extern long *inputs_to_gpu;
 extern long *gpu_outputs;
 
-extern u64 window_size_ns;
+extern s64 window_size_ns;
 extern u32 max_batch_size; 
 extern u32 cpu_gpu_threshold;
 extern u64 inter_arrival_threshold ;
