@@ -2,6 +2,7 @@
 
 #1x 400
 #2x 200
+#3x 133
 #4x 100
 
 mkdir -p cosmos3x

@@ -28,8 +28,8 @@
 #endif
 
 #define NUMBER_DEVICES 3
-#define MAX_DEV_BATCHES 8
-
+#define MAX_DEV_BATCHES 16
+#define _us 1000
 struct GPU_weights {
     //CUdeviceptr d_weight_0_T_ent;
     //CUdeviceptr d_weight_1_T_ent;
@@ -54,6 +54,10 @@ extern CUcontext cuctx;
 extern long *inputs_to_gpu;
 extern long *gpu_outputs;
 
+extern s64 window_size_ns;
+extern u32 max_batch_size; 
+extern u32 cpu_gpu_threshold;
+extern volatile bool no_reject;
 
 extern long *multi_inputs_to_gpu[NUMBER_DEVICES][MAX_DEV_BATCHES];
 extern long *multi_gpu_outputs[NUMBER_DEVICES][MAX_DEV_BATCHES];

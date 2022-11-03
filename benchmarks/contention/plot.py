@@ -129,14 +129,6 @@ plt.annotate('T3', (us_end_x, us_end_y), textcoords="offset points",
     xytext=(-15,-15), ha='center')
 
 
-# us_start_x
-# us_cstart_x 
-# us_end_x 
-
-# uspace_x
-# uspace_tput
-
-
 fig.tight_layout()
 plt.gcf().set_size_inches(5, 2.5)
 #plt.xlim(left=0, right=kernel_x[-1])

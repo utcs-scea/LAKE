@@ -58,8 +58,12 @@ void gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights);
 void gpu_predict_batch_plus_1(char *__feat_vec, int n_vecs, long **weights);
 void gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights);
 
-void predictors_mgpu_init(void);
+void multi_gpu_predict_batch(char *__feat_vec, int n_vecs, long **weights, int dev, int batch);
+void multi_gpu_predict_batch_plus_1(char *__feat_vec, int n_vecs, long **weights, int dev, int batch);
+void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights, int dev, int batch);
 
+void predictors_mgpu_init(void);
+int gpu_get_prediction(int dev, int batch, int id);
 extern int PREDICT_GPU_SYNC;
 
 #endif

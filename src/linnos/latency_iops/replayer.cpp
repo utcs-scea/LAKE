@@ -111,5 +111,7 @@ int main (int argc, char **argv)
 
     trace.print_stats();
 
+    trace.closefds();
+
     return 0;
 }
