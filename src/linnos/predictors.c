@@ -243,6 +243,15 @@ void do_gpu_inference_plus_two(int n_vecs, long **weights, int dev, int batch_id
 	multi_copy_results_from_gpu(n_vecs, dev, batch_id);
 }
 
+static bool cpu_model_switch(char *feat_vec, int n_vecs, long **weights) {
+	if (model_size == 0)
+		return cpu_prediction_model(feat_vec, 1, weights); 
+	else if (model_size == 1)
+		return cpu_prediction_model_plus_1(feat_vec, 1, weights); 
+	else
+		return cpu_prediction_model_plus_2(feat_vec, 1, weights); 
+}
+
 //this is what an IO calls when it calls predict()
 bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 	u16 my_id;
@@ -344,13 +353,13 @@ lonely:
 			//lonely request :(
 			//pr_warn("single request on batch %d\n", my_batch);
 			batch_running[this_dev][my_batch] = false;
-			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			my_prediction = cpu_model_switch(feat_vec, n_vecs, weights);
 			return no_reject ? false : my_prediction; 
 		} else if(this_batch_size[this_dev][my_batch] < cpu_gpu_threshold) {
 			use_cpu_instead[this_dev][my_batch] = true;
 			complete_all(&batch_completed[this_dev][my_batch]); //XXX
 			batch_running[this_dev][my_batch] = false;
-			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			my_prediction = cpu_model_switch(feat_vec, n_vecs, weights);
 			return no_reject ? false : my_prediction;
 		}
 		else {
@@ -412,7 +421,7 @@ lonely:
 
 		use_cpu = use_cpu_instead[this_dev][my_batch];
 		if (use_cpu) {
-			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+			my_prediction = cpu_model_switch(feat_vec, n_vecs, weights);
 			return no_reject ? false : my_prediction;
 		}
 		

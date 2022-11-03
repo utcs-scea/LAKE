@@ -55,9 +55,9 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 
 #include "sde.h"
 
-//#include "weights_header/mix/w_Trace_nvme0n1.h"
-//#include "weights_header/mix/w_Trace_nvme1n1.h"
-//#include "weights_header/mix/w_Trace_nvme2n1.h"
+#include "weights_header/mix/w_Trace_nvme0n1.h"
+#include "weights_header/mix/w_Trace_nvme1n1.h"
+#include "weights_header/mix/w_Trace_nvme2n1.h"
 
 //#include "weights_header/mix+1/w_Trace_nvme0n1.h"
 //#include "weights_header/mix+1/w_Trace_nvme1n1.h"
@@ -67,25 +67,15 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 //#include "weights_header/mix+2/w_Trace_nvme1n1.h"
 //#include "weights_header/mix+2/w_Trace_nvme2n1.h"
 
-//#include "weights_header/bing/w_Trace_nvme0n1.h"
-//#include "weights_header/bing/w_Trace_nvme1n1.h"
-//#include "weights_header/bing/w_Trace_nvme2n1.h"
-//#include "weights_header/bing+1/w_Trace_nvme0n1.h"
-//#include "weights_header/bing+1/w_Trace_nvme1n1.h"
-//#include "weights_header/bing+1/w_Trace_nvme2n1.h"
-//#include "weights_header/bing+2/w_Trace_nvme0n1.h"
-//#include "weights_header/bing+2/w_Trace_nvme1n1.h"
-//#include "weights_header/bing+2/w_Trace_nvme2n1.h"
-
-#include "weights_header/mixx/w_Trace_nvme0n1.h"
-#include "weights_header/mixx/w_Trace_nvme1n1.h"
-#include "weights_header/mixx/w_Trace_nvme2n1.h"
-//#include "weights_header/mixx+1/w_Trace_nvme0n1.h"
-//#include "weights_header/mixx+1/w_Trace_nvme1n1.h"
-//#include "weights_header/mixx+1/w_Trace_nvme2n1.h"
-//#include "weights_header/mixx+2/w_Trace_nvme0n1.h"
-//#include "weights_header/mixx+2/w_Trace_nvme1n1.h"
-//#include "weights_header/mixx+2/w_Trace_nvme2n1.h"
+//#include "weights_header/azure/w_Trace_nvme0n1.h"
+//#include "weights_header/azure/w_Trace_nvme1n1.h"
+//#include "weights_header/azure/w_Trace_nvme2n1.h"
+//#include "weights_header/azure+1/w_Trace_nvme0n1.h"
+//#include "weights_header/azure+1/w_Trace_nvme1n1.h"
+//#include "weights_header/azure+1/w_Trace_nvme2n1.h"
+//#include "weights_header/azure+2/w_Trace_nvme0n1.h"
+//#include "weights_header/azure+2/w_Trace_nvme1n1.h"
+//#include "weights_header/azure+2/w_Trace_nvme2n1.h"
 
 static const char *devices[] = {
 	"/dev/nvme0n1",
@@ -162,14 +152,14 @@ static int gpu_attach(void) {
 	 	window_size_ns = 1;
 		no_reject = false;
 	} else if (model_size == 1) {
-		window_size_ns = 5*_us;
 	 	cpu_gpu_threshold = 6;
+		window_size_ns = 25*_us;
 		max_batch_size = 8;
 		no_reject = true;
 	} else if (model_size == 2) {
-	 	window_size_ns = 30*_us;
 	 	cpu_gpu_threshold = 4;
-	 	max_batch_size = 1;
+	 	window_size_ns = 30*_us;
+	 	max_batch_size = 6;
 		no_reject = true;
 	}
 
