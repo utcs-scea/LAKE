@@ -35,7 +35,7 @@ bool NEVER_REJECT = true;
 
 #define _us 1000
 //batch variables
-s64 window_size_ns = 1000*_us;
+s64 window_size_ns = 200*_us;
 //const u64 window_size_ns = 1;
 u32 max_batch_size = 4; //this cannot be more than 256 (allocated in main.c)
 u32 cpu_gpu_threshold = 8; //less than this we use cpu
@@ -267,17 +267,14 @@ bool gpu_batch_entry(char *feat_vec, int n_vecs, long **weights) {
 enter_again:
 	spin_lock_irqsave(&batch_entry[this_dev], irqflags);
 	my_batch = current_batch[this_dev];
-
-	//check this batch out
-	spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
 	my_id = waiting[this_dev][my_batch];
+	//check this batch out
 	
 	//should we NOT get in this batch bc its running?
 	if (batch_closed[this_dev][my_batch] == true) {
 		//lets loop and try another
 		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
-		pr_warn("batch is closed, increasing by one to %d\n", current_batch[this_dev]);
-		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+		//pr_warn("batch is closed, increasing by one to %d\n", current_batch[this_dev]);
 		spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 		udelay(2); //we can afford 2 for a reschedule
 		goto enter_again;
@@ -285,10 +282,10 @@ enter_again:
 	//we can. would we close this batch?
 	my_arrival = ktime_get_ns();
 	dif = (s64)my_arrival - (s64)first_arrival[this_dev][my_batch];
-	pr_warn("diff %lld\n", dif/1000);
+	//pr_warn("diff %lld\n", dif/1000);
 	is_last = dif >= window_size_ns;
 	if (my_id >= max_batch_size || is_last) {
-		pr_warn("i am last of batch %d!\n", my_batch);
+		//pr_warn("i am last of batch %d  time dif? %d  %lld!\n", my_batch, is_last, dif);
 		//if so, increase current batch
 		current_batch[this_dev] = (current_batch[this_dev]+1) % MAX_DEV_BATCHES;
 		//we are last, mark batch as full
@@ -297,26 +294,22 @@ enter_again:
 	}
 	//we can but not we are not last
 	else {
-		pr_warn("  not last\n");
+		//pr_warn("  not last\n");
 		is_last = false;
 	}
 
 	//add one to batch size
 	waiting[this_dev][my_batch] += 1;
-	//let others get in
-	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
-
-	//still holding this batch's lock, reset everything
 	if (my_id == 0) {
-		pr_warn("id 0 reiniting\n");
-		reinit_completion(&finalize_batch[this_dev][my_batch]); 
+		//pr_warn("id 0 reiniting batch %d\n", my_batch);
+		reinit_completion(&finalize_batch[this_dev][my_batch]);
 		reinit_completion(&batch_completed[this_dev][my_batch]);
 		use_cpu = true;
 		n_exited[this_dev][my_batch] = 0;
 		first_arrival[this_dev][my_batch] = ktime_get_ns();
 	}
-	//others can join this batch now
-	spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+	//let others execute
+	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 
 	//copy inputs to intermediary buffer, but we need to convert into longs for gpu
 	for (i = 0 ; i < LEN_INPUT ; i++)
@@ -327,25 +320,14 @@ enter_again:
 last_req_close:
 		//record in histogram
 		window_size_hist[waiting[this_dev][my_batch]] += 1;
-		pr_warn(">> closing batch size %d\n", waiting[this_dev][my_batch]);
-
-
-		// //race condition: there is a chance id 0 woke up just after someone got in
-		// //either the id 0 or the whoever got here will acquire this lock
-		// spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
-		// //id 0, 
-		// if (waiting[this_dev][my_batch])
-
-
-		// spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
-
+		//pr_warn(">> closing batch %d size %d\n", my_batch, waiting[this_dev][my_batch]);
 
 		//lonely request :(
 		if(waiting[this_dev][my_batch] <= 1) {
 			use_cpu = true;
 			goto reset_this_batch;
 		}
-		//not big enough for gpu 
+		//not big enough for gpu
 		else if(waiting[this_dev][my_batch] < cpu_gpu_threshold) {
 			use_cpu_instead[this_dev][my_batch] = true;
 			use_cpu = true;
@@ -367,11 +349,19 @@ last_req_close:
 		}
 
 		//let everyone go now
-		complete_all(&batch_completed[this_dev][my_batch]);
 		n_exited[this_dev][my_batch] += 1;
-		//wait for everyone to quit
-		wait_for_completion(&finalize_batch[this_dev][my_batch]);
+		//pr_warn(" last %d: waking up all\n", my_batch);
+		complete_all(&batch_completed[this_dev][my_batch]);
 
+		//wait for everyone to quit
+		//pr_warn(" last %d: waiting for everyone to quit\n", my_batch);
+		//wait_for_completion(&finalize_batch[this_dev][my_batch]);
+		err = wait_for_completion_timeout(&batch_completed[this_dev][my_batch], usecs_to_jiffies((window_size_ns*10)/1000));
+		if (err == 0) {
+			pr_warn("!!!!!!!!!!!!!!!!!!!!!!!!!!! LAST WAITED FOR TOO LONG\n");
+		}
+		
+		//pr_warn(" last %d: done \n", my_batch);
 reset_this_batch:
 		//reset
 		waiting[this_dev][my_batch] = 0;
@@ -381,54 +371,59 @@ reset_this_batch:
 			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
 		return NEVER_REJECT ? false : my_prediction;
 	}
+
 	//not last
-	else {
-		//maybe this batch will never have a last, so we have to handle it. first becomes last
-		if (my_id == 0) {
-			err = wait_for_completion_timeout(&batch_completed[this_dev][my_batch], usecs_to_jiffies((window_size_ns*2)/1000));
-			//if this was a timeout, do what the last would to
-			if(err == 0) {
-				pr_warn(" !!!!!: id 0 timed out, I am the last now\n");
-				//race condition: there is a chance id 0 woke up just after someone got in
-				// and who got in could be last or not
-				// if last, we have to wait
-				// if not, we are the last
-				spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
-				
-				if (waiting[this_dev][my_batch] == 1) { //it's only us
-					pr_warn("id0 : it was only me \n")
-					goto last_req_close;
-				}
-
-				batch_closed[this_dev][my_batch] = true;
-
-
+	//maybe this batch will never have a last, so we have to handle it. first may becomes last
+	if (my_id == 0) {
+		err = wait_for_completion_timeout(&batch_completed[this_dev][my_batch], usecs_to_jiffies((window_size_ns)/1000));
+		//if this was a timeout, do what the last would to
+		if(err == 0) {
+			pr_warn(" id0: timed out\n");
+			//race condition: there is a chance id 0 woke up just after someone got in
+			//and who got in could be last or not
+			// if last, we have to wait
+			// if not, we are the last
+			spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
+			//someone closed this batch, so there is a last already
+			if (batch_closed[this_dev][my_batch] == true) {
+				//fall through
+				pr_warn(" !!!!!!!!: falling through, id0 timedout but there is last\n");
 				spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
 			}
+			//it's either only us or there are more, but they are just waiting
+			else { 
+				pr_warn("!!!!!!!!!!!!!!!! id0 : becoming last \n");
+				batch_closed[this_dev][my_batch] = true;
+				spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+				goto last_req_close;
+			} 
 		}
-		else {
-			//wait until the last wake us up
-			wait_for_completion(&batch_completed[this_dev][my_batch]);
-		}
-
-		use_cpu = use_cpu_instead[this_dev][my_batch];
-		if (!use_cpu) 
-			my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
-
-		spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
-		n_exited[this_dev][my_batch] += 1;
-		//pr_warn("%d/%d/%d:  %d/%d left\n", this_dev, my_batch, my_id, n_exited[this_dev][my_batch], this_batch_size[this_dev][my_batch]);
-		//we are the last one to exit, inform last
-		if (n_exited[this_dev][my_batch] == waiting[this_dev][my_batch]) {
-			complete(&finalize_batch[this_dev][my_batch]);
-			//pr_warn("%d/%d/%d: Waking up first!", this_dev, my_batch, my_id);
-		}
-		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
-
-		if (use_cpu) 
-			my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
-		return NEVER_REJECT ? false : my_prediction;
 	}
+
+	//wait until the last wake us up
+	//wait_for_completion(&batch_completed[this_dev][my_batch]);
+	err = wait_for_completion_timeout(&batch_completed[this_dev][my_batch], usecs_to_jiffies((window_size_ns*50)/1000));
+	if (err == 0) {
+		pr_warn("!!!!!!!!!!!!!!!!!!!!!!!!!!! THIS SHOULDNT HAVE HAPPENED  !!!!!!!!! %d id %d\n", my_batch, my_id);
+	}
+
+	use_cpu = use_cpu_instead[this_dev][my_batch];
+	if (!use_cpu) 
+		my_prediction = gpu_get_prediction(this_dev, my_batch, my_id);
+
+	//spin_lock_irqsave(&per_batch_lock[this_dev][my_batch], irqflags);
+	n_exited[this_dev][my_batch] += 1;
+	//pr_warn("%d/%d/%d:  %d/%d left\n", this_dev, my_batch, my_id, n_exited[this_dev][my_batch], this_batch_size[this_dev][my_batch]);
+	//we are the last one to exit, inform last
+	if (n_exited[this_dev][my_batch] == waiting[this_dev][my_batch]) {
+		complete(&finalize_batch[this_dev][my_batch]);
+		//pr_warn("%d/%d/%d: Waking up first!", this_dev, my_batch, my_id);
+	}
+	//spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+
+	if (use_cpu) 
+		my_prediction = cpu_prediction_model(feat_vec, n_vecs, weights);
+	return NEVER_REJECT ? false : my_prediction;
 }
 
 
