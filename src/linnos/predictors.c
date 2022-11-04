@@ -178,6 +178,13 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
 		&weights[6], &weights[7], &multi_d_mid_res_1_i[dev][batch], &multi_d_mid_res_2_i[dev][batch]
 	};
 
+	// void *args2[] = {
+	// 	&weights[4], &weights[5], &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
+	// };
+
+	// void *args3[] = {
+	// 	&weights[6], &weights[7],  &multi_d_mid_res_i[dev][batch], &multi_d_mid_res_1_i[dev][batch]
+	// };
 
     check_error(cuLaunchKernel(batch_linnos_mid_layer_kernel, 
 				n_vecs, 1, 1,          //blocks
@@ -332,6 +339,29 @@ enter_again:
 	}
 	//let others execute
 	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
+
+	//XXX hack
+	if(window_size_ns < 100) {
+		waiting[this_dev][my_batch] = 0;
+		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+		goto lonely;
+	}
+
+	// for (i = 0 ; i < ia_avg_sz ; i++)
+	// 	ia_avg += ia_avgs[this_dev][i];
+	// ia_avg = ia_avg >> ia_avg_shift;
+	
+	// //if (cpu_gpu_threshold * ia_avg  > cpu_times[model_size] * ia_avg) { //use cpu
+	// if (ia_avg >= window_size_ns) {
+	// 	my_arrival = ktime_get_ns();
+	// 	tdiff = my_arrival - last_arrival[this_dev][my_batch];
+	// 	last_arrival[this_dev][my_batch] = my_arrival;
+	// 	ia_cur[this_dev] += 1;
+	// 	ia_avgs[this_dev][ ia_cur[this_dev] % ia_avg_sz ] = tdiff;
+	// 	waiting[this_dev][my_batch] = 0;
+	// 	spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
+	// 	goto lonely;
+	// }
 
 	//copy inputs to intermediary buffer, but we need to convert into longs for gpu
 	for (i = 0 ; i < LEN_INPUT ; i++)
