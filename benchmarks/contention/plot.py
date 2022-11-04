@@ -134,7 +134,7 @@ plt.gcf().set_size_inches(5, 2.5)
 #plt.xlim(left=0, right=kernel_x[-1])
 plt.xlim(left=0, right=30)
 # plt.ylim(0, 1.1)
-ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.2))
+ax.legend(loc='upper center', ncol=2, bbox_to_anchor=(0.5, 1.2), frameon=False)
 ax.set_xlabel('Time (s)')
 ax.set_ylabel('Normalized Throughput')
 

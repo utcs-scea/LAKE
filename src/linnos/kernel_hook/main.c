@@ -55,27 +55,54 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 
 #include "sde.h"
 
-#include "weights_header/mix/w_Trace_nvme0n1.h"
-#include "weights_header/mix/w_Trace_nvme1n1.h"
-#include "weights_header/mix/w_Trace_nvme2n1.h"
-
+/*
+  Uncomment only one set of three of these, then go to the
+  long *weights[][8] array below and make sure it matches:
+  If using default NN, uncomment the lines below //NN (the ones with 4 zeros
+  at the end).
+  For NN+1, uncomment below //NN+1 (with 2 zeros)
+  For NN+2, uncomment below //NN+2 (with no zeros)
+*/
+//#include "weights_header/mix/w_Trace_nvme0n1.h"
+//#include "weights_header/mix/w_Trace_nvme1n1.h"
+//#include "weights_header/mix/w_Trace_nvme2n1.h"
 //#include "weights_header/mix+1/w_Trace_nvme0n1.h"
 //#include "weights_header/mix+1/w_Trace_nvme1n1.h"
 //#include "weights_header/mix+1/w_Trace_nvme2n1.h"
-
 //#include "weights_header/mix+2/w_Trace_nvme0n1.h"
 //#include "weights_header/mix+2/w_Trace_nvme1n1.h"
 //#include "weights_header/mix+2/w_Trace_nvme2n1.h"
 
-//#include "weights_header/azure/w_Trace_nvme0n1.h"
-//#include "weights_header/azure/w_Trace_nvme1n1.h"
-//#include "weights_header/azure/w_Trace_nvme2n1.h"
+#include "weights_header/mix+2/w_Trace_nvme0n1.h"
+#include "weights_header/mix+2/w_Trace_nvme1n1.h"
+#include "weights_header/mix+2/w_Trace_nvme2n1.h"
 //#include "weights_header/azure+1/w_Trace_nvme0n1.h"
 //#include "weights_header/azure+1/w_Trace_nvme1n1.h"
 //#include "weights_header/azure+1/w_Trace_nvme2n1.h"
 //#include "weights_header/azure+2/w_Trace_nvme0n1.h"
 //#include "weights_header/azure+2/w_Trace_nvme1n1.h"
 //#include "weights_header/azure+2/w_Trace_nvme2n1.h"
+
+long *weights[][8] = {
+	//NN
+	//{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
+	//{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
+	//{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
+
+	// NN+1
+	//{weight_0_T_nvme0n1, weight_2_T_nvme0n1, bias_0_nvme0n1, bias_2_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,0,0},
+	//{weight_0_T_nvme1n1, weight_2_T_nvme1n1, bias_0_nvme1n1, bias_2_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,0,0},
+	//{weight_0_T_nvme2n1, weight_2_T_nvme2n1, bias_0_nvme2n1, bias_2_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,0,0},
+
+	//NN+2
+	{weight_0_T_nvme0n1, weight_3_T_nvme0n1, bias_0_nvme0n1, bias_3_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,weight_2_T_nvme0n1, bias_2_nvme0n1},
+	{weight_0_T_nvme1n1, weight_3_T_nvme1n1, bias_0_nvme1n1, bias_3_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,weight_2_T_nvme1n1, bias_2_nvme1n1},
+	{weight_0_T_nvme2n1, weight_3_T_nvme2n1, bias_0_nvme2n1, bias_3_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,weight_2_T_nvme2n1, bias_2_nvme2n1},
+
+	// for testing..
+	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde,0,0,0,0},
+	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde,0,0,0,0}
+};
 
 static const char *devices[] = {
 	"/dev/nvme0n1",
@@ -84,27 +111,6 @@ static const char *devices[] = {
     //"/dev/vdb",
 	//"/dev/vdc",
 	0
-};
-
-long *weights[][8] = {
-	//NN
-	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
-	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
-	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
-
-	// NN+1
-	//{weight_0_T_nvme0n1, weight_2_T_nvme0n1, bias_0_nvme0n1, bias_2_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,0,0},
-	//{weight_0_T_nvme1n1, weight_2_T_nvme1n1, bias_0_nvme1n1, bias_2_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,0,0},
-	//{weight_0_T_nvme2n1, weight_2_T_nvme2n1, bias_0_nvme2n1, bias_2_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,0,0},
-
-	//NN+2
-	//{weight_0_T_nvme0n1, weight_3_T_nvme0n1, bias_0_nvme0n1, bias_3_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,weight_2_T_nvme0n1, bias_2_nvme0n1},
-	//{weight_0_T_nvme1n1, weight_3_T_nvme1n1, bias_0_nvme1n1, bias_3_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,weight_2_T_nvme1n1, bias_2_nvme1n1},
-	//{weight_0_T_nvme2n1, weight_3_T_nvme2n1, bias_0_nvme2n1, bias_3_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,weight_2_T_nvme2n1, bias_2_nvme2n1},
-
-	// for testing..
-	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde,0,0,0,0},
-	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde,0,0,0,0}
 };
 
 //the predictor function to use
@@ -129,68 +135,6 @@ static void batch_test_detach(void) {
 		if (window_size_hist[i] != 0)
 			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
 	vfree(window_size_hist);
-}
-
-/*
- *  Helpers for GPU inference
- */
-static int gpu_attach(void) {
-	int i, ndev=0;
-	const char *devs;
-	
-	fptr = gpu_batch_entry;
-	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) 
-		ndev++;
-	pr_warn("initing for %d devices\n", ndev);
-	multi_initialize_gpu(cubin_path, 512, ndev);
-	window_size_hist = vmalloc(256);
-	for (i=0;i<256;i++) window_size_hist[i] = 0;
-
-	if(model_size==0) {
-	 	cpu_gpu_threshold = 8;
-		max_batch_size = 10;
-	 	window_size_ns = 1;
-		no_reject = false;
-	} else if (model_size == 1) {
-	 	cpu_gpu_threshold = 6;
-		window_size_ns = 25*_us;
-		max_batch_size = 8;
-		no_reject = true;
-	} else if (model_size == 2) {
-	 	cpu_gpu_threshold = 4;
-	 	window_size_ns = 30*_us;
-	 	max_batch_size = 6;
-		no_reject = true;
-	}
-
-	predictors_mgpu_init();
-
-	return 0;
-}
-
-static void gpu_detach(void) {
-	const char *devs;
-	int i;
-	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
-		multi_gpu_cuda_cleanup_dev(&gpu_weights[i], i);
-	}
-	
-	for (i=0;i<128;i++)
-		if (window_size_hist[i] != 0)
-			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
-
-	pr_warn("GPU was used %u times\n", n_used_gpu);
-	// for (i=0;i<NUMBER_DEVICES;i++) {
-	// 	pr_warn("IOs on device %d: %u\n", i, ios_on_device[i]);
-	// }
-	cuCtxDestroy(cuctx);
-}
-static void gpu_copy_weight(int idx) {
-	long **wts = weights[idx];
-	pr_warn("Copying weights for idx %d\n", idx);
-	copy_weights(wts, &gpu_weights[idx]);
-
-	first_weight_ptr_to_dev[idx] = wts[0];
 }
 
 /*
@@ -243,6 +187,68 @@ static int parse_arg(void) {
 		return -2;
 	}
 	return 0;
+}
+
+
+/*
+ *  Helpers for GPU inference
+ */
+static int gpu_attach(void) {
+	int i, ndev=0;
+	const char *devs;
+	
+	fptr = gpu_batch_entry;
+	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) 
+		ndev++;
+	pr_warn("initing for %d devices\n", ndev);
+	multi_initialize_gpu(cubin_path, 512, ndev);
+	window_size_hist = vmalloc(256);
+	for (i=0;i<256;i++) 
+		window_size_hist[i] = 0;
+	if(model_size==0) {
+	 	cpu_gpu_threshold = 8;
+		max_batch_size = 10;
+	 	window_size_ns = 5*_us;
+		no_reject = false;
+	} else if (model_size == 1) {
+		window_size_ns = 40*_us;
+	 	cpu_gpu_threshold = 4;
+		max_batch_size = 8;
+		no_reject = true;
+	} else if (model_size == 2) {
+	 	cpu_gpu_threshold = 4;
+	 	window_size_ns = 40*_us;
+	 	max_batch_size = 6;
+		no_reject = true;
+	}
+	predictors_mgpu_init();
+	return 0;
+}
+
+static void gpu_detach(void) {
+	const char *devs;
+	int i;
+	for(devs = devices[0], i=0 ; devs != 0 ; devs = devices[++i]) {
+		multi_gpu_cuda_cleanup_dev(&gpu_weights[i], i);
+	}
+	
+	for (i=0;i<128;i++)
+		if (window_size_hist[i] != 0)
+			pr_warn("%d:\t%u\n", i, window_size_hist[i]);
+
+	pr_warn("GPU was used %u times\n", n_used_gpu);
+	pr_warn("Batch skipped %u times\n", n_skipped);
+	// for (i=0;i<NUMBER_DEVICES;i++) {
+	// 	pr_warn("IOs on device %d: %u\n", i, ios_on_device[i]);
+	// }
+	cuCtxDestroy(cuctx);
+}
+static void gpu_copy_weight(int idx) {
+	long **wts = weights[idx];
+	pr_warn("Copying weights for idx %d\n", idx);
+	copy_weights(wts, &gpu_weights[idx]);
+
+	first_weight_ptr_to_dev[idx] = wts[0];
 }
 
 static int attach_to_queue(int idx) {

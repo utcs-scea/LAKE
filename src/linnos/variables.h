@@ -30,6 +30,7 @@
 #define NUMBER_DEVICES 3
 #define MAX_DEV_BATCHES 16
 #define _us 1000
+#define WINDOW_THRESHOLD 5*_us
 struct GPU_weights {
     //CUdeviceptr d_weight_0_T_ent;
     //CUdeviceptr d_weight_1_T_ent;

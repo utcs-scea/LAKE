@@ -260,7 +260,6 @@ public:
             //printf("Device %d had %lu IOs, %lu late (%f%%)\n", i, total, lio, (lio/(float)total)*100);
             uint64_t f = std::atomic_load(&fails[i]);
             uint64_t nf = std::atomic_load(&never_finished[i]);
-            //printf("\t%lu IOs were rejected (%f%%)  %lu never finished\n", f, (f/(float)total)*100, nf);
         }
 
     }
