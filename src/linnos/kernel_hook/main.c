@@ -63,9 +63,9 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
   For NN+1, uncomment below //NN+1 (with 2 zeros)
   For NN+2, uncomment below //NN+2 (with no zeros)
 */
-//#include "weights_header/mix/w_Trace_nvme0n1.h"
-//#include "weights_header/mix/w_Trace_nvme1n1.h"
-//#include "weights_header/mix/w_Trace_nvme2n1.h"
+#include "weights_header/mix/w_Trace_nvme0n1.h"
+#include "weights_header/mix/w_Trace_nvme1n1.h"
+#include "weights_header/mix/w_Trace_nvme2n1.h"
 //#include "weights_header/mix+1/w_Trace_nvme0n1.h"
 //#include "weights_header/mix+1/w_Trace_nvme1n1.h"
 //#include "weights_header/mix+1/w_Trace_nvme2n1.h"
@@ -73,9 +73,9 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 //#include "weights_header/mix+2/w_Trace_nvme1n1.h"
 //#include "weights_header/mix+2/w_Trace_nvme2n1.h"
 
-#include "weights_header/mix+2/w_Trace_nvme0n1.h"
-#include "weights_header/mix+2/w_Trace_nvme1n1.h"
-#include "weights_header/mix+2/w_Trace_nvme2n1.h"
+//#include "weights_header/mix+2/w_Trace_nvme0n1.h"
+//#include "weights_header/mix+2/w_Trace_nvme1n1.h"
+//#include "weights_header/mix+2/w_Trace_nvme2n1.h"
 //#include "weights_header/azure+1/w_Trace_nvme0n1.h"
 //#include "weights_header/azure+1/w_Trace_nvme1n1.h"
 //#include "weights_header/azure+1/w_Trace_nvme2n1.h"
@@ -85,9 +85,9 @@ MODULE_PARM_DESC(model_size, "what model to use, 0 default, 1 +1, 2 +2");
 
 long *weights[][8] = {
 	//NN
-	//{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
-	//{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
-	//{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
+	{weight_0_T_nvme0n1, weight_1_T_nvme0n1, bias_0_nvme0n1, bias_1_nvme0n1 ,0,0,0,0},
+	{weight_0_T_nvme1n1, weight_1_T_nvme1n1, bias_0_nvme1n1, bias_1_nvme1n1 ,0,0,0,0},
+	{weight_0_T_nvme2n1, weight_1_T_nvme2n1, bias_0_nvme2n1, bias_1_nvme2n1 ,0,0,0,0},
 
 	// NN+1
 	//{weight_0_T_nvme0n1, weight_2_T_nvme0n1, bias_0_nvme0n1, bias_2_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,0,0},
@@ -95,9 +95,9 @@ long *weights[][8] = {
 	//{weight_0_T_nvme2n1, weight_2_T_nvme2n1, bias_0_nvme2n1, bias_2_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,0,0},
 
 	//NN+2
-	{weight_0_T_nvme0n1, weight_3_T_nvme0n1, bias_0_nvme0n1, bias_3_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,weight_2_T_nvme0n1, bias_2_nvme0n1},
-	{weight_0_T_nvme1n1, weight_3_T_nvme1n1, bias_0_nvme1n1, bias_3_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,weight_2_T_nvme1n1, bias_2_nvme1n1},
-	{weight_0_T_nvme2n1, weight_3_T_nvme2n1, bias_0_nvme2n1, bias_3_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,weight_2_T_nvme2n1, bias_2_nvme2n1},
+	//{weight_0_T_nvme0n1, weight_3_T_nvme0n1, bias_0_nvme0n1, bias_3_nvme0n1, weight_1_T_nvme0n1, bias_1_nvme0n1 ,weight_2_T_nvme0n1, bias_2_nvme0n1},
+	//{weight_0_T_nvme1n1, weight_3_T_nvme1n1, bias_0_nvme1n1, bias_3_nvme1n1, weight_1_T_nvme1n1, bias_1_nvme1n1 ,weight_2_T_nvme1n1, bias_2_nvme1n1},
+	//{weight_0_T_nvme2n1, weight_3_T_nvme2n1, bias_0_nvme2n1, bias_3_nvme2n1, weight_1_T_nvme2n1, bias_1_nvme2n1 ,weight_2_T_nvme2n1, bias_2_nvme2n1},
 
 	// for testing..
 	//{weight_0_T_sde, weight_1_T_sde, bias_0_sde, bias_1_sde,0,0,0,0},
