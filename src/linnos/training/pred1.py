@@ -18,7 +18,7 @@ import sys
 
 
 train_input_path = sys.argv[1]
-percentile_threshold = int(sys.argv[2])
+percentile_threshold = float(sys.argv[2])
 
 custom_loss = 5.0
 
