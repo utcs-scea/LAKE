@@ -37,6 +37,7 @@
 
 #include "variables.h"
 
+
 #ifdef __KERNEL__
 //these externs are for batching
 extern bool* gpu_results;
@@ -65,5 +66,11 @@ void multi_gpu_predict_batch_plus_2(char *__feat_vec, int n_vecs, long **weights
 void predictors_mgpu_init(void);
 int gpu_get_prediction(int dev, int batch, int id);
 extern int PREDICT_GPU_SYNC;
+
+#ifdef INFPOINT
+#define DEADFLAG "O3"
+#else
+#define DEADFLAG "O0"
+#endif
 
 #endif

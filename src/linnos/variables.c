@@ -17,7 +17,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #include "cuda.h"
 #include "lake_shm.h"
 
@@ -37,7 +36,6 @@ CUcontext cuctx = 0;
 
 long *inputs_to_gpu = 0;
 long *gpu_outputs = 0;
-
 
 //these are host
 long *multi_inputs_to_gpu[NUMBER_DEVICES][MAX_DEV_BATCHES];
