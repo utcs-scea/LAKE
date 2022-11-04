@@ -340,13 +340,6 @@ enter_again:
 	//let others execute
 	spin_unlock_irqrestore(&batch_entry[this_dev], irqflags);
 
-	//XXX hack
-	if(window_size_ns < 100) {
-		waiting[this_dev][my_batch] = 0;
-		spin_unlock_irqrestore(&per_batch_lock[this_dev][my_batch], irqflags);
-		goto lonely;
-	}
-
 	// for (i = 0 ; i < ia_avg_sz ; i++)
 	// 	ia_avg += ia_avgs[this_dev][i];
 	// ia_avg = ia_avg >> ia_avg_shift;
